@@ -12,6 +12,7 @@ Each file has a different job:
 | [Conventions](conventions.md) | How project code is expected to be written |
 | [Decisions](decisions.md) | Important choices and the reasons behind them |
 | [Architecture Backlog](backlog.md) | Architectural questions that still need a decision |
+| [Build Architecture](build.md) | Targets, dependencies, toolchains, configurations, and build outputs |
 
 The categories are related but should stay separate. Principles guide our
 judgment. Patterns show how we put those principles into practice. Conventions

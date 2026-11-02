@@ -1,0 +1,34 @@
+{
+    "platform": {
+        "default": "native/mac",
+        "choices": {
+            "native/mac": {
+                "short": "macOS",
+                "long": "Native macOS compiler"
+            },
+            "web": {
+                "short": "Web",
+                "long": "Emscripten WebAssembly compiler",
+                "settings": {
+                    "CMAKE_TOOLCHAIN_FILE": "${env:EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+                    "ENABLE_CLANG_TIDY": "ON"
+                }
+            }
+        }
+    },
+    "buildType": {
+        "default": "debug",
+        "choices": {
+            "debug": {
+                "short": "Debug",
+                "long": "Debug build",
+                "buildType": "Debug"
+            },
+            "release": {
+                "short": "Release",
+                "long": "Release build",
+                "buildType": "Release"
+            }
+        }
+    }
+}

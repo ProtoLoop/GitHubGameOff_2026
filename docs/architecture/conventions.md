@@ -9,6 +9,9 @@ are too specific to be principles and too small to be patterns.
 - Do not use exceptions or RTTI. Configure the build with both disabled.
 - Keep project code free of compiler warnings. Treat warnings as errors for
   project targets.
+- Enable clang-tidy by default for project C/C++ targets, with diagnostics treated
+  as errors. Exclude third-party targets. Keep `ENABLE_CLANG_TIDY` available as an
+  explicit opt-out in CMake and in the web editor variant.
 
 ## Errors and invariants
 

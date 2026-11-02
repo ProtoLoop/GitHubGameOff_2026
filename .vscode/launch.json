@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Game (LLDB, macOS)",
+            "type": "lldb",
+            "request": "launch",
+            "expressions": "native",
+            "program": "${command:cmake.launchTargetPath}",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

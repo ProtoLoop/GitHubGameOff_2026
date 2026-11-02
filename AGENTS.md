@@ -115,6 +115,24 @@ Documentation synchronization does not expand approval. If an approved code
 change reveals that additional documentation must change, identify it and
 request expanded approval before editing it.
 
+During planning, implementation, and review, check whether the work triggers
+updates to the following documents:
+
+- `docs/architecture/build.md` when targets, dependencies, toolchains, supported
+  platforms, configurations, output locations, compiler/linker policies, or the
+  application lifecycle change.
+- `docs/architecture/decisions.md` when a change introduces or supersedes a
+  durable architectural choice. Routine build adjustments do not need a decision.
+- `docs/architecture/README.md` when architecture documents are added, renamed,
+  or removed.
+- The root `README.md` when prerequisites or configure, build, run, or editor
+  setup instructions change.
+
+Identify affected documents and substantive updates in the proposed edit scope.
+During review, flag missing or stale documentation as well as code issues.
+If a documentation need is discovered after approval, request expanded scope
+before editing any file or making substantive changes not already approved.
+
 When adding, removing, upgrading, or changing how a third-party dependency is
 incorporated into distributed applications, review `ThirdPartyLicenses.txt`.
 Include affected transitive dependencies and bundled code. Keep notices
