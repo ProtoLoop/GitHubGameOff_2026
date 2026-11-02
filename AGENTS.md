@@ -125,7 +125,7 @@ updates to the following documents:
   durable architectural choice. Routine build adjustments do not need a decision.
 - `docs/architecture/README.md` when architecture documents are added, renamed,
   or removed.
-- The root `README.md` when prerequisites or configure, build, run, or editor
+- `docs/development.md` when prerequisites or configure, build, run, or editor
   setup instructions change.
 
 Identify affected documents and substantive updates in the proposed edit scope.

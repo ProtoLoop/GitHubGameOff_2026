@@ -2,8 +2,8 @@
 
 The root [CMakeLists.txt](../../CMakeLists.txt) builds one C++ executable,
 `gameoff2026`, and its static SDL dependency. CMake also enables C because SDL
-contains C sources. [Build and run commands](../../README.md) live in the root
-README. The reasons for the structure are recorded in
+contains C sources. Build and run commands live in the
+[development guide](../development.md). The reasons for the structure are recorded in
 [decisions](decisions.md#bootstrap-platform-and-build-foundation).
 
 ## Platforms and configurations
@@ -74,7 +74,7 @@ Downloaded tools and CMake build caches are excluded from Git. Tool caches are
 separated by host, but CMake build directories still contain absolute paths and
 must not be shared between machines. Validation in containers uses external
 build and tool-cache directories. See the [decision](decisions.md#project-local-web-toolchain)
-for rationale and the [README](../../README.md#toolchain-cache-and-offline-builds)
+for rationale and the [development guide](../development.md#toolchain-cache-and-offline-builds)
 for setup and offline transfer instructions.
 
 ## Compiler and tooling policy
@@ -129,10 +129,10 @@ adds C++ source debugging to the Chrome debugger. The Debug configuration passes
 `-g` during compilation and linking, retaining DWARF information in `index.wasm`.
 Use Web Debug for source breakpoints, stepping, and variable inspection in VS Code.
 CodeLLDB handles native macOS debugging separately. The complete host-tool and
-extension checklist lives in the root README.
+extension checklist lives in the development guide.
 
 Prerequisites and operating steps are in the
-[README](../../README.md#vs-code-workflow).
+[development guide](../development.md#vs-code-workflow).
 
 ## Runtime boundary
 
@@ -153,6 +153,6 @@ support disabled and WebAssembly memory growth enabled.
 
 Check this description when changing targets, dependencies, toolchains, platforms,
 configurations, output paths, compiler/linker policy, or application lifecycle.
-Keep runnable instructions in the root README synchronized. Record durable
+Keep runnable instructions in `docs/development.md` synchronized. Record durable
 architectural changes and their reasons in decisions, rather than accumulating
 implementation history here.
