@@ -1,0 +1,7 @@
+assets
+resources
+build
+.devcontainer
+out
+.vs
+.DS_Store
