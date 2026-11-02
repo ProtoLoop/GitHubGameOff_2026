@@ -10,7 +10,7 @@
                 "short": "Web",
                 "long": "Emscripten WebAssembly compiler",
                 "settings": {
-                    "CMAKE_TOOLCHAIN_FILE": "${env:EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+                    "CMAKE_TOOLCHAIN_FILE": "${workspaceFolder}/Emscripten.cmake",
                     "ENABLE_CLANG_TIDY": "ON"
                 }
             }

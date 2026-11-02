@@ -19,7 +19,7 @@ There are no presets or custom sanitizer configurations in the bootstrap.
 | Build directory | Toolchain | Status |
 | --- | --- | --- |
 | `build/native/mac` | Host Apple Clang | Initial target |
-| `build/web` | Emscripten, selected by `emcmake` | Initial target |
+| `build/web` | Pinned Emscripten, selected by root `Emscripten.cmake` | Initial target |
 | `build/native/windows` | To be selected | Planned |
 | `build/native/linux` | To be selected | Planned |
 
@@ -33,13 +33,49 @@ and `index.wasm`. Emscripten supplies the HTML shell. There is no asset pipeline
 
 `thirdparty/SDL` is a Git submodule of the official SDL repository, pinned to
 release 3.4.18 at `829a65d769d935c4852f8159e964312c0957260a`. The Git entry records
-the exact commit. CMake does not fetch dependencies or use a system SDL.
+the exact commit. CMake does not fetch SDL or use a system SDL.
 An uninitialized submodule produces a configure error with recovery instructions.
 
 SDL is added as a system subdirectory and linked through `SDL3::SDL3-static`.
 Its tests, test library, examples, and shared library are disabled. SDL owns
 selection of platform libraries and renderer backends. Bundled dependency
 notices belong in [ThirdPartyLicenses.txt](../../ThirdPartyLicenses.txt).
+
+## Web compiler provisioning
+
+The root [Emscripten.cmake](../../Emscripten.cmake) is the CMake toolchain entry
+point. It calls [ProvisionEmscripten.cmake](../../ProvisionEmscripten.cmake), then
+selects the local tools and loads Emscripten's upstream toolchain. The provisioning
+file owns the Emscripten 5.0.7 and Node.js 22.16.0 pins, host-specific official
+archive mappings, SHA-256 verification, extraction, and local tool configuration.
+It caches downloads and extracted tools under `build/toolchains`.
+The Emscripten archive supplies LLVM/Clang, Binaryen, the runtime libraries, and
+JavaScript build helpers. Python remains a development prerequisite.
+
+Archive mappings cover macOS and Linux on arm64/x64 and Windows on x64.
+Other hosts fail explicitly. These are web compiler hosts, independently of the
+planned Windows/Linux native game support. Host-specific executable validation
+still requires the corresponding operating system.
+
+The cache contains `archives` and separate host/version directories. A setup
+lock serializes concurrent extraction. Files are extracted into temporary
+directories before being marked complete. `GAMEOFF_TOOLCHAIN_CACHE` changes the
+cache location and is propagated into CMake compiler checks.
+`GAMEOFF_TOOLCHAIN_OFFLINE` prohibits downloads and reports any missing archive.
+Cached archives are sufficient to provision this bootstrap offline.
+
+The bootstrap writes an Emscripten configuration with paths relative to the
+extracted installation, then loads the upstream CMake toolchain. Configure and
+compile/link commands select the local LLVM, Binaryen, Node, Python, and compiler
+cache explicitly. Existing system Emscripten environment settings do not select
+those tools. Native builds do not load this file or download web tools.
+
+Downloaded tools and CMake build caches are excluded from Git. Tool caches are
+separated by host, but CMake build directories still contain absolute paths and
+must not be shared between machines. Validation in containers uses external
+build and tool-cache directories. See the [decision](decisions.md#project-local-web-toolchain)
+for rationale and the [README](../../README.md#toolchain-cache-and-offline-builds)
+for setup and offline transfer instructions.
 
 ## Compiler and tooling policy
 
@@ -67,8 +103,8 @@ does not create another build tree. Platform paths are centralized in the
 variant choices, and presets are disabled for this editor workflow.
 
 For macOS, the user selects an Apple Clang kit. For web builds, the user selects
-the Unspecified kit and the variant supplies the toolchain from the activated
-SDK's `EMSDK` environment variable. This prevents a native compiler kit from
+the Unspecified kit and the variant supplies the project-relative
+`Emscripten.cmake`. Selecting the Unspecified kit prevents a native compiler kit from
 overriding Emscripten. Web variants explicitly set `ENABLE_CLANG_TIDY` to `ON`.
 This setting overrides the CMake default and cached value on configuration, and
 can be changed to `OFF` independently of the CMake option's default.
@@ -80,8 +116,22 @@ configured through CMake Tools. Command-line configuration does not refresh it.
 
 The [macOS CodeLLDB launch](../../.vscode/launch.json) resolves the executable
 through `cmake.launchTargetPath`, using the selected CMake target and configuration.
-Live Preview serves `build/web`, allowing either configuration to be opened in
-an external browser. Extension prerequisites and operating steps are in the
+The same launch file provides **Game (Browser)** through VS Code's Chrome debugger.
+Its URL uses `cmake.buildType` to select the web output configuration at
+`http://localhost:8000`, with `webRoot` set to `build/web`. Python's HTTP server
+serves that directory using `python3 -m http.server 8000 --directory build/web`
+from the project root. Building and starting the server are separate manual
+steps, with no pre-launch tasks or `tasks.json`. The server stays running between
+launches. F5 launches Chrome with debugging attached.
+
+VS Code's WebAssembly DWARF Debugging extension (`ms-vscode.wasm-dwarf-debugging`)
+adds C++ source debugging to the Chrome debugger. The Debug configuration passes
+`-g` during compilation and linking, retaining DWARF information in `index.wasm`.
+Use Web Debug for source breakpoints, stepping, and variable inspection in VS Code.
+CodeLLDB handles native macOS debugging separately. The complete host-tool and
+extension checklist lives in the root README.
+
+Prerequisites and operating steps are in the
 [README](../../README.md#vs-code-workflow).
 
 ## Runtime boundary

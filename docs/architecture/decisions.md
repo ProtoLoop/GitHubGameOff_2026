@@ -48,3 +48,27 @@ threading is deferred until there is a concrete need.
 
 These choices follow [thin abstractions and clear ownership](principles.md).
 The current structure and limitations are described in [build architecture](build.md).
+
+## Project-local web toolchain
+
+Date: 2026-11-02. Status: Accepted.
+
+Web builds need a consistent compiler without requiring each developer to
+install and activate Emscripten or supply machine-specific SDK paths. Package
+manager layouts differ, and the Emscripten source repository alone does not
+include the LLVM, Binaryen, and Node executables needed to build.
+
+The root `Emscripten.cmake` provisions pinned official Emscripten and Node archives
+on the first web configure. Versions, host mappings, and hashes are checked in.
+Downloaded tools are cached outside version control. Offline machines can use
+archives supplied ahead of time, with downloads explicitly disabled.
+
+We considered relying on system/Nix Emscripten, adding the emsdk manager as a
+submodule, and vendoring Emscripten source. Automatic archive provisioning meets
+the desired configure-and-build workflow without a separate SDK-manager step.
+It adds download/extraction logic to maintain and requires substantial local
+storage. Python, CMake, Ninja, and clang-tidy remain host prerequisites.
+
+This extends the [bootstrap foundation](#bootstrap-platform-and-build-foundation)
+with an explicit toolchain owner, following [clear responsibility](principles.md).
+The layout and offline behavior are described in [build architecture](build.md#web-compiler-provisioning).

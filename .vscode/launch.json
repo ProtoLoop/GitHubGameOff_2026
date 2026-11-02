@@ -8,6 +8,13 @@
             "expressions": "native",
             "program": "${command:cmake.launchTargetPath}",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Game (Browser)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:8000/${command:cmake.buildType}/index.html",
+            "webRoot": "${workspaceFolder}/build/web"
         }
     ]
 }
