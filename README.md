@@ -1,4 +1,4 @@
-# Game Off 2026
+# GitHub GameOff 2026
 
 A game project for GitHub Game Off 2026 by Main Loop Games.
 
