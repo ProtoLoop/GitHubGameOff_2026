@@ -34,6 +34,7 @@ set(GAMEOFF_SOURCES
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
+target_include_directories(gameoff2026 SYSTEM PRIVATE thirdparty/stb)
 set_target_properties(gameoff2026 PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES

@@ -13,8 +13,8 @@
             "name": "Game (Browser)",
             "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:8000/${command:cmake.buildType}/index.html",
-            "webRoot": "${workspaceFolder}/build/web"
+            "url": "http://localhost:8000/build/web/${command:cmake.buildType}/index.html",
+            "webRoot": "${workspaceFolder}"
         }
     ]
 }

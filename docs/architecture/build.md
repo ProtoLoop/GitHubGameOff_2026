@@ -118,9 +118,12 @@ The [macOS CodeLLDB launch](../../.vscode/launch.json) resolves the executable
 through `cmake.launchTargetPath`, using the selected CMake target and configuration.
 The same launch file provides **Game (Browser)** through VS Code's Chrome debugger.
 Its URL uses `cmake.buildType` to select the web output configuration at
-`http://localhost:8000`, with `webRoot` set to `build/web`. Python's HTTP server
-serves that directory using `python3 -m http.server 8000 --directory build/web`
-from the project root. Building and starting the server are separate manual
+`http://localhost:8000/build/web/<configuration>/index.html`, with `webRoot` set
+to the repository root. [HttpServer.py](../../HttpServer.py) serves the repository
+root on localhost port 8000 using Python's standard library. Start it with
+`python3 HttpServer.py` from the project root. It sends `Cache-Control: no-cache`
+on every response so browsers revalidate cached files before reusing them.
+Building and starting the server are separate manual
 steps, with no pre-launch tasks or `tasks.json`. The server stays running between
 launches. F5 launches Chrome with debugging attached.
 

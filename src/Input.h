@@ -10,6 +10,12 @@ public:
     {
         None,
         Quit,
+        MoveLeft,
+        MoveRight,
+        MoveForward,
+        MoveBackward,
+        RotateLeft,
+        RotateRight,
 
         NumStates
     };
@@ -45,6 +51,10 @@ public:
         float Value{ 1 };
     };
 
+    Input();
+
+    void Update();
+
     /// Triggers the action associated with the key and trigger type.
     void TriggerKey(SDL_Scancode key, Input::Trigger trigger);
 
@@ -62,8 +72,5 @@ public:
 
 private:
 
-    Input::ActionState m_ActionStates[static_cast<Uint8>(Input::ActionId::NumStates)] //
-        {
-            { .Action = Input::ActionId::Quit },
-        };
+    Input::ActionState m_ActionStates[static_cast<Uint8>(Input::ActionId::NumStates)];
 };

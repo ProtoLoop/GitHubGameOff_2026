@@ -17,7 +17,7 @@ After completing the [setup](#prerequisites), use VS Code's Command Palette
 3. For Web, start the server from the project root and leave it running:
 
    ```sh
-   python3 -m http.server 8000 --directory build/web
+   python3 HttpServer.py
    ```
 
 4. In Run and Debug, select **Game (Browser)** for Web or **Game (LLDB, macOS)**
@@ -86,10 +86,11 @@ SDK activation is needed. Run:
 cmake -S . -B build/web -G "Ninja Multi-Config" -DCMAKE_TOOLCHAIN_FILE=Emscripten.cmake
 cmake --build build/web --config Debug
 cmake --build build/web --config Release
-python3 -m http.server 8000 --directory build/web
+python3 HttpServer.py
 ```
 
-Open `http://localhost:8000/Debug/` or `http://localhost:8000/Release/`.
+Open `http://localhost:8000/build/web/Debug/` or
+`http://localhost:8000/build/web/Release/`.
 Serve the generated files over HTTP rather than opening the HTML as a local
 file. Each configuration produces `index.html`, `index.js`, and `index.wasm`.
 Keep these files together when hosting the game, and include
@@ -165,7 +166,10 @@ extensions automatically or pin their versions.
 VS Code supplies the Chrome JavaScript debugger. The DWARF extension adds C++
 WebAssembly support. The workspace disables Microsoft's C/C++ IntelliSense so
 clangd supplies editor analysis. Live Server and Live Preview are not required:
-Python 3 supplies the local HTTP server.
+The project's [HttpServer.py](../HttpServer.py) uses Python 3's standard library
+to serve the repository root on `http://localhost:8000`. It sends
+`Cache-Control: no-cache` on every response, requiring browsers to revalidate
+cached HTML, JavaScript, WebAssembly, and assets before reusing them.
 
 Use **CMake: Select a Kit** to select Apple Clang for macOS, and
 **CMake: Select Variant** to select macOS Debug or Release. Run **CMake: Configure**,
@@ -186,7 +190,7 @@ After building the web configuration, run this command from the project root
 in a terminal:
 
 ```sh
-python3 -m http.server 8000 --directory build/web
+python3 HttpServer.py
 ```
 
 Leave that terminal running between browser launches. Press **Ctrl+C** in the
@@ -195,9 +199,10 @@ terminal when you want to stop the server.
 Click the **Run and Debug** icon on the left sidebar, select **Game (Browser)**
 from the dropdown beside the green play button, and press **F5**. This launches
 Chrome with debugging attached, using CMake's currently selected Debug or Release
-configuration at `http://localhost:8000/Debug/index.html` or `/Release/index.html`.
+configuration at `http://localhost:8000/build/web/Debug/index.html` or
+`http://localhost:8000/build/web/Release/index.html`.
 F5 does not build the game or start the server. Build again after code changes.
-The launch expects port 8000 and `build/web` as the server root, matching the
+The launch expects port 8000 and the repository root as the server root, matching the
 command above. Native LLDB launch does not debug WebAssembly.
 
 For C++ browser breakpoints, select **Web Debug** and build. CMake's Debug flags
