@@ -1,6 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include "Input.h"
+#include "Sprite.h"
 
 #include <algorithm>
 #include <array>
@@ -32,10 +33,15 @@ struct AppState
 
     ~AppState()
     {
-        if(Texture)
+        for(auto sprite : Sprites)
         {
-            SDL_DestroyTexture(Texture);
-        }
+            if(sprite)
+            {
+                // Assuming Sprite has a method to get the underlying texture
+                SDL_DestroyTexture(sprite->GetTexture());
+                break;
+            }
+        }        
         if(Renderer)
         {
             SDL_DestroyRenderer(Renderer);
@@ -48,7 +54,8 @@ struct AppState
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
-    SDL_Texture* Texture = nullptr;
+
+    std::optional<Sprite> Sprites[10];//NOLINT
 
     Input Input;
 
@@ -123,20 +130,35 @@ SDL_AppInit(void** appstate, int, char**)
     }
     else
     {
-        state->Texture = SDL_CreateTexture(state->Renderer,
+        SDL_Texture* texture = SDL_CreateTexture(state->Renderer,
             SDL_PIXELFORMAT_RGBA32,
             SDL_TEXTUREACCESS_STATIC,
             x,
             y);
 
-        if(!state->Texture || !SDL_UpdateTexture(state->Texture, nullptr, image, x * 4))
+        if(!texture || !SDL_UpdateTexture(texture, nullptr, image, x * 4))
         {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
             SDL_Log("Texture creation or upload failed: %s", SDL_GetError());
-            SDL_DestroyTexture(state->Texture); // Safe if texture is nullptr
-            state->Texture = nullptr;
+            SDL_DestroyTexture(texture); // Safe if texture is nullptr
+            texture = nullptr;
         }
         stbi_image_free(image);
+
+        if(texture)
+        {
+            constexpr float size = 128;
+            float spriteX{};
+            for(size_t i = 0; i < std::size(state->Sprites); ++i, spriteX += size)
+            {
+                auto spriteResult = Sprite::Create(texture,
+                    SDL_FRect{ .x = spriteX, .y = 0, .w = size, .h = size });
+                if(spriteResult)
+                {
+                    state->Sprites[i] = std::move(*spriteResult);
+                }
+            }
+        }
     }
     *appstate = state.release(); // SDL returns this state to SDL_AppQuit for cleanup.
     return SDL_APP_CONTINUE;
@@ -270,14 +292,7 @@ SDL_AppIterate(void* appstate)
         frame = (frame + 1) % kNumFrames;
         elapsedMs -= kmspf;
     }
-
-    const SDL_FRect srcRect //
-        {
-            .x = 128 * static_cast<float>(frame),
-            .y = 0,
-            .w = static_cast<float>(128),
-            .h = static_cast<float>(128),
-        };
+    
     const SDL_FRect dstRect //
         {
             .x = static_cast<float>(state.PlayerLoc.x - halfSquareSize),
@@ -285,6 +300,8 @@ SDL_AppIterate(void* appstate)
             .w = static_cast<float>(128),
             .h = static_cast<float>(128),
         };
+
+    std::optional<Sprite> optSprite = state.Sprites[frame];
 
     if(!SDL_SetRenderDrawColorFloat(state.Renderer, 0.0F, 0.0F, 0.25F, 1.0F)
         || !SDL_RenderClear(state.Renderer)
@@ -298,7 +315,8 @@ SDL_AppIterate(void* appstate)
             std::size(vertices),
             &indices[0],
             std::size(indices))
-        || !SDL_RenderTexture(state.Renderer, state.Texture, &srcRect, &dstRect)
+        || !optSprite
+        || !SDL_RenderTexture(state.Renderer, optSprite->GetTexture(), &optSprite->GetRect(), &dstRect)
         || !SDL_RenderPresent(state.Renderer))
     {
         LogSdlError("Rendering failed");

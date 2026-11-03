@@ -27,9 +27,14 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 set(GAMEOFF_SOURCES
-    src/main.cpp
-    src/Input.cpp
+    src/Diag.h
+    src/Diag.cpp
     src/Input.h
+    src/Input.cpp
+    src/main.cpp
+    src/Result.h
+    src/Sprite.h
+    src/Sprite.cpp
 )
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
