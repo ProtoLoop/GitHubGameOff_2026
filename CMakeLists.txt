@@ -26,7 +26,13 @@ if(ENABLE_CLANG_TIDY)
     set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
 endif()
 
-add_executable(gameoff2026 main.cpp)
+set(GAMEOFF_SOURCES
+    src/main.cpp
+    src/Input.cpp
+    src/Input.h
+)
+
+add_executable(gameoff2026 ${GAMEOFF_SOURCES})
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
 set_target_properties(gameoff2026 PROPERTIES
     CXX_STANDARD 23

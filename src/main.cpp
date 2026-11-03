@@ -1,4 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1
+
+#include "Input.h"
+
 #include <memory>
 #include <new>
 #include <SDL3/SDL.h>
@@ -27,7 +30,10 @@ struct AppState
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
+
+    Input Input;
 };
+
 void
 LogSdlError(const char* message)
 {
@@ -35,6 +41,7 @@ LogSdlError(const char* message)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     SDL_Log("%s: %s", message, SDL_GetError());
 }
+
 } // namespace
 
 SDL_AppResult
@@ -79,13 +86,24 @@ SDL_AppInit(void** appstate, int, char**)
 }
 
 SDL_AppResult
-SDL_AppEvent(void*, SDL_Event* event)
+SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-    if(event->type == SDL_EVENT_QUIT
-        || (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_ESCAPE))
+    AppState& state = *static_cast<AppState*>(appstate);
+    switch(event->type)
     {
-        return SDL_APP_SUCCESS;
+        case SDL_EVENT_QUIT:
+            state.Input.TriggerAction(Input::ActionId::Quit, 1);
+            break;
+        case SDL_EVENT_KEY_DOWN:
+            state.Input.TriggerKey(event->key.scancode, Input::Trigger::Pressed);
+            break;
+        case SDL_EVENT_KEY_UP:
+            state.Input.TriggerKey(event->key.scancode, Input::Trigger::Released);
+            break;
+        default:
+            break;
     }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -113,6 +131,13 @@ SDL_AppIterate(void* appstate)
         LogSdlError("Rendering failed");
         return SDL_APP_FAILURE;
     }
+
+    float value{};
+    if(state.Input.IsTriggered(Input::ActionId::Quit, value))
+    {
+        return SDL_APP_SUCCESS;
+    }
+
     return SDL_APP_CONTINUE;
 }
 
