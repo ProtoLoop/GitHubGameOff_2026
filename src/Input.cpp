@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_scancode.h>
+#include <span>
 
 namespace
 {
@@ -77,10 +78,11 @@ Input::Update()
     int numKeys{};
     const bool* keys = SDL_GetKeyboardState(&numKeys);
 
-    for(int i = 0; i < numKeys; ++i)
+    const std::span<const bool> keySpan(keys, static_cast<size_t>(numKeys));
+
+    for(size_t i = 0; i < keySpan.size(); ++i)
     {
-        //NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-        if(keys[i])
+        if(keySpan[i])
         {
             TriggerKey(static_cast<SDL_Scancode>(i), Input::Trigger::Held);
         }
