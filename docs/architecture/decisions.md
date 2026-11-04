@@ -47,7 +47,7 @@ alternative, but would duplicate lifecycle wiring in the bootstrap. Browser
 threading is deferred until there is a concrete need.
 
 These choices follow [thin abstractions and clear ownership](principles.md).
-The current structure and limitations are described in [build architecture](build.md).
+The current structure and limitations are described in [development guide](../development.md#build-structure).
 
 ## Project-local web toolchain
 
@@ -71,4 +71,4 @@ storage. Python, CMake, Ninja, and clang-tidy remain host prerequisites.
 
 This extends the [bootstrap foundation](#bootstrap-platform-and-build-foundation)
 with an explicit toolchain owner, following [clear responsibility](principles.md).
-The layout and offline behavior are described in [build architecture](build.md#web-compiler-provisioning).
+The layout and offline behavior are described in [development guide](../development.md#web-compiler-provisioning).

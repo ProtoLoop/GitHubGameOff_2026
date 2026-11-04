@@ -1,6 +1,6 @@
 #include "Diag.h"
 
-#include <optional>
+#include <SDL3/SDL_messagebox.h>
 
 #if defined(_WIN32)
     #include <Windows.h>
@@ -54,4 +54,13 @@ Diag::IsDebuggerAttached()
 #else
     return false;
 #endif
+}
+
+void
+Diag::ShowAlert()
+{
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+        "Error",
+        "There was an error",
+        nullptr);
 }

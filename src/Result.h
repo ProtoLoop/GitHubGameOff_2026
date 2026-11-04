@@ -3,10 +3,9 @@
 #include "Diag.h"
 
 #include <expected>
-#include <SDL3/SDL_assert.h>
 
 template<class T = void>
-class Result;
+class [[nodiscard]] Result;
 
 template<>
 class Result<void>
@@ -15,6 +14,13 @@ public:
     struct Error
     {
     };
+
+    Result() = default;
+    ~Result() = default;
+    Result(const Result&) = default;
+    Result& operator=(const Result&) = default;
+    Result(Result&&) = default;
+    Result& operator=(Result&&) = default;
 
     static Result Success() { return Result{ true }; }
 
@@ -46,6 +52,13 @@ public:
     using pointer = T*;
     using const_pointer = const T*;
 
+    Result() = default;
+    ~Result() = default;
+    Result(const Result&) = default;
+    Result& operator=(const Result&) = default;
+    Result(Result&&) = default;
+    Result& operator=(Result&&) = default;
+
     // NOLINTNEXTLINE(google-explicit-constructor)
     Result(T value)
         : m_Value(std::in_place, std::move(value))
@@ -67,8 +80,10 @@ public:
     reference operator*() { return m_Value.value(); }
     const_reference operator*() const { return m_Value.value(); }
 
+    void Reset() { m_Value = std::unexpected<Result<>::Error>{Result<>::Error{}}; }
+
 private:
-    Storage m_Value;
+    Storage m_Value{std::unexpected<Result<>::Error>{Result<>::Error{}}};
 
     explicit Result(Storage value)
         : m_Value(std::move(value))
@@ -79,17 +94,12 @@ private:
 #define GG_CHECK(expr, ...)                                                                        \
     while(!static_cast<bool>(expr))                                                                \
     {                                                                                              \
-        __VA_OPT__(GG_ERR(__VA_ARGS__));                                                           \
+        __VA_OPT__(GG_ERROR(__VA_ARGS__));                                                         \
         return Result<>::Fail();                                                                   \
     }
 
 #define GG_CHECKB(expr, ...)                                                                       \
-    while(!static_cast<bool>(expr))                                                                \
+    while(!GG_VERIFY(expr __VA_OPT__(, ) __VA_ARGS__))                                             \
     {                                                                                              \
-        __VA_OPT__(GG_ERR(__VA_ARGS__));                                                           \
-        if(Diag::IsDebuggerAttached())                                                             \
-        {                                                                                          \
-            SDL_TriggerBreakpoint();                                                               \
-        }                                                                                          \
         return Result<>::Fail();                                                                   \
     }
