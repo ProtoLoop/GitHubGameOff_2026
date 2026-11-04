@@ -10,3 +10,13 @@ Completion:
 Diagnostics:
   ClangTidy:
     FastCheckFilter: None
+
+---
+
+If:
+  PathExclude: src/.*  # Inside the If block
+
+Diagnostics:           # Outside the If block
+  Suppress: '*'
+  ClangTidy:
+    Remove: '*'
