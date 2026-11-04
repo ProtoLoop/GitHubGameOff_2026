@@ -6,57 +6,33 @@ is not a rule for every situation, but differences should be intentional.
 
 ## Cooperative Tasks
 
-Use a cooperative task for work that spans multiple frames. The caller
-starts the task and keeps updating it until it is complete.
+Use a cooperative task for work that spans multiple frames. The caller starts
+it once, then advances it from the frame callback until it is complete.
+[TextureLoader](../../src/TextureLoader.h) is the current example.
 
-```cpp
-ThingTask task(...);
-MLG_CHECK(task.Start());
+The lifecycle uses `Start()`, `Update()`, and `IsPending()`:
 
-while(task.IsRunning())
-{
-    task.Update();
+- `Start()` sets up the work and returns a `Result`. Reject repeated starts
+  before changing existing state.
+- `Update()` advances the task on the caller's thread. Poll asynchronous work
+  without waiting for it. Return control to the frame loop between updates.
+- `IsPending()` reports whether more updates are needed. Call it after starting
+  the task. Completion does not by itself mean that the work succeeded.
 
-    // Other work can be done here.
-}
-```
+Track progress with an enum and a `switch` in `Update()`. The current loader
+implements this lifecycle directly. There is no shared task base or batch
+implementation in the repository.
 
-Call `Start()` once, then use `IsRunning()` to decide whether to call `Update()`.
-A task must finish before it is destroyed. Destroying a task that was never
-started is also valid.
+When a task provides `Take()`, call it after `IsPending()` becomes false and
+check its result. A successful take transfers ownership of the output and may
+only happen once. Define how partial failures appear in that output. For
+example, the texture loader preserves a null entry for each failed request.
 
-To write a task, derive from `ICoopTask` and implement
-`OnStart()` and `OnUpdate()`. `Start()` calls `OnStart()`, and `Update()` calls
-`OnUpdate()`. The base checks that you start the task only once and update it only
-while it is running.
-
-`OnStart()` sets up the work and returns a `Result`. If it fails, the base marks
-the task complete. `OnUpdate()` does the work it can and then returns without
-waiting. It runs on the caller's thread. It may check whether a file read or
-worker job has finished, but it must not wait for it.
-
-Tasks usually track their progress with an enum and a `switch` in `OnUpdate()`.
-Call `SetComplete()` when no more updates are needed. This can happen during
-`OnStart()`, or when `OnUpdate()` reaches a finished stage. It is also fine to
-handle that stage and call `SetComplete()` on the next update.
-
-Completion means the task has finished, whether it succeeded or failed. Some
-tasks provide a `Take()` method to return a result. For those tasks, call `Take()`
-after `IsRunning()` becomes false and check the result. The result can only be
-taken once. `Take()` is not required by `ICoopTask`.
-
-A task can own other tasks and start and update them as part of its own work.
-It must let any children it starts finish before it finishes.
-
-Use `CoopTaskBatch` to update several tasks together. Start each child before
-starting the batch. Give the batch a nonempty collection of non-null task
-pointers. The batch does not own its children, so they must stay at the same
-addresses and outlive it. A batch is itself a task and can be included in another
-batch.
-
-The batch finishes after all its children finish. The caller handles startup
-failures and collects results. If some children fail to start, the caller must
-still let successfully started children finish before destroying them.
+Keep callback targets at stable addresses until callbacks finish or are
+cancelled. A task that supports destruction while pending must cancel its
+outstanding work before releasing callback targets. The texture loader does
+this by closing its owned fetches when its requests are destroyed. Non-owned
+dependencies must outlive all work and resources that use them.
 
 ## Valid Construction
 

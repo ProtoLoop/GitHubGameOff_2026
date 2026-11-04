@@ -6,7 +6,7 @@
 
 /// A std::vector-like container in which capacity is fixed at construction,
 /// does not grow, and can contain non-copyable and non-movable types.
-template<typename T>
+template<typename T, typename Allocator = std::allocator<T>>
 class BoundedVector
 {
 public:
@@ -20,6 +20,12 @@ public:
     using const_iterator = const T*;
 
     explicit BoundedVector(const size_t capacity) { Reserve(capacity); }
+
+    BoundedVector(const size_t capacity, const Allocator& allocator)
+        : m_Allocator(allocator)
+    {
+        Reserve(capacity);
+    }
 
     ~BoundedVector() { Destroy(); }
 
@@ -51,14 +57,14 @@ public:
     Result<> push_back(const T& value)
     {
         GG_CHECKB(size() < capacity())
-        std::construct_at(AsPointer(m_Size++), value);
+        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), value);
         return Result<>::Success();
     }
 
     Result<> push_back(T&& value)
     {
         GG_CHECKB(size() < capacity())
-        std::construct_at(AsPointer(m_Size++), std::move(value));
+        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::move(value));
         return Result<>::Success();
     }
 
@@ -66,7 +72,7 @@ public:
     Result<> emplace_back(Args&&... args)
     {
         GG_CHECKB(size() < capacity())
-        std::construct_at(AsPointer(m_Size++), std::forward<Args>(args)...);
+        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::forward<Args>(args)...);
         return Result<>::Success();
     }
 
@@ -86,7 +92,7 @@ public:
     {
         for(T& t : *this)
         {
-            std::destroy_at(&t);
+            allocator_traits::destroy(m_Allocator, &t);
         }
 
         m_Size = 0;
@@ -100,12 +106,12 @@ public:
     const_iterator cend() const { return AsPointer(size()); }
 
 private:
-    using allocator_type = std::allocator<T>;
+    using allocator_traits = std::allocator_traits<Allocator>;
 
     void Reserve(size_t capacity)
     {
         GG_ASSERT(!m_Storage);
-        m_Storage = m_Allocator.allocate(capacity);
+        m_Storage = allocator_traits::allocate(m_Allocator, capacity);
         m_Capacity = capacity;
     }
 
@@ -114,7 +120,7 @@ private:
         clear();
         if(m_Storage)
         {
-            m_Allocator.deallocate(m_Storage, m_Capacity);
+            allocator_traits::deallocate(m_Allocator, m_Storage, m_Capacity);
             m_Storage = nullptr;
             m_Capacity = 0;
         }
@@ -131,7 +137,7 @@ private:
         return &m_Storage[index];
     }
 
-    allocator_type m_Allocator{};
+    Allocator m_Allocator{};
 
     T* m_Storage{ nullptr };
     size_t m_Size{ 0 };

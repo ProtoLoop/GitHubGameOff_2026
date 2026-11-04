@@ -1,9 +1,10 @@
 #pragma once
 
+#include "BoundedVector.h"
 #include "InlineString.h"
-#include "InlineVector.h"
 #include "Result.h"
 
+#include <cstddef>
 #include <memory>
 #include <span>
 
@@ -34,13 +35,14 @@ public:
     TextureLoadRequest(TextureLoadRequest&&) = delete;
     TextureLoadRequest& operator=(TextureLoadRequest&&) = delete;
 
-    explicit TextureLoadRequest(const std::string_view path)
-        : TextureLoadRequest(PathType(path))
+    explicit TextureLoadRequest(const std::string_view path, SDL_Renderer* renderer)
+        : TextureLoadRequest(PathType(path), renderer)
     {
     }
 
-    explicit TextureLoadRequest(const PathType& path)
+    explicit TextureLoadRequest(const PathType& path, SDL_Renderer* renderer)
         : m_Path(path)
+        , m_Renderer(renderer)
     {
     }
 
@@ -83,11 +85,31 @@ private:
 #endif
 };
 
+class TextureLib
+{
+public:
+    TextureLib() = delete;
+    ~TextureLib() = default;
+    TextureLib(const TextureLib&) = delete;
+    TextureLib& operator=(const TextureLib&) = delete;
+    TextureLib(TextureLib&&) = default;
+    TextureLib& operator=(TextureLib&&) = default;
+
+    explicit TextureLib(BoundedVector<TexturePtr> textures)
+        : m_Textures(std::move(textures))
+    {
+    }
+
+    std::span<const TexturePtr> GetTextures() const { return m_Textures; }
+
+private:
+
+    BoundedVector<TexturePtr> m_Textures;
+};
+
 class TextureLoader
 {
 public:
-    static const size_t kMaxRequests = 256;
-
     TextureLoader() = delete;
     ~TextureLoader() = default;
     TextureLoader(const TextureLoader&) = delete;
@@ -95,15 +117,39 @@ public:
     TextureLoader(TextureLoader&& other) = default;
     TextureLoader& operator=(TextureLoader&& other) = default;
 
-    explicit TextureLoader(const std::span<TextureLoadRequest> requests);
+    explicit TextureLoader(const std::span<const std::string_view> requests, SDL_Renderer* renderer);
 
-    Result<> Start(SDL_Renderer* renderer);
+    Result<> Start();
+
+    void Update();
 
     bool IsPending() const;
 
+    Result<TextureLib> Take();
+
 private:
 
-    InlineVector<TextureLoadRequest, kMaxRequests> m_RequestsBuffer;
+    friend class TextureLoadRequest;
 
-    std::span<TextureLoadRequest> m_Requests;
+    enum class Stage
+    {
+        None,
+        Loading,
+        CreateTextures,
+        Succeeded,
+        Failed,
+        Taken
+    };
+
+    static Result<> Fetch(TextureLoadRequest& request);
+
+    static Result<TexturePtr> CreateTexture(
+        const void* data, const int width, const int height, SDL_Renderer* renderer);
+
+    Result<> CreateTextures();
+
+    BoundedVector<TextureLoadRequest> m_Requests;
+    BoundedVector<TexturePtr> m_Textures;
+
+    Stage m_Stage{ Stage::None };
 };

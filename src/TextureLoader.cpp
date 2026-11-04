@@ -2,8 +2,8 @@
 
 #include "Defer.h"
 
+#include <memory>
 #include <SDL3/SDL_render.h>
-
 #include <stb_image.h>
 
 #ifdef __EMSCRIPTEN__
@@ -11,6 +11,23 @@
 #include <limits>
 #include <span>
 #endif
+
+namespace
+{
+constexpr int kNumTextureChannels = 4;
+
+BoundedVector<TextureLoadRequest>
+CreateRequests(const std::span<const std::string_view> paths, SDL_Renderer* renderer)
+{
+    BoundedVector<TextureLoadRequest> requests(paths.size());
+    for(const std::string_view path : paths)
+    {
+        requests.emplace_back(path, renderer);
+    }
+
+    return requests;
+}
+} // namespace
 
 void
 DestroyTexture::operator()(SDL_Texture* texture) const
@@ -39,8 +56,6 @@ TextureLoadRequest::Take()
     GG_CHECKB(Status::Taken != m_Status, "Texture already taken: {}", m_Path);
     GG_CHECKB(Status::Succeeded == m_Status, "Texture not yet loaded: {}", m_Path);
 
-    constexpr int kNumChannels = 4;
-
     m_Status = Status::Taken;
 
 #ifdef __EMSCRIPTEN__
@@ -67,12 +82,8 @@ TextureLoadRequest::Take()
     const int numBytes = static_cast<int>(m_Fetch->numBytes);
 
     int x{}, y{};
-    stbi_uc* image = stbi_load_from_memory(imageData,
-        numBytes,
-        &x,
-        &y,
-        nullptr,
-        kNumChannels);
+    stbi_uc* image =
+        stbi_load_from_memory(imageData, numBytes, &x, &y, nullptr, kNumTextureChannels);
 #else
 
     std::string_view sv_path = m_Path;
@@ -85,13 +96,9 @@ TextureLoadRequest::Take()
     }
 
     const PathType path(sv_path);
-    
+
     int x{}, y{};
-    stbi_uc* image = stbi_load(path.c_str(),
-        &x,
-        &y,
-        nullptr,
-        kNumChannels);
+    stbi_uc* image = stbi_load(path.c_str(), &x, &y, nullptr, kNumTextureChannels);
 
 #endif // __EMSCRIPTEN__
 
@@ -105,20 +112,8 @@ TextureLoadRequest::Take()
             image = nullptr;
         }
     };
-    SDL_Texture* texture = SDL_CreateTexture(m_Renderer,
-        SDL_PIXELFORMAT_RGBA32,
-        SDL_TEXTUREACCESS_STATIC,
-        x,
-        y);
 
-    GG_CHECKB(texture, "Failed to create texture: {} - {}", m_Path, SDL_GetError());
-
-    TexturePtr texturePtr(texture);
-
-    GG_CHECKB(SDL_UpdateTexture(texture, nullptr, image, x * kNumChannels),
-        "Failed to update texture: {} - {}", m_Path, SDL_GetError());
-
-    return texturePtr;
+    return TextureLoader::CreateTexture(image, x, y, m_Renderer);
 }
 
 #ifdef __EMSCRIPTEN__
@@ -149,14 +144,19 @@ TextureLoadRequest::onError(emscripten_fetch_t* fetch)
 
 #endif // __EMSCRIPTEN__
 
-TextureLoader::TextureLoader(const std::span<TextureLoadRequest> requests)
-    : m_Requests(requests)
+TextureLoader::TextureLoader(const std::span<const std::string_view> requests, SDL_Renderer* renderer)
+    : m_Requests(CreateRequests(requests, renderer)),
+      m_Textures(requests.size())
 {
 }
 
 Result<>
-TextureLoader::Start(SDL_Renderer* renderer)
+TextureLoader::Start()
 {
+    GG_CHECKB(m_Stage == Stage::None, "TextureLoader already started");
+
+    m_Stage = Stage::Failed;
+
     GG_CHECKB(!m_Requests.empty(), "No texture load requests provided");
 
     for(const TextureLoadRequest& request : m_Requests)
@@ -167,46 +167,151 @@ TextureLoader::Start(SDL_Renderer* renderer)
 
     for(TextureLoadRequest& request : m_Requests)
     {
-#ifdef __EMSCRIPTEN__
-        emscripten_fetch_attr_t attr;
-        emscripten_fetch_attr_init(&attr);
-        std::ranges::copy("GET", std::begin(attr.requestMethod));
-        attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
-        attr.onsuccess = TextureLoadRequest::onSuccess;
-        attr.onerror = TextureLoadRequest::onError;
-        attr.userData = &request;
-
-        request.m_Fetch = emscripten_fetch(&attr, request.m_Path.c_str());
-        if(!GG_VERIFY(request.m_Fetch, "Failed to initiate fetch"))
-        {
-            request.m_Fetch = nullptr;
-            request.m_Status = TextureLoadRequest::Status::Failed;
-        }
-        else
-        {
-            request.m_Status = TextureLoadRequest::Status::Pending;
-        }
-#else
-
-        request.m_Status = TextureLoadRequest::Status::Succeeded;
-
-#endif // __EMSCRIPTEN__
-
-        request.m_Renderer = renderer;
+        GG_VERIFY(Fetch(request), "Failed to fetch texture: {}", request.GetPath());
     }
-    
+
+    m_Stage = Stage::Loading;
+
     return Result<>::Success();
+}
+
+void
+TextureLoader::Update()
+{
+    if(!GG_VERIFY(Stage::None != m_Stage, "TextureLoader not started"))
+    {
+        return;
+    }
+
+    switch(m_Stage)
+    {
+        case Stage::None:
+            break;
+        case Stage::Loading:
+            m_Stage = Stage::CreateTextures;
+            for(const TextureLoadRequest& request : m_Requests)
+            {
+                if(request.m_Status == TextureLoadRequest::Status::Pending)
+                {
+                    m_Stage = Stage::Loading;
+                    break;
+                }
+            }
+            break;
+        case Stage::CreateTextures:
+            if(GG_VERIFY(CreateTextures(), "Failed to create textures"))
+            {
+                m_Stage = Stage::Succeeded;
+            }
+            else
+            {
+                m_Stage = Stage::Failed;
+            }
+
+            m_Requests.clear();
+
+            break;
+        case Stage::Succeeded:
+            [[fallthrough]];
+        case Stage::Failed:
+            [[fallthrough]];
+        case Stage::Taken:
+            break;
+    }
 }
 
 bool
 TextureLoader::IsPending() const
 {
-    for(const TextureLoadRequest& request : m_Requests)
+    GG_ASSERT(Stage::None != m_Stage, "TextureLoader not started");
+
+    return Stage::Loading == m_Stage || Stage::CreateTextures == m_Stage;
+}
+
+Result<TextureLib>
+TextureLoader::Take()
+{
+    GG_CHECKB(Stage::Taken != m_Stage, "TextureLib already taken");
+    GG_CHECKB(m_Stage >= Stage::Succeeded, "TextureLoader still loading");
+    GG_CHECKB(Stage::Succeeded == m_Stage, "TextureLoader did not succeed");
+
+    m_Stage = Stage::Taken;
+    return TextureLib(std::move(m_Textures));
+}
+
+// private:
+
+Result<>
+TextureLoader::Fetch(TextureLoadRequest& request)
+{
+    GG_CHECKB(request.m_Status == TextureLoadRequest::Status::None, "Request already started");
+
+#ifdef __EMSCRIPTEN__
+    emscripten_fetch_attr_t attr;
+    emscripten_fetch_attr_init(&attr);
+    std::ranges::copy("GET", std::begin(attr.requestMethod));
+    attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+    attr.onsuccess = TextureLoadRequest::onSuccess;
+    attr.onerror = TextureLoadRequest::onError;
+    attr.userData = &request;
+
+    request.m_Fetch = emscripten_fetch(&attr, request.m_Path.c_str());
+    if(!GG_VERIFY(request.m_Fetch, "Failed to initiate fetch"))
     {
-        if(request.m_Status == TextureLoadRequest::Status::Pending)
-        {
-            return true;
-        }
+        request.m_Fetch = nullptr;
+        request.m_Status = TextureLoadRequest::Status::Failed;
     }
-    return false;
+    else
+    {
+        request.m_Status = TextureLoadRequest::Status::Pending;
+    }
+#else
+
+    request.m_Status = TextureLoadRequest::Status::Succeeded;
+
+#endif // __EMSCRIPTEN__
+
+    return Result<>::Success();
+}
+
+Result<TexturePtr>
+TextureLoader::CreateTexture(
+    const void* data, const int width, const int height, SDL_Renderer* renderer)
+{
+    SDL_Texture* texture = SDL_CreateTexture(renderer,
+        SDL_PIXELFORMAT_RGBA32,
+        SDL_TEXTUREACCESS_STATIC,
+        width,
+        height);
+
+    GG_CHECKB(texture, "Failed to create texture: {}", SDL_GetError());
+
+    TexturePtr texturePtr(texture);
+
+    GG_CHECKB(SDL_UpdateTexture(texture, nullptr, data, width * kNumTextureChannels),
+        "Failed to update texture: {}",
+        SDL_GetError());
+
+    return texturePtr;
+}
+
+Result<>
+TextureLoader::CreateTextures()
+{
+    for(TextureLoadRequest& request : m_Requests)
+    {
+        TexturePtr texPtr;
+
+        if(request.m_Status == TextureLoadRequest::Status::Succeeded)
+        {
+            auto texPtrResult = request.Take();
+            if(GG_VERIFY(texPtrResult, "Failed to take texture: {}", request.GetPath()))
+            {
+                texPtr = std::move(*texPtrResult);
+            }
+        }
+        m_Textures.push_back(std::move(texPtr));
+    }
+
+    return Result<>::Success();
 }

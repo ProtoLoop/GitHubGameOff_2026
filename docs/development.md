@@ -337,23 +337,17 @@ support disabled and WebAssembly memory growth enabled.
 
 ## Texture loading
 
-[TextureLoader](../src/TextureLoader.h) borrows a collection of
-`TextureLoadRequest` objects and a renderer. `Load()` starts the requests and
-`IsPending()` reports whether any browser downloads remain in progress. Browser
-builds enable `-sFETCH=1` and fetch each path into memory. Callbacks record
-success or failure. Native builds mark requests ready immediately and defer
-disk reads until `Take()`, stripping leading slashes from the path.
+[TextureLoader](../src/TextureLoader.h) owns its requests and borrows the
+renderer. Call `Start()` once, advance it with `Update()` each frame until
+`IsPending()` is false, then check the result of `Take()`. This transfers a
+`TextureLib` with one entry per input path. Failed loads leave null entries.
+The library must outlive sprites that borrow its textures, and the renderer
+must outlive both the loader and those textures.
 
-For a successful request, `Take()` decodes pixels with stb_image, creates an SDL
-texture, uploads the pixels, and returns an owning `TexturePtr`. Its scope guards
-release decoded pixels and, on web, the completed fetch. HTTP completion does
-not guarantee that decoding or texture creation will succeed. The frame loop
-collects completed requests and creates sprites that borrow the resulting
-textures.
-
-Browser callbacks retain request addresses, so requests must remain at stable
-addresses until their callbacks finish. The renderer must remain alive while
-textures are created, used, and destroyed.
+Browser builds fetch assets over HTTP. Native builds read from disk relative
+to the working directory, stripping leading slashes from asset paths. Run
+native builds from the repository root and serve browser assets under
+`/assets/`, as described in the platform setup sections above.
 
 ## Maintaining this guide
 

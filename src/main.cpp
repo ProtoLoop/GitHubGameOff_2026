@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <numbers>
+#include <optional>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
@@ -31,8 +32,8 @@ struct AppState
     ~AppState()
     {
         Sprites.clear();
-        Textures.clear();
         TextureLoader.reset();
+        TextureLib.reset();
 
         if(Renderer)
         {
@@ -54,15 +55,15 @@ struct AppState
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
     std::optional<TextureLoader> TextureLoader;
+    std::optional<TextureLib> TextureLib;
 
-    std::array<TextureLoadRequest, 1> TexLoadRequests //
+    static constexpr std::string_view TexturePaths[] //
         {
-            TextureLoadRequest{ "/assets/male_hero-walk.png" },
+            "/assets/male_hero-walk.png",
         };
 
     static constexpr size_t kSpriteCount = 10;
 
-    BoundedVector<TexturePtr> Textures{1};
     BoundedVector<Sprite> Sprites{kSpriteCount};
 
     Input Input;
@@ -125,9 +126,9 @@ SDL_AppInit(void** appstate, int, char**)
         GG_WARN("Vsync unavailable: {}", SDL_GetError());
     }
 
-    state.TextureLoader.emplace(state.TexLoadRequests);
+    state.TextureLoader.emplace(AppState::TexturePaths, state.Renderer);
 
-    if(GG_VERIFY(state.TextureLoader->Start(state.Renderer)))
+    if(GG_VERIFY(state.TextureLoader->Start()))
     {
         state.m_Stage = AppState::Stage::Loading;
     }
@@ -176,38 +177,44 @@ SDL_AppIterate(void* appstate)
         case AppState::Stage::None:
             break;
         case AppState::Stage::Loading:
+        {
+            state.TextureLoader->Update();
             if(!state.TextureLoader || state.TextureLoader->IsPending())
             {
                 return SDL_APP_CONTINUE;
             }
 
-            for(TextureLoadRequest& request : state.TexLoadRequests)
+            auto texLibResult = state.TextureLoader->Take();
+            if(!GG_VERIFY(texLibResult))
             {
-                if(request.Succeeded())
+                return SDL_APP_FAILURE;
+            }
+            state.TextureLoader.reset();
+            
+            state.TextureLib = std::move(*texLibResult);
+
+            for(const TexturePtr& texPtr : state.TextureLib->GetTextures())
+            {
+                if(!GG_VERIFY(texPtr))
                 {
-                    auto textureResult = request.Take();
-                    if(!GG_VERIFY(textureResult))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    constexpr float size = 128;
-                    float spriteX{};
-                    for(size_t i = 0; i < AppState::kSpriteCount; ++i, spriteX += size)
+                constexpr float size = 128;
+                float spriteX{};
+                for(size_t i = 0; i < AppState::kSpriteCount; ++i, spriteX += size)
+                {
+                    auto spriteResult = Sprite::Create(texPtr.get(),
+                        SDL_FRect{ .x = spriteX, .y = 0, .w = size, .h = size });
+                    if(spriteResult)
                     {
-                        auto spriteResult = Sprite::Create(textureResult->get(),
-                            SDL_FRect{ .x = spriteX, .y = 0, .w = size, .h = size });
-                        if(spriteResult)
-                        {
-                            state.Sprites.push_back(std::move(*spriteResult));
-                        }
+                        state.Sprites.push_back(std::move(*spriteResult));
                     }
-
-                    GG_VERIFY(state.Textures.push_back(std::move(*textureResult)));
                 }
             }
 
             state.m_Stage = AppState::Stage::Running;
+        }
             break;
         case AppState::Stage::Running:
             break;
