@@ -54,6 +54,7 @@ public:
         }
         return *this;
     }
+
     Result<> push_back(const T& value)
     {
         GG_CHECKB(size() < capacity())

@@ -54,6 +54,8 @@ set(GAMEOFF_SOURCES
     src/Result.h
     src/Sprite.h
     src/Sprite.cpp
+    src/SpriteLib.h
+    src/SpriteLib.cpp
     src/stb_image.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp

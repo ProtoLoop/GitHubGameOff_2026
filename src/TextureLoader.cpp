@@ -17,10 +17,10 @@ namespace
 constexpr int kNumTextureChannels = 4;
 
 BoundedVector<TextureLoadRequest>
-CreateRequests(const std::span<const std::string_view> paths, SDL_Renderer* renderer)
+CreateRequests(const std::span<const TexturePath> paths, SDL_Renderer* renderer)
 {
     BoundedVector<TextureLoadRequest> requests(paths.size());
-    for(const std::string_view path : paths)
+    for(const TexturePath& path : paths)
     {
         requests.emplace_back(path, renderer);
     }
@@ -95,7 +95,7 @@ TextureLoadRequest::Take()
         sv_path.remove_prefix(1);
     }
 
-    const PathType path(sv_path);
+    const TexturePath path(sv_path);
 
     int x{}, y{};
     stbi_uc* image = stbi_load(path.c_str(), &x, &y, nullptr, kNumTextureChannels);
@@ -144,9 +144,9 @@ TextureLoadRequest::onError(emscripten_fetch_t* fetch)
 
 #endif // __EMSCRIPTEN__
 
-TextureLoader::TextureLoader(const std::span<const std::string_view> requests, SDL_Renderer* renderer)
-    : m_Requests(CreateRequests(requests, renderer)),
-      m_Textures(requests.size())
+TextureLoader::TextureLoader(const std::span<const TexturePath> paths, SDL_Renderer* renderer)
+    : m_Requests(CreateRequests(paths, renderer)),
+      m_Textures(paths.size())
 {
 }
 

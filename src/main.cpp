@@ -1,13 +1,9 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
-#include "BoundedVector.h"
 #include "Input.h"
-#include "Sprite.h"
-#include "TextureLoader.h"
+#include "SpriteLib.h"
 
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <numbers>
@@ -21,6 +17,94 @@ constexpr int WindowWidth = 960;
 constexpr int WindowHeight = 540;
 constexpr int SquareSize = 64;
 
+const SpriteSheetDef kSpriteSheetDefs[] //
+    {
+        {
+            .Path{ "/assets/male_hero-walk.png" },
+            .Sprites //
+            {
+                {
+                    .Name{ "male_hero-walk" },
+                    .Frames = SpriteFrameListDef //
+                    {
+                        .Rects//
+                        {
+                            { .X = 0, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 128, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 256, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 384, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 512, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 640, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 768, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 896, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 1024, .Y = 0, .Width = 128, .Height = 128 },
+                            { .X = 1152, .Y = 0, .Width = 128, .Height = 128 },
+                        },
+                    },
+                },            }
+        },
+        {
+            .Path{ "/assets/walk.png" },
+            .Sprites //
+            {
+                {
+                    .Name{ "walk-down" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-down-left" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 1 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up-left" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 2 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 3 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up-right" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 4 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-down-right" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 5 * 64, .Width = 384, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+            },
+        },
+    };
+
 struct AppState
 {
     AppState() = default;
@@ -31,9 +115,7 @@ struct AppState
 
     ~AppState()
     {
-        Sprites.clear();
-        TextureLoader.reset();
-        TextureLib.reset();
+        SpriteLib = {};
 
         if(Renderer)
         {
@@ -54,22 +136,11 @@ struct AppState
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
-    std::optional<TextureLoader> TextureLoader;
-    std::optional<TextureLib> TextureLib;
-
-    static constexpr std::string_view TexturePaths[] //
-        {
-            "/assets/male_hero-walk.png",
-        };
-
-    static constexpr size_t kSpriteCount = 10;
-
-    BoundedVector<Sprite> Sprites{kSpriteCount};
+    Result<SpriteLib> SpriteLib;
 
     Input Input;
 
-    static constexpr uint32_t kTurnsPerCircle = 180;
-    static constexpr uint32_t kTurnStep = std::numeric_limits<uint32_t>::max() / kTurnsPerCircle;
+    static constexpr uint32_t kTurnTicksPerCircle = std::numeric_limits<uint32_t>::max();
     SDL_Point PlayerLoc{};
     uint32_t PlayerRot = 0;
     Stage m_Stage = Stage::None;
@@ -78,7 +149,7 @@ struct AppState
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::optional<AppState> g_AppState;
 
-float
+[[maybe_unused]] float
 TurnsToRadians(uint32_t turns)
 {
     return 2.0f
@@ -126,12 +197,14 @@ SDL_AppInit(void** appstate, int, char**)
         GG_WARN("Vsync unavailable: {}", SDL_GetError());
     }
 
-    state.TextureLoader.emplace(AppState::TexturePaths, state.Renderer);
+    state.SpriteLib = SpriteLib::Create(kSpriteSheetDefs, state.Renderer);
 
-    if(GG_VERIFY(state.TextureLoader->Start()))
+    if(!GG_VERIFY(state.SpriteLib))
     {
-        state.m_Stage = AppState::Stage::Loading;
+        return SDL_APP_FAILURE;
     }
+
+    state.m_Stage = AppState::Stage::Loading;
 
     *appstate = &state;
     return SDL_APP_CONTINUE;
@@ -178,39 +251,15 @@ SDL_AppIterate(void* appstate)
             break;
         case AppState::Stage::Loading:
         {
-            state.TextureLoader->Update();
-            if(!state.TextureLoader || state.TextureLoader->IsPending())
+            state.SpriteLib->Update();
+            if(state.SpriteLib->IsPending())
             {
                 return SDL_APP_CONTINUE;
             }
 
-            auto texLibResult = state.TextureLoader->Take();
-            if(!GG_VERIFY(texLibResult))
+            if(!GG_VERIFY(state.SpriteLib->IsLoaded()))
             {
                 return SDL_APP_FAILURE;
-            }
-            state.TextureLoader.reset();
-            
-            state.TextureLib = std::move(*texLibResult);
-
-            for(const TexturePtr& texPtr : state.TextureLib->GetTextures())
-            {
-                if(!GG_VERIFY(texPtr))
-                {
-                    continue;
-                }
-
-                constexpr float size = 128;
-                float spriteX{};
-                for(size_t i = 0; i < AppState::kSpriteCount; ++i, spriteX += size)
-                {
-                    auto spriteResult = Sprite::Create(texPtr.get(),
-                        SDL_FRect{ .x = spriteX, .y = 0, .w = size, .h = size });
-                    if(spriteResult)
-                    {
-                        state.Sprites.push_back(std::move(*spriteResult));
-                    }
-                }
             }
 
             state.m_Stage = AppState::Stage::Running;
@@ -220,29 +269,69 @@ SDL_AppIterate(void* appstate)
             break;
     }
 
+    static constexpr std::string_view kSpriteDirNames[]//
+    {
+        "walk-up",
+        "walk-up-right",
+        "walk-down-right",
+        "walk-down",
+        "walk-down-left",
+        "walk-up-left",
+    };
+
+    static std::string_view spriteName = kSpriteDirNames[0];
+
+    static constexpr uint32_t kNumDirs = std::size(kSpriteDirNames);
+    static constexpr float kTurnsPerSec = 1;
+
+    constexpr uint64_t kAnimFps = 10;
+    constexpr uint64_t kmspf = 1000 / kAnimFps;
+    static uint32_t frame = 0;
+    static uint64_t ms = SDL_GetTicks();
+    static uint64_t elapsedMs = 0;
+
+    const uint64_t curMs = SDL_GetTicks();
+    elapsedMs += curMs - ms;
+    ms = curMs;
+
+    uint64_t msThisFrame = 0;
+
+    while(elapsedMs > kmspf)
+    {
+        frame = frame + 1;
+        elapsedMs -= kmspf;
+        msThisFrame += kmspf;
+    }
+
     if(state.Input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
+        spriteName = "walk-up-left";
         state.PlayerLoc.x -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveRight, value))
     {
+        spriteName = "walk-up-right";
         state.PlayerLoc.x += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveForward, value))
     {
+        spriteName = "walk-up";
         state.PlayerLoc.y -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
+        spriteName = "walk-down";
         state.PlayerLoc.y += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::RotateLeft, value))
     {
-        state.PlayerRot -= static_cast<uint32_t>(value * static_cast<float>(AppState::kTurnStep));
+        const float turns = (static_cast<float>(msThisFrame) / 1000.0f) * kTurnsPerSec;
+        state.PlayerRot -= static_cast<uint32_t>(turns * static_cast<float>(AppState::kTurnTicksPerCircle));
     }
     if(state.Input.IsTriggered(Input::ActionId::RotateRight, value))
     {
-        state.PlayerRot += static_cast<uint32_t>(value * static_cast<float>(AppState::kTurnStep));
+        const float turns = (static_cast<float>(msThisFrame) / 1000.0f) * kTurnsPerSec;
+        state.PlayerRot += static_cast<uint32_t>(turns * static_cast<float>(AppState::kTurnTicksPerCircle));
     }
 
     state.Input.Reset();
@@ -254,32 +343,6 @@ SDL_AppIterate(void* appstate)
     state.PlayerLoc.y =
         std::min(std::max(state.PlayerLoc.y, halfSquareSize), WindowHeight - halfSquareSize);
 
-    const float a = TurnsToRadians(state.PlayerRot);
-    const float c = std::cos(a);
-    const float s = std::sin(a);
-
-    constexpr float w = static_cast<float>(SquareSize);
-    constexpr float h = static_cast<float>(SquareSize);
-    const float cx = static_cast<float>(state.PlayerLoc.x);
-    const float cy = static_cast<float>(state.PlayerLoc.y);
-
-    const SDL_FPoint corners[] //
-        {
-            { .x = -w / 2, .y = -h / 2 },
-            { .x = w / 2, .y = -h / 2 },
-            { .x = w / 2, .y = h / 2 },
-            { .x = -w / 2, .y = h / 2 },
-        };
-
-    SDL_FPoint points[5]; // NOLINT
-    for(int i = 0; i < 4; ++i)
-    {
-        const float x = corners[i].x;
-        const float y = corners[i].y;
-        points[i] = { .x = cx + (x * c) - (y * s), .y = cy + (x * s) + (y * c) };
-    }
-    points[4] = points[0]; // close the outline
-
     const SDL_FRect square //
         {
             .x = static_cast<float>(state.PlayerLoc.x - halfSquareSize),
@@ -288,44 +351,23 @@ SDL_AppIterate(void* appstate)
             .h = SquareSize,
         };
 
-    constexpr SDL_FColor color = { .r = 1, .g = 1, .b = 1, .a = 1 };
+    static constexpr uint32_t kTurnTicksPerDir = AppState::kTurnTicksPerCircle / kNumDirs;
+    const uint32_t turnDir = state.PlayerRot / kTurnTicksPerDir;
+    spriteName = kSpriteDirNames[turnDir];
+    const auto spriteResult = state.SpriteLib->GetSprite(spriteName);
+    GG_ASSERT(spriteResult, "Failed to get sprite");
 
-    const SDL_Vertex vertices[] //
-        {
-            { .position = points[0], .color = color, .tex_coord{ .x = 0, .y = 0 } },
-            { .position = points[1], .color = color, .tex_coord{ .x = 1, .y = 0 } },
-            { .position = points[2], .color = color, .tex_coord{ .x = 1, .y = 1 } },
-            { .position = points[3], .color = color, .tex_coord{ .x = 0, .y = 1 } },
-        };
+    const Sprite* sprite = *spriteResult;
 
-    const int indices[] = { 0, 1, 2, 0, 2, 3 };
-
-    constexpr size_t kNumFrames = 10;
-    constexpr uint64_t kFps = 10;
-    constexpr uint64_t kmspf = 1000 / kFps;
-    static size_t frame = 0;
-    static uint64_t ms = SDL_GetTicks();
-    static uint64_t elapsedMs = 0;
-
-    const uint64_t curMs = SDL_GetTicks();
-    elapsedMs += curMs - ms;
-    ms = curMs;
-
-    while(elapsedMs > kmspf)
-    {
-        frame = (frame + 1) % kNumFrames;
-        elapsedMs -= kmspf;
-    }
+    const SDL_FRect srcRect = sprite->GetRect(frame % sprite->GetFrameCount());
 
     const SDL_FRect dstRect //
         {
             .x = static_cast<float>(state.PlayerLoc.x - halfSquareSize),
             .y = static_cast<float>(state.PlayerLoc.y - halfSquareSize),
-            .w = static_cast<float>(128),
-            .h = static_cast<float>(128),
+            .w = static_cast<float>(srcRect.w),
+            .h = static_cast<float>(srcRect.h),
         };
-
-    const Sprite* sprite = state.Sprites.TryGet(frame);
 
     auto renderSprite = [&]()
     {
@@ -333,7 +375,7 @@ SDL_AppIterate(void* appstate)
         {
             if(!SDL_RenderTexture(state.Renderer,
                    sprite->GetTexture(),
-                   &sprite->GetRect(),
+                   &srcRect,
                    &dstRect))
             {
                 GG_ERROR("Failed to render texture: {}", SDL_GetError());
@@ -345,16 +387,8 @@ SDL_AppIterate(void* appstate)
 
     if(!SDL_SetRenderDrawColorFloat(state.Renderer, 0.0F, 0.0F, 0.25F, 1.0F)
         || !SDL_RenderClear(state.Renderer)
-        || !SDL_SetRenderDrawColorFloat(state.Renderer, 0.0F, 0.75F, 1.0F, 1.0F)
+        || !SDL_SetRenderDrawColorFloat(state.Renderer, 1, 1, 1, 1)
         || !SDL_RenderFillRect(state.Renderer, &square)
-        //|| !SDL_SetRenderDrawColorFloat(state.Renderer, 1, 0, 0, 1)
-        //|| !SDL_RenderLines(state.Renderer, &points[0], std::size(points))
-        || !SDL_RenderGeometry(state.Renderer,
-            nullptr,
-            &vertices[0],
-            std::size(vertices),
-            &indices[0],
-            std::size(indices))
         || !renderSprite()
         || !SDL_RenderPresent(state.Renderer))
     {

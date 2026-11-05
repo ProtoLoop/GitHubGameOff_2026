@@ -11,6 +11,9 @@
 struct SDL_Texture;
 struct SDL_Renderer;
 
+static constexpr size_t kMaxTexturePathLength = 256 - 1;
+using TexturePath = InlineString<kMaxTexturePathLength + 1>;
+
 #ifdef __EMSCRIPTEN__
 struct emscripten_fetch_t;
 #endif
@@ -26,9 +29,6 @@ class TextureLoadRequest
 {
 public:
 
-    static constexpr size_t kMaxPathLength = 256 - 1;
-    using PathType = InlineString<kMaxPathLength + 1>;
-
     ~TextureLoadRequest();
     TextureLoadRequest(const TextureLoadRequest&) = delete;
     TextureLoadRequest& operator=(const TextureLoadRequest&) = delete;
@@ -36,17 +36,17 @@ public:
     TextureLoadRequest& operator=(TextureLoadRequest&&) = delete;
 
     explicit TextureLoadRequest(const std::string_view path, SDL_Renderer* renderer)
-        : TextureLoadRequest(PathType(path), renderer)
+        : TextureLoadRequest(TexturePath(path), renderer)
     {
     }
 
-    explicit TextureLoadRequest(const PathType& path, SDL_Renderer* renderer)
+    explicit TextureLoadRequest(const TexturePath& path, SDL_Renderer* renderer)
         : m_Path(path)
         , m_Renderer(renderer)
     {
     }
 
-    const PathType& GetPath() const { return m_Path; }
+    const TexturePath& GetPath() const { return m_Path; }
     bool IsPending() const { return m_Status == Status::Pending; }
     bool Succeeded() const { return m_Status == Status::Succeeded; }
 
@@ -72,7 +72,7 @@ private:
 
 #endif
 
-    PathType m_Path;
+    TexturePath m_Path;
 
     Status m_Status{ Status::None };
 
@@ -100,6 +100,7 @@ public:
     {
     }
 
+    std::span<TexturePtr> GetTextures() { return m_Textures; }
     std::span<const TexturePtr> GetTextures() const { return m_Textures; }
 
 private:
@@ -117,7 +118,7 @@ public:
     TextureLoader(TextureLoader&& other) = default;
     TextureLoader& operator=(TextureLoader&& other) = default;
 
-    explicit TextureLoader(const std::span<const std::string_view> requests, SDL_Renderer* renderer);
+    TextureLoader(const std::span<const TexturePath> paths, SDL_Renderer* renderer);
 
     Result<> Start();
 

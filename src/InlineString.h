@@ -9,9 +9,9 @@
 template<std::size_t N>
 class InlineString
 {
-public:    
+public:
     // NOLINTNEXTLINE(google-explicit-constructor)
-    InlineString(const std::string_view str)
+    constexpr InlineString(const std::string_view str)
     {
         if(GG_VERIFY(str.size() < N, "String too long for InlineString"))
         {
@@ -28,25 +28,33 @@ public:
     }
 
     // NOLINTNEXTLINE(google-explicit-constructor)
-   operator std::string_view() const
+    constexpr operator std::string_view() const { return std::string_view(data.data(), m_Size); }
+
+    friend constexpr auto operator<=>(const InlineString& lhs, const InlineString& rhs)
     {
-        return std::string_view(data.data(), m_Size);
+        return std::string_view(lhs) <=> std::string_view(rhs);
     }
 
-    friend bool operator==(const InlineString& lhs, const InlineString& rhs)
+    friend constexpr auto operator<=>(const InlineString& lhs, std::string_view rhs)
     {
-        return lhs.size() == rhs.size()
-            && std::equal(lhs.data.begin(), lhs.data.begin() + lhs.size(), rhs.data.begin());
+        return std::string_view(lhs) <=> rhs;
     }
 
-    friend bool operator!=(const InlineString& lhs, const InlineString& rhs)
+    friend constexpr bool operator==(const InlineString& lhs, const InlineString& rhs)
     {
-        return !(lhs == rhs);
+        return std::string_view(lhs) == std::string_view(rhs);
     }
 
-    const char* c_str() const { return data.data(); }
+    friend constexpr bool operator==(const InlineString& lhs, std::string_view rhs)
+    {
+        return std::string_view(lhs) == rhs;
+    }
 
-    size_t size() const { return m_Size; }
+    constexpr const char* c_str() const { return data.data(); }
+
+    constexpr size_t size() const { return m_Size; }
+
+    constexpr bool empty() const { return m_Size == 0; }
 
 private:
     std::array<char, N> data{};
@@ -59,6 +67,7 @@ struct std::formatter<InlineString<N>> : std::formatter<std::string_view>
 {
     auto format(const InlineString<N>& str, auto& context) const
     {
-        return std::formatter<std::string_view>::format(std::string_view(str.c_str(), str.size()), context);
+        return std::formatter<std::string_view>::format(std::string_view(str.c_str(), str.size()),
+            context);
     }
 };
