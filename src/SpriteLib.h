@@ -50,13 +50,30 @@ struct SpriteSheetDef
 class SpriteLib
 {
 public:
-    enum class Status
-    {
-        None,
-        Loading,
-        Loaded,
-        Failed
-    };
+
+    SpriteLib() = default;
+
+    Result<const Sprite*> GetSprite(const std::string_view name) const;
+    Result<const Sprite*> GetSprite(const Sprite::NameType& name) const;
+
+private:
+
+    friend class SpriteLibLoader;
+
+    SpriteLib(BoundedVector<TexturePtr>&& textures,
+        BoundedVector<SDL_FRect>&& spriteRects,
+        BoundedVector<Sprite::NameType>&& spriteNames,
+        BoundedVector<Sprite>&& sprites);
+
+    BoundedVector<TexturePtr> m_Textures{0};
+    BoundedVector<SDL_FRect> m_SpriteRects{0};
+    BoundedVector<Sprite::NameType> m_SpriteNames{0};
+    BoundedVector<Sprite> m_Sprites{0};
+};
+
+class SpriteLibLoader
+{
+public:
 
     struct SpriteEntry
     {
@@ -65,7 +82,7 @@ public:
         uint32_t FrameCount{ 0 };
     };
 
-    static Result<SpriteLib> Create(const std::span<const SpriteSheetDef> defs,
+    static Result<SpriteLibLoader> Load(const std::span<const SpriteSheetDef> defs,
         SDL_Renderer* renderer);
 
     void Update();
@@ -74,14 +91,19 @@ public:
 
     bool IsLoaded() const;
 
-    Status GetStatus() const { return m_Status; }
-
-    Result<const Sprite*> GetSprite(const std::string_view name) const;
-    Result<const Sprite*> GetSprite(const Sprite::NameType& name) const;
+    Result<SpriteLib> Take();
 
 private:
+    enum class Status
+    {
+        None,
+        Loading,
+        Loaded,
+        Failed,
+        Taken
+    };
 
-    SpriteLib(const size_t sheetCount,
+    SpriteLibLoader(const size_t sheetCount,
         BoundedVector<SDL_FRect>&& spriteRects,
         BoundedVector<SpriteEntry>&& spriteEntries,
         BoundedVector<Sprite::NameType>&& spriteNames,

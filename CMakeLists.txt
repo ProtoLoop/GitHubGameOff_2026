@@ -12,6 +12,10 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/stb/stb_image.h")
     message(FATAL_ERROR "stb is missing. Run: git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jsmn/jsmn.h")
+    message(FATAL_ERROR "jsmn is missing. Run: git submodule update --init --recursive")
+endif()
+
 set(SDL_SHARED OFF CACHE BOOL "Build shared SDL" FORCE)
 set(SDL_STATIC ON CACHE BOOL "Build static SDL" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Build SDL test library" FORCE)
@@ -42,6 +46,7 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 set(GAMEOFF_SOURCES
+    src/Angle.h
     src/BoundedVector.h
     src/Defer.h
     src/Diag.h
@@ -63,7 +68,7 @@ set(GAMEOFF_SOURCES
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
-target_include_directories(gameoff2026 SYSTEM PRIVATE thirdparty/stb)
+target_include_directories(gameoff2026 SYSTEM PRIVATE thirdparty/stb thirdparty/jsmn)
 set_target_properties(gameoff2026 PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED YES

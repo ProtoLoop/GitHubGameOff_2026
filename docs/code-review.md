@@ -55,6 +55,9 @@ unless the user explicitly approves changes.
 - Compare related APIs for naming, parameter order, ownership, return types,
   validation, and lifecycle.
 - Check declarations, definitions, and call sites together when signatures change.
+- For added, renamed, or removed files, check explicit build source lists,
+  installation rules, and packaging lists. Compilation succeeding does not prove
+  those lists are complete.
 - Look for stale diagnostics, labels, comments, examples, and documentation.
 - Flag comments containing `DO NOT SUBMIT` or `DONOTSUBMIT`, matching case
   insensitively.

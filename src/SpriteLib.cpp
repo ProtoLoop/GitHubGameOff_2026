@@ -123,11 +123,11 @@ CollectRects(const std::span<const SpriteSheetDef> defs)
     return rects;
 }
 
-BoundedVector<SpriteLib::SpriteEntry>
+BoundedVector<SpriteLibLoader::SpriteEntry>
 CollectSpriteEntries(const std::span<const SpriteSheetDef> defs)
 {
     const size_t spriteCount = CountSprites(defs);
-    BoundedVector<SpriteLib::SpriteEntry> entries(spriteCount);
+    BoundedVector<SpriteLibLoader::SpriteEntry> entries(spriteCount);
 
     uint32_t sheetIndex = 0;
     uint32_t frameIndex = 0;
@@ -187,8 +187,46 @@ CollectSpriteNames(const std::span<const SpriteSheetDef> defs)
 }
 } // namespace
 
-Result<SpriteLib>
-SpriteLib::Create(const std::span<const SpriteSheetDef> defs, SDL_Renderer* renderer)
+SpriteLib::SpriteLib(BoundedVector<TexturePtr>&& textures,
+    BoundedVector<SDL_FRect>&& spriteRects,
+    BoundedVector<Sprite::NameType>&& spriteNames,
+    BoundedVector<Sprite>&& sprites)
+    : m_Textures(std::move(textures)),
+      m_SpriteRects(std::move(spriteRects)),
+      m_SpriteNames(std::move(spriteNames)),
+      m_Sprites(std::move(sprites))
+{
+    GG_ASSERT(m_Sprites.size() == m_SpriteNames.size(),
+        "Mismatch between sprites and sprite names");
+
+}
+
+Result<const Sprite*>
+SpriteLib::GetSprite(const std::string_view name) const
+{
+    return GetSprite(Sprite::NameType{ name });
+}
+
+Result<const Sprite*>
+SpriteLib::GetSprite(const Sprite::NameType& name) const
+{
+    for(size_t i = 0; i < m_SpriteNames.size(); ++i)
+    {
+        if(name == *m_SpriteNames.TryGet(i))
+        {
+            return m_Sprites.TryGet(i);
+        }
+    }
+
+    GG_ERROR("Sprite not found: {}", name);
+    
+    return Result<>::Fail();
+}
+
+/// SpriteLibLoader
+
+Result<SpriteLibLoader>
+SpriteLibLoader::Load(const std::span<const SpriteSheetDef> defs, SDL_Renderer* renderer)
 {
     auto rectResult = CollectRects(defs);
     GG_CHECK(rectResult, "Failed to collect sprite rects");
@@ -202,14 +240,14 @@ SpriteLib::Create(const std::span<const SpriteSheetDef> defs, SDL_Renderer* rend
     TextureLoader textureLoader(std::move(paths), renderer);
     GG_CHECK(textureLoader.Start(), "Failed to start texture loader");
 
-    return SpriteLib(defs.size(),
+    return SpriteLibLoader(defs.size(),
         std::move(*rectResult),
         std::move(entries),
         std::move(names),
         std::move(textureLoader));
 }
 
-SpriteLib::SpriteLib(const size_t sheetCount,
+SpriteLibLoader::SpriteLibLoader(const size_t sheetCount,
         BoundedVector<SDL_FRect>&& spriteRects,
         BoundedVector<SpriteEntry>&& spriteEntries,
         BoundedVector<Sprite::NameType>&& spriteNames,
@@ -228,7 +266,7 @@ SpriteLib::SpriteLib(const size_t sheetCount,
 }
 
 void
-SpriteLib::Update()
+SpriteLibLoader::Update()
 {
     if(!GG_VERIFY(Status::None != m_Status, "SpriteLib has not been loaded"))
     {
@@ -326,39 +364,29 @@ SpriteLib::Update()
 }
 
 bool
-SpriteLib::IsPending() const
+SpriteLibLoader::IsPending() const
 {
     return m_TextureLoader && m_TextureLoader->IsPending();
 }
 
 bool
-SpriteLib::IsLoaded() const
+SpriteLibLoader::IsLoaded() const
 {
     return m_Status == Status::Loaded;
 }
 
-Result<const Sprite*>
-SpriteLib::GetSprite(const std::string_view name) const
+Result<SpriteLib>
+SpriteLibLoader::Take()
 {
-    return GetSprite(Sprite::NameType{ name });
-}
+    GG_CHECKB(Status::Failed != m_Status, "Sprite lib loading failed");
+    GG_CHECKB(Status::Loading != m_Status, "Sprite lib is still loading");
+    GG_CHECKB(Status::Taken != m_Status, "Sprite lib has already been taken");
+    GG_CHECKB(Status::Loaded == m_Status, "Sprite lib is not loaded");
 
-Result<const Sprite*>
-SpriteLib::GetSprite(const Sprite::NameType& name) const
-{
-    GG_CHECKB(m_Status == Status::Loaded, "SpriteLib is not loaded");
-    GG_ASSERT(m_Sprites.size() == m_SpriteNames.size(),
-        "Mismatch between sprites and sprite names");
+    m_Status = Status::Taken;
 
-    for(size_t i = 0; i < m_SpriteNames.size(); ++i)
-    {
-        if(name == *m_SpriteNames.TryGet(i))
-        {
-            return m_Sprites.TryGet(i);
-        }
-    }
-
-    GG_ERROR("Sprite not found: {}", name);
-    
-    return Result<>::Fail();
+    return SpriteLib(std::move(m_Textures),
+        std::move(m_SpriteRects),
+        std::move(m_SpriteNames),
+        std::move(m_Sprites));
 }

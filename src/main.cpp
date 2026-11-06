@@ -1,5 +1,6 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
+#include "Angle.h"
 #include "Input.h"
 #include "SpriteLib.h"
 
@@ -13,8 +14,6 @@
 
 namespace
 {
-constexpr int WindowWidth = 960;
-constexpr int WindowHeight = 540;
 constexpr int SquareSize = 64;
 
 const SpriteSheetDef kSpriteSheetDefs[] //
@@ -107,6 +106,13 @@ const SpriteSheetDef kSpriteSheetDefs[] //
 
 struct AppState
 {
+    static constexpr const char* WindowTitle = "GraveyardShift";
+    static constexpr int WindowWidth = 800;
+    static constexpr int WindowHeight = 600;
+
+//constexpr int WindowWidth = 960;
+//constexpr int WindowHeight = 540;
+
     AppState() = default;
     AppState(const AppState&) = delete;
     AppState& operator=(const AppState&) = delete;
@@ -115,6 +121,8 @@ struct AppState
 
     ~AppState()
     {
+        // Release sprite resources.
+        SpriteLibLoader = {};
         SpriteLib = {};
 
         if(Renderer)
@@ -136,13 +144,13 @@ struct AppState
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
-    Result<SpriteLib> SpriteLib;
+    Result<SpriteLibLoader> SpriteLibLoader;
+    SpriteLib SpriteLib;
 
     Input Input;
 
-    static constexpr uint32_t kTurnTicksPerCircle = std::numeric_limits<uint32_t>::max();
     SDL_Point PlayerLoc{};
-    uint32_t PlayerRot = 0;
+    Angle PlayerRot;
     Stage m_Stage = Stage::None;
 };
 
@@ -176,18 +184,31 @@ SDL_AppInit(void** appstate, int, char**)
 
     AppState& state = *g_AppState;
 
-    if(!SDL_CreateWindowAndRenderer("gameoff2026",
-           WindowWidth,
-           WindowHeight,
-           SDL_WINDOW_RESIZABLE,
-           &state.Window,
-           &state.Renderer)
-        || !SDL_SetRenderLogicalPresentation(state.Renderer,
-            WindowWidth,
-            WindowHeight,
-            SDL_LOGICAL_PRESENTATION_LETTERBOX))
+    state.Window = SDL_CreateWindow(AppState::WindowTitle,
+                     AppState::WindowWidth,
+                     AppState::WindowHeight,
+                     SDL_WINDOW_RESIZABLE);
+
+    if(!GG_VERIFY(state.Window))
     {
-        GG_ERROR("Window/renderer setup failed: {}", SDL_GetError());
+        GG_ERROR("Window creation failed: {}", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    state.Renderer = SDL_CreateRenderer(state.Window, nullptr);
+    //state.Renderer = SDL_CreateGPURenderer(nullptr, state.Window);
+    if(!GG_VERIFY(state.Renderer))
+    {
+        GG_ERROR("Renderer creation failed: {}", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    if(!GG_VERIFY(SDL_SetRenderLogicalPresentation(state.Renderer,
+        AppState::WindowWidth,
+        AppState::WindowHeight,
+        SDL_LOGICAL_PRESENTATION_LETTERBOX)))
+    {
+        GG_ERROR("Failed to set logical presentation for renderer: {}", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
@@ -197,9 +218,9 @@ SDL_AppInit(void** appstate, int, char**)
         GG_WARN("Vsync unavailable: {}", SDL_GetError());
     }
 
-    state.SpriteLib = SpriteLib::Create(kSpriteSheetDefs, state.Renderer);
+    state.SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, state.Renderer);
 
-    if(!GG_VERIFY(state.SpriteLib))
+    if(!GG_VERIFY(state.SpriteLibLoader))
     {
         return SDL_APP_FAILURE;
     }
@@ -251,17 +272,25 @@ SDL_AppIterate(void* appstate)
             break;
         case AppState::Stage::Loading:
         {
-            state.SpriteLib->Update();
-            if(state.SpriteLib->IsPending())
+            state.SpriteLibLoader->Update();
+            if(state.SpriteLibLoader->IsPending())
             {
                 return SDL_APP_CONTINUE;
             }
 
-            if(!GG_VERIFY(state.SpriteLib->IsLoaded()))
+            if(!GG_VERIFY(state.SpriteLibLoader->IsLoaded()))
             {
                 return SDL_APP_FAILURE;
             }
 
+            auto spriteLibResult = state.SpriteLibLoader->Take();
+            if(!GG_VERIFY(spriteLibResult, "Failed to load sprite lib"))
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            state.SpriteLib = std::move(*spriteLibResult);
+            state.SpriteLibLoader = {};
             state.m_Stage = AppState::Stage::Running;
         }
             break;
@@ -281,8 +310,8 @@ SDL_AppIterate(void* appstate)
 
     static std::string_view spriteName = kSpriteDirNames[0];
 
-    static constexpr uint32_t kNumDirs = std::size(kSpriteDirNames);
     static constexpr float kTurnsPerSec = 1;
+    static constexpr uint32_t kNumDirs = std::size(kSpriteDirNames);
 
     constexpr uint64_t kAnimFps = 10;
     constexpr uint64_t kmspf = 1000 / kAnimFps;
@@ -326,12 +355,12 @@ SDL_AppIterate(void* appstate)
     if(state.Input.IsTriggered(Input::ActionId::RotateLeft, value))
     {
         const float turns = (static_cast<float>(msThisFrame) / 1000.0f) * kTurnsPerSec;
-        state.PlayerRot -= static_cast<uint32_t>(turns * static_cast<float>(AppState::kTurnTicksPerCircle));
+        state.PlayerRot -= Angle(turns);
     }
     if(state.Input.IsTriggered(Input::ActionId::RotateRight, value))
     {
         const float turns = (static_cast<float>(msThisFrame) / 1000.0f) * kTurnsPerSec;
-        state.PlayerRot += static_cast<uint32_t>(turns * static_cast<float>(AppState::kTurnTicksPerCircle));
+        state.PlayerRot += Angle(turns);
     }
 
     state.Input.Reset();
@@ -339,9 +368,9 @@ SDL_AppIterate(void* appstate)
     constexpr int halfSquareSize = SquareSize / 2;
 
     state.PlayerLoc.x =
-        std::min(std::max(state.PlayerLoc.x, halfSquareSize), WindowWidth - halfSquareSize);
+        std::min(std::max(state.PlayerLoc.x, halfSquareSize), AppState::WindowWidth - halfSquareSize);
     state.PlayerLoc.y =
-        std::min(std::max(state.PlayerLoc.y, halfSquareSize), WindowHeight - halfSquareSize);
+        std::min(std::max(state.PlayerLoc.y, halfSquareSize), AppState::WindowHeight - halfSquareSize);
 
     const SDL_FRect square //
         {
@@ -351,10 +380,9 @@ SDL_AppIterate(void* appstate)
             .h = SquareSize,
         };
 
-    static constexpr uint32_t kTurnTicksPerDir = AppState::kTurnTicksPerCircle / kNumDirs;
-    const uint32_t turnDir = state.PlayerRot / kTurnTicksPerDir;
-    spriteName = kSpriteDirNames[turnDir];
-    const auto spriteResult = state.SpriteLib->GetSprite(spriteName);
+    const uint32_t dirIndex = state.PlayerRot.GetDirection(kNumDirs);
+    spriteName = kSpriteDirNames[dirIndex];
+    const auto spriteResult = state.SpriteLib.GetSprite(spriteName);
     GG_ASSERT(spriteResult, "Failed to get sprite");
 
     const Sprite* sprite = *spriteResult;
