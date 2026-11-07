@@ -246,6 +246,8 @@ TextureLoader::Fetch(TextureLoadRequest& request)
 {
     GG_CHECKB(request.m_Status == TextureLoadRequest::Status::None, "Request already started");
 
+    request.m_Status = TextureLoadRequest::Status::Failed;
+
 #ifdef __EMSCRIPTEN__
     emscripten_fetch_attr_t attr;
     emscripten_fetch_attr_init(&attr);
@@ -256,15 +258,10 @@ TextureLoader::Fetch(TextureLoadRequest& request)
     attr.userData = &request;
 
     request.m_Fetch = emscripten_fetch(&attr, request.m_Path.c_str());
-    if(!GG_VERIFY(request.m_Fetch, "Failed to initiate fetch"))
-    {
-        request.m_Fetch = nullptr;
-        request.m_Status = TextureLoadRequest::Status::Failed;
-    }
-    else
-    {
-        request.m_Status = TextureLoadRequest::Status::Pending;
-    }
+    GG_CHECKB(request.m_Fetch, "Failed to initiate fetch");
+
+    request.m_Status = TextureLoadRequest::Status::Pending;
+
 #else
 
     request.m_Status = TextureLoadRequest::Status::Succeeded;
