@@ -1,10 +1,10 @@
 #pragma once
 
+#include "BoundedVector.h"
 #include "Result.h"
 #include "Sprite.h"
 #include "TextureLoader.h"
 
-#include <optional>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -43,7 +43,7 @@ struct SpriteDef
 
 struct SpriteSheetDef
 {
-    TexturePath Path;
+    FilePath Path;
     std::vector<SpriteDef> Sprites;
 };
 
@@ -83,6 +83,7 @@ public:
     };
 
     static Result<SpriteLibLoader> Load(const std::span<const SpriteSheetDef> defs,
+        FileFetcher& fileFetcher,
         SDL_Renderer* renderer);
 
     void Update();
@@ -107,15 +108,15 @@ private:
         BoundedVector<SDL_FRect>&& spriteRects,
         BoundedVector<SpriteEntry>&& spriteEntries,
         BoundedVector<Sprite::NameType>&& spriteNames,
-        TextureLoader&& textureLoader);
+        BoundedVector<TextureLoader>&& textureLoaders);
 
-    Status m_Status{ Status::None };
-
-    std::optional<TextureLoader> m_TextureLoader;
+    BoundedVector<TextureLoader> m_TextureLoaders;
 
     BoundedVector<SDL_FRect> m_SpriteRects;
     BoundedVector<SpriteEntry> m_SpriteEntries;
     BoundedVector<Sprite> m_Sprites;
     BoundedVector<TexturePtr> m_Textures;
     BoundedVector<Sprite::NameType> m_SpriteNames;
+
+    Status m_Status{ Status::None };
 };

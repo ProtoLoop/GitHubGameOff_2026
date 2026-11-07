@@ -6,33 +6,33 @@ is not a rule for every situation, but differences should be intentional.
 
 ## Cooperative Tasks
 
-Use a cooperative task for work that spans multiple frames. The caller starts
-it once, then advances it from the frame callback until it is complete.
-[TextureLoader](../../src/TextureLoader.h) is the current example.
+Use a cooperative task when work must span multiple iterations of an event
+loop without blocking it. The caller initiates the task, then advances it in
+bounded steps until it is complete. This keeps the loop responsive, at the
+cost of making intermediate states and their transitions explicit.
 
-The lifecycle uses `Start()`, `Update()`, and `IsPending()`:
+- Initiation establishes the task's state and reports failures to start.
+  Reject unsupported repeated initiation before changing existing state.
+- Advancement performs a bounded amount of work and polls asynchronous
+  operations without waiting for them. Return control to the caller between
+  steps.
+- Pending status covers all unfinished processing, including work that
+  remains after an asynchronous operation completes. Completion and success
+  are separate facts.
 
-- `Start()` sets up the work and returns a `Result`. Reject repeated starts
-  before changing existing state.
-- `Update()` advances the task on the caller's thread. Poll asynchronous work
-  without waiting for it. Return control to the frame loop between updates.
-- `IsPending()` reports whether more updates are needed. Call it after starting
-  the task. Completion does not by itself mean that the work succeeded.
+Represent progress explicitly so each state has defined operations and
+transitions. Status queries must remain safe after completion or failure.
 
-Track progress with an enum and a `switch` in `Update()`. The current loader
-implements this lifecycle directly. There is no shared task base or batch
-implementation in the repository.
+If the task transfers ownership of its output, define when that transfer is
+allowed and prevent repeated transfers. Report failures when retrieving the
+output, and define whether partial failure produces usable output or fails
+the whole task.
 
-When a task provides `Take()`, call it after `IsPending()` becomes false and
-check its result. A successful take transfers ownership of the output and may
-only happen once. Define how partial failures appear in that output. For
-example, the texture loader preserves a null entry for each failed request.
-
-Keep callback targets at stable addresses until callbacks finish or are
-cancelled. A task that supports destruction while pending must cancel its
-outstanding work before releasing callback targets. The texture loader does
-this by closing its owned fetches when its requests are destroyed. Non-owned
-dependencies must outlive all work and resources that use them.
+Keep callback targets alive and at stable addresses until callbacks finish
+or are cancelled. Destruction must either cancel outstanding callbacks before
+releasing their targets or leave those targets with an owner that outlives
+the callbacks. Borrowed dependencies must outlive all work and resources that
+use them.
 
 ## Valid Construction
 

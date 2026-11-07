@@ -51,10 +51,14 @@ set(GAMEOFF_SOURCES
     src/Defer.h
     src/Diag.h
     src/Diag.cpp
+    src/FileFetcher.h
+    src/FileFetcher.cpp
     src/InlineString.h
     src/InlineVector.h
     src/Input.h
     src/Input.cpp
+    src/LevelLoader.h
+    src/LevelLoader.cpp
     src/main.cpp
     src/Result.h
     src/Sprite.h

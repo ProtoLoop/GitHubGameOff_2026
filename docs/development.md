@@ -1,5 +1,20 @@
 # Development guide
 
+Mosaic has a separate browser build. See its [user guide](../Mosaic/README.md).
+CMake provisions Deno 2.9.8 and bundles the TypeScript application into
+`Mosaic/build/dist`. Python 3.9 or newer runs the server and server tests.
+The app has no third-party runtime JavaScript dependencies. The distribution
+includes `ThirdPartyLicenses.txt`.
+
+Run `cmake --build Mosaic/build --target check` for the application and HTTP
+server tests. Start the app with
+`python3 Mosaic/server.py --projects-root Mosaic/projects` and visit
+`http://localhost:8000/`. The server serves the built app at `/` and ordinary
+project directories at `/projects/`. It accepts PUT only for a project's
+`level.json`. Asset changes need Reload Project, with no build required.
+See the [file formats](../Mosaic/docs/FILE_FORMATS.md) for the saved level format
+and rendering rules.
+
 C++ bootstrap for GitHub Game Off 2026. The current targets are macOS and
 the browser through Emscripten. Windows and Linux support is planned.
 
@@ -8,11 +23,10 @@ against a dark blue background. Close the native window or press Escape to quit.
 
 ## Daily workflow
 
-After completing the [setup](#prerequisites), use VS Code's Command Palette
-(**Cmd+Shift+P** on macOS):
+After completing the [setup](#prerequisites), use VS Code's Command Palette:
 
 1. Select your platform and Debug/Release configuration with **CMake: Select Variant**.
-   Use the **[Unspecified]** kit for Web or Apple Clang for macOS.
+   Select the kit described in the [platform-specific editor steps](#configure-build-and-debug).
 2. Run **CMake: Configure** after switching platforms, then **CMake: Build**.
 3. For Web, start the server from the project root and leave it running:
 
@@ -20,8 +34,8 @@ After completing the [setup](#prerequisites), use VS Code's Command Palette
    python3 HttpServer.py
    ```
 
-4. In Run and Debug, select **Game (Browser)** for Web or **Game (LLDB, macOS)**
-   for native, then press **F5**. Use Web Debug for C++ browser breakpoints.
+4. In Run and Debug, select the launch configuration for your target, then press
+   **F5**. Use Web Debug for C++ browser breakpoints.
 
 After code changes, build again and restart the debug session. F5 does not build
 the game. The browser server can stay running between launches.
@@ -33,10 +47,9 @@ on `PATH`, including in VS Code's environment.
 
 | Tool | Used for |
 | --- | --- |
-| Git | Cloning the project and initializing the pinned SDL and stb submodules |
+| Git | Cloning the project and initializing the pinned SDL, stb, and jsmn submodules |
 | CMake 3.27 or newer | Configuring native and web builds |
 | Ninja | Building with Ninja Multi-Config |
-| Xcode Command Line Tools with a C++23-capable Apple Clang | Native macOS builds |
 | Python 3 | Running the web compiler and serving browser builds locally |
 | clang-tidy | Required by default for project build-time analysis, compatible with the checked-in configuration and selected compiler |
 | clangd | C++ editor analysis through the VS Code clangd extension |
@@ -44,9 +57,9 @@ on `PATH`, including in VS Code's environment.
 | Google Chrome | Running the configured browser debugging session |
 | Visual Studio Code | Using the checked-in editor and F5 launch configurations |
 
-On macOS, `xcode-select --install` installs the Command Line Tools. Homebrew users
-can install Chrome with `brew install --cask google-chrome`. The clangd extension
-can help install its language-server executable if one is not already available.
+Native builds also need the compiler described in the platform setup below.
+The clangd extension can help install its language-server executable if one is
+not already available.
 Build-time clang-tidy still needs its own executable: CMake looks for
 `clang-tidy` on `PATH`.
 
@@ -104,7 +117,35 @@ The game uses `thirdparty/stb/stb_image.h` (v2.30) directly to decode images.
 and the stb include directory is treated as a system include directory. The
 existing stb MIT notice covers both this direct use and SDL's bundled copy.
 
+`thirdparty/jsmn` is a Git submodule of the official jsmn repository at
+`https://github.com/zserge/jsmn.git`, pinned to
+`25647e692c7906b96ffd2b05ca54c097948e879c`. The Git entry records the exact
+commit. CMake does not fetch jsmn or use a system installation. Initialize it
+with `git submodule update --init --recursive`. A missing `jsmn.h` produces a
+configure error with those recovery instructions.
+
+The game uses `jsmn.h` directly for JSON tokenization, and the jsmn include
+directory is treated as a system include directory. jsmn has no third-party
+runtime dependencies. Its MIT notice is included in
+[ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
+
+## Asset locations
+
+Native builds read assets from disk relative to the working directory, stripping
+leading slashes from asset paths. Run from the repository root so paths resolve
+to the `assets/` directory.
+
+Browser builds load assets over HTTP. The development server exposes the
+repository's `assets/` directory under `/assets/`, relative to the server root.
+When deploying, publish the required assets under `/assets/` on the same origin
+as the game, even if the HTML is hosted in a subdirectory. The build does not
+copy assets or package them into the WebAssembly filesystem.
+
 ## macOS
+
+Native macOS builds require Xcode Command Line Tools with a C++23-capable Apple
+Clang. Install them with `xcode-select --install`. Homebrew users can install
+Chrome for browser debugging with `brew install --cask google-chrome`.
 
 Run from the repository root:
 
@@ -118,8 +159,6 @@ cmake --build build/native/mac --config Release
 ```
 
 This builds an executable for the host architecture, without app-bundle packaging.
-Run from the repository root so texture paths resolve to the `assets/` directory.
-Native texture loading strips leading slashes from asset paths and reads from disk.
 
 ## Browser
 
@@ -141,12 +180,7 @@ file. Each configuration produces `index.html`, `index.js`, and `index.wasm`.
 Keep these files together when hosting the game, and include
 `ThirdPartyLicenses.txt` with distributions.
 
-The game requests textures over HTTP using Emscripten Fetch. The current sprite
-sheet URL is `/assets/male_hero-walk.png`, relative to the server root. The
-development server exposes the repository's `assets/` directory at that URL.
-When deploying, publish the required assets under `/assets/` on the same origin
-as the game, even if the HTML is hosted in a subdirectory. The build does not
-copy assets or package them into the WebAssembly filesystem.
+Publish the required assets as described in [Asset locations](#asset-locations).
 
 The bootstrap uses Emscripten's default HTML shell and has no worker threads.
 Keep native and browser build trees separate. When changing toolchains, use a
@@ -252,7 +286,7 @@ Use `clang-format -i src/main.cpp` to apply the checked-in style.
 [variants](../.vscode/cmake-variants.json) select `native/mac` or `web`.
 Debug/Release is a separate dimension and does not create another build tree.
 
-Install these extensions from VS Code's Extensions view (**Cmd+Shift+X** on macOS).
+Install these extensions from VS Code's Extensions view.
 Search by the exact extension ID to distinguish similarly named extensions.
 The same list is available as workspace recommendations in
 [.vscode/extensions.json](../.vscode/extensions.json). Recommendations do not install
@@ -274,12 +308,22 @@ to serve the repository root on `http://localhost:8000`. It sends
 `Cache-Control: no-cache` on every response, requiring browsers to revalidate
 cached HTML, JavaScript, WebAssembly, and assets before reusing them.
 
-Use **CMake: Select a Kit** to select Apple Clang for macOS, and
-**CMake: Select Variant** to select macOS Debug or Release. Run **CMake: Configure**,
-then **CMake: Build**. Select `gameoff2026` as the CMake launch target and use the
+### Configure, build, and debug
+
+Use **CMake: Select a Kit** and **CMake: Select Variant** to choose the kit and
+configuration for your target as described below. Run **CMake: Configure**, then
+**CMake: Build**. Select the corresponding launch configuration in Run and Debug
+and press **F5**.
+
+#### Native macOS
+
+Select the Apple Clang kit and a macOS Debug or Release variant. Select
+`gameoff2026` as the CMake launch target and use the
 **Game (LLDB, macOS)** launch configuration to debug. The executable path and
 configuration come from the selected CMake target through
 `cmake.launchTargetPath` in [launch.json](../.vscode/launch.json).
+
+#### Browser
 
 For web builds, VS Code needs CMake, Ninja, Python, and clang-tidy available.
 The web variant selects the root `Emscripten.cmake`, which manages the local
@@ -288,7 +332,8 @@ toolchain cache. It does not use `EMSDK` or require an activated Emscripten shel
 Select the **[Unspecified]** kit and a Web Debug or Release variant, then configure
 and build. The variant supplies the Emscripten toolchain, so a native compiler
 kit must not override it. Web variants explicitly enable build-time clang-tidy.
-Switch back to the Apple Clang kit and a macOS variant before native debugging.
+When switching targets, select the kit and variant for the new target before
+configuring and building.
 
 After building the web configuration, run this command from the project root
 in a terminal:
@@ -321,35 +366,20 @@ in VS Code while the game runs in Chrome. See
 
 ## Runtime boundary
 
-[main.cpp](../src/main.cpp) uses SDL's application callbacks for initialization,
-events, frames, and shutdown. SDL drives the lifecycle on both native and browser
-targets, allowing the browser event loop to schedule frames. Application state
-owns the window and renderer, and the shutdown callback releases them before
-SDL shuts itself down. Initialization and rendering failures are logged and
-reported with `SDL_APP_FAILURE`. This is the SDL entry-point contract. Project
-helpers use [Result](../src/Result.h) for recoverable failures and
-[Diag](../src/Diag.h) for logging and invariant checks.
+SDL drives initialization, events, frames, and shutdown on both native and browser
+targets, allowing the browser event loop to schedule frames. The application
+releases its window and renderer before SDL shuts down.
 
 The smoke test uses SDL's 2D renderer with a fixed logical canvas and letterboxing.
-Animation uses elapsed time rather than frame count. Vsync is requested but is
-not required for startup. The browser build is single-threaded, with SDL pthread
-support disabled and WebAssembly memory growth enabled.
-
-## Texture loading
-
-[TextureLoader](../src/TextureLoader.h) owns its requests and borrows the
-renderer. Call `Start()` once, advance it with `Update()` each frame until
-`IsPending()` is false, then check the result of `Take()`. This transfers a
-`TextureLib` with one entry per input path. Failed loads leave null entries.
-The library must outlive sprites that borrow its textures, and the renderer
-must outlive both the loader and those textures.
-
-Browser builds fetch assets over HTTP. Native builds read from disk relative
-to the working directory, stripping leading slashes from asset paths. Run
-native builds from the repository root and serve browser assets under
-`/assets/`, as described in the platform setup sections above.
+Vsync is requested but is not required for startup. The browser build is
+single-threaded, with SDL pthread support disabled and WebAssembly memory growth
+enabled.
 
 ## Maintaining this guide
+
+Keep this guide focused on building, running, debugging, and deploying the
+applications. Document API contracts beside their declarations and shared
+implementation patterns in the [architecture documentation](architecture/patterns.md).
 
 Update this guide when targets, dependencies, toolchains, platforms,
 configurations, output paths, compiler/linker policy, application lifecycle, or

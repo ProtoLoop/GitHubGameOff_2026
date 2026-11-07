@@ -2,6 +2,7 @@
 
 #include "Angle.h"
 #include "Input.h"
+#include "LevelLoader.h"
 #include "SpriteLib.h"
 
 #include <algorithm>
@@ -42,7 +43,7 @@ const SpriteSheetDef kSpriteSheetDefs[] //
                     },
                 },            }
         },
-        {
+        /*{
             .Path{ "/assets/walk.png" },
             .Sprites //
             {
@@ -101,6 +102,66 @@ const SpriteSheetDef kSpriteSheetDefs[] //
                     },
                 },
             },
+        },*/
+        {
+            .Path{ "/assets/lost_soul_east_8x64_clean_feet.png" },
+            .Sprites //
+            {
+                {
+                    .Name{ "walk-down" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-down-left" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up-left" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-up-right" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+                {
+                    .Name{ "walk-down-right" },
+                    .Frames =
+                        SpriteFrameDef //
+                    {
+                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
+                        .Count = 8,
+                    },
+                },
+            },
         },
     };
 
@@ -144,7 +205,9 @@ struct AppState
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
+    FileFetcher FileFetcher;
     Result<SpriteLibLoader> SpriteLibLoader;
+    Result<LevelLoader> LevelLoader;
     SpriteLib SpriteLib;
 
     Input Input;
@@ -218,9 +281,16 @@ SDL_AppInit(void** appstate, int, char**)
         GG_WARN("Vsync unavailable: {}", SDL_GetError());
     }
 
-    state.SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, state.Renderer);
+    state.SpriteLibLoader =
+        SpriteLibLoader::Load(kSpriteSheetDefs, state.FileFetcher, state.Renderer);
 
     if(!GG_VERIFY(state.SpriteLibLoader))
+    {
+        return SDL_APP_FAILURE;
+    }
+
+    state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", state.FileFetcher);
+    if(!GG_VERIFY(state.LevelLoader))
     {
         return SDL_APP_FAILURE;
     }
@@ -272,13 +342,24 @@ SDL_AppIterate(void* appstate)
             break;
         case AppState::Stage::Loading:
         {
-            state.SpriteLibLoader->Update();
             if(state.SpriteLibLoader->IsPending())
             {
+                state.SpriteLibLoader->Update();
+                return SDL_APP_CONTINUE;
+            }
+
+            if(state.LevelLoader->IsPending())
+            {
+                state.LevelLoader->Update();
                 return SDL_APP_CONTINUE;
             }
 
             if(!GG_VERIFY(state.SpriteLibLoader->IsLoaded()))
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            if(!GG_VERIFY(state.LevelLoader->IsLoaded()))
             {
                 return SDL_APP_FAILURE;
             }

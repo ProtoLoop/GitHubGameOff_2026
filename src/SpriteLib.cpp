@@ -1,13 +1,15 @@
 #include "SpriteLib.h"
 
+#include "Defer.h"
+
 #include <type_traits>
 
 namespace
 {
-BoundedVector<TexturePath>
+BoundedVector<FilePath>
 CollectPaths(const std::span<const SpriteSheetDef> defs)
 {
-    BoundedVector<TexturePath> paths(defs.size());
+    BoundedVector<FilePath> paths(defs.size());
     for(const SpriteSheetDef& sheet : defs)
     {
         paths.push_back(sheet.Path);
@@ -68,8 +70,7 @@ CollectRects(const std::span<const SpriteSheetDef> defs)
     {
         for(const SpriteDef& sprite : sheet.Sprites)
         {
-            const Result<> result =
-            std::visit(
+            const Result<> result = std::visit(
                 [&](const auto& frame) -> Result<>
                 {
                     using T = std::remove_cvref_t<decltype(frame)>;
@@ -95,7 +96,8 @@ CollectRects(const std::span<const SpriteSheetDef> defs)
                             static_cast<float>(frame.Rect.Width) / static_cast<float>(frameCount);
                         const float frameHeight = static_cast<float>(frame.Rect.Height);
 
-                        GG_CHECKB(frameWidth >= 1 && frameHeight >= 1, "Frame dimensions must be at least 1");
+                        GG_CHECKB(frameWidth >= 1 && frameHeight >= 1,
+                            "Frame dimensions must be at least 1");
 
                         float frameX = static_cast<float>(frame.Rect.X);
                         const float frameY = static_cast<float>(frame.Rect.Y);
@@ -198,7 +200,6 @@ SpriteLib::SpriteLib(BoundedVector<TexturePtr>&& textures,
 {
     GG_ASSERT(m_Sprites.size() == m_SpriteNames.size(),
         "Mismatch between sprites and sprite names");
-
 }
 
 Result<const Sprite*>
@@ -212,21 +213,23 @@ SpriteLib::GetSprite(const Sprite::NameType& name) const
 {
     for(size_t i = 0; i < m_SpriteNames.size(); ++i)
     {
-        if(name == *m_SpriteNames.TryGet(i))
+        const Sprite::NameType* spriteName = m_SpriteNames.TryGet(i);
+        if(spriteName && name == *spriteName)
         {
             return m_Sprites.TryGet(i);
         }
     }
 
     GG_ERROR("Sprite not found: {}", name);
-    
+
     return Result<>::Fail();
 }
 
 /// SpriteLibLoader
 
 Result<SpriteLibLoader>
-SpriteLibLoader::Load(const std::span<const SpriteSheetDef> defs, SDL_Renderer* renderer)
+SpriteLibLoader::Load(
+    const std::span<const SpriteSheetDef> defs, FileFetcher& fileFetcher, SDL_Renderer* renderer)
 {
     auto rectResult = CollectRects(defs);
     GG_CHECK(rectResult, "Failed to collect sprite rects");
@@ -235,34 +238,38 @@ SpriteLibLoader::Load(const std::span<const SpriteSheetDef> defs, SDL_Renderer* 
 
     BoundedVector<Sprite::NameType> names = CollectSpriteNames(defs);
 
-    BoundedVector<TexturePath> paths = CollectPaths(defs);
+    const BoundedVector<FilePath> paths = CollectPaths(defs);
 
-    TextureLoader textureLoader(std::move(paths), renderer);
-    GG_CHECK(textureLoader.Start(), "Failed to start texture loader");
+    BoundedVector<TextureLoader> textureLoaders(paths.size());
+
+    for(const FilePath& path : paths)
+    {
+        auto texLoadResult = TextureLoader::Load(path, fileFetcher, renderer);
+        GG_CHECK(texLoadResult, "Failed to load texture: {}", path);
+
+        textureLoaders.emplace_back(std::move(*texLoadResult));
+    }
 
     return SpriteLibLoader(defs.size(),
         std::move(*rectResult),
         std::move(entries),
         std::move(names),
-        std::move(textureLoader));
+        std::move(textureLoaders));
 }
 
 SpriteLibLoader::SpriteLibLoader(const size_t sheetCount,
-        BoundedVector<SDL_FRect>&& spriteRects,
-        BoundedVector<SpriteEntry>&& spriteEntries,
-        BoundedVector<Sprite::NameType>&& spriteNames,
-        TextureLoader&& textureLoader)
-    : m_SpriteRects(std::move(spriteRects)),
+    BoundedVector<SDL_FRect>&& spriteRects,
+    BoundedVector<SpriteEntry>&& spriteEntries,
+    BoundedVector<Sprite::NameType>&& spriteNames,
+    BoundedVector<TextureLoader>&& textureLoaders)
+    : m_TextureLoaders(std::move(textureLoaders)),
+      m_SpriteRects(std::move(spriteRects)),
       m_SpriteEntries(std::move(spriteEntries)),
       m_Sprites(m_SpriteEntries.size()),
       m_Textures(sheetCount),
-      m_SpriteNames(std::move(spriteNames))
+      m_SpriteNames(std::move(spriteNames)),
+      m_Status(Status::Loading)
 {
-    GG_ASSERT(textureLoader.IsPending(), "Texture loader must be pending");
-
-    m_TextureLoader.emplace(std::move(textureLoader));
-
-    m_Status = Status::Loading;
 }
 
 void
@@ -275,49 +282,61 @@ SpriteLibLoader::Update()
 
     if(Status::Loading != m_Status)
     {
-        GG_WARN("Update() called but while not in loading stage");
+        GG_WARN("Update() called while not in loading stage");
         return;
     }
 
-    GG_ASSERT(m_TextureLoader, "Texture loader must be initialized");
+    bool pending = false;
+    for(const TextureLoader& loader : m_TextureLoaders)
+    {
+        if(loader.IsPending())
+        {
+            pending = true;
+            break;
+        }
+    }
 
-    m_TextureLoader->Update();
-
-    if(m_TextureLoader->IsPending())
+    if(pending)
     {
         return;
     }
 
     m_Status = Status::Failed;
 
-    auto textureLibResult = m_TextureLoader->Take();
-
-    // Free the texture loader as we no longer need it after taking the textures.
-    m_TextureLoader.reset();
-
-    if(!textureLibResult)
+    auto cleanup = GG_DEFER
     {
-        GG_ERROR("Failed to take texture library result");
-        return;
-    }
+        // Free resources.
+        auto bye = std::move(m_TextureLoaders);
+    };
 
-    for(TexturePtr& texture : textureLibResult->GetTextures())
+    auto bailOnError = GG_DEFER
     {
-        m_Textures.push_back(std::move(texture));
+        // If we bail due to error then just free everything.
+        auto bye = std::move(m_Textures);
+    };
+
+    for(TextureLoader& loader : m_TextureLoaders)
+    {
+        auto texResult = loader.Take();
+        if(!texResult)
+        {
+            GG_ERROR("Failed to take texture result from loader");
+            return;
+        }
+
+        m_Textures.push_back(std::move(*texResult));
     }
 
     const std::span<const SDL_FRect> spriteRects = m_SpriteRects;
-
-    m_Status = Status::Failed;
 
     for(const SpriteEntry& entry : m_SpriteEntries)
     {
         const size_t spriteIndex = m_Sprites.size();
 
         if(!GG_VERIFY(spriteIndex < m_SpriteNames.size(),
-                      "Mismatch between sprites and sprite names: {} >= {}",
-                      m_Sprites.size(),
-                      m_SpriteNames.size()))
+               "Mismatch between sprites and sprite names: {} >= {}",
+               m_Sprites.size(),
+               m_SpriteNames.size()))
         {
             return;
         }
@@ -325,18 +344,18 @@ SpriteLibLoader::Update()
         const Sprite::NameType& name = *m_SpriteNames.TryGet(spriteIndex);
 
         if(!GG_VERIFY(entry.SheetIndex < m_Textures.size(),
-                      "Invalid texture index in sprite entry: {} ({})",
-                      entry.SheetIndex,
-                      name))
+               "Invalid texture index in sprite entry: {} ({})",
+               entry.SheetIndex,
+               name))
         {
             return;
         }
 
         if(!GG_VERIFY(entry.FrameIndex + entry.FrameCount <= m_SpriteRects.size(),
-                      "Invalid frame span in sprite entry: {}-{} ({})",
-                      entry.FrameIndex,
-                      entry.FrameIndex + entry.FrameCount,
-                      name))
+               "Invalid frame span in sprite entry: {}-{} ({})",
+               entry.FrameIndex,
+               entry.FrameIndex + entry.FrameCount,
+               name))
         {
             return;
         }
@@ -360,13 +379,15 @@ SpriteLibLoader::Update()
         m_Sprites.push_back(std::move(*spriteResult));
     }
 
+    bailOnError.release();
+
     m_Status = Status::Loaded;
 }
 
 bool
 SpriteLibLoader::IsPending() const
 {
-    return m_TextureLoader && m_TextureLoader->IsPending();
+    return m_Status == Status::Loading;
 }
 
 bool
