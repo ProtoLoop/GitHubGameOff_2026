@@ -27,6 +27,13 @@ public:
         }
     }
 
+    template<std::size_t M>
+    //NOLINTNEXTLINE(google-explicit-constructor)
+    constexpr InlineString(const char (&other)[M])
+        : InlineString(std::string_view(&other[0]))
+    {
+    }
+
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr operator std::string_view() const { return std::string_view(data.data(), m_Size); }
 
