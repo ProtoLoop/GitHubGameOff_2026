@@ -1,0 +1,101 @@
+{
+  "format": "mosaic",
+  "version": 4,
+  "gridSize": 64,
+  "tileSize": 64,
+  "tileSheets": [
+    "assets/tiles/dirt_tiles_4x4_256.png",
+    "assets/tiles/grass_tiles_4x4_256.png",
+    "assets/tiles/rock_tiles_4x4_256.png",
+    "assets/tiles/sand_tiles_4x4_256.png"
+  ],
+  "maskSheets": [
+    "assets/masks/alpha-set-a.png",
+    "assets/masks/alpha-set-b.png",
+    "assets/masks/alpha-set-c.png",
+    "assets/masks/alpha-set-d.png"
+  ],
+  "maskMode": "random",
+  "layers": [
+    {
+      "sheet": 2,
+      "cells": []
+    },
+    {
+      "sheet": 0,
+      "cells": []
+    },
+    {
+      "sheet": 1,
+      "cells": [
+        66,
+        69,
+        70,
+        129,
+        131,
+        132,
+        133,
+        134,
+        135,
+        193,
+        195,
+        196,
+        198,
+        199,
+        200,
+        201,
+        202,
+        257,
+        259,
+        261,
+        262,
+        263,
+        264,
+        266,
+        321,
+        322,
+        323,
+        324,
+        325,
+        327,
+        328,
+        329,
+        331,
+        385,
+        386,
+        387,
+        389,
+        390,
+        391,
+        392,
+        393,
+        394,
+        395,
+        451,
+        452,
+        453,
+        454,
+        455,
+        456,
+        457,
+        458,
+        515,
+        516,
+        519,
+        520,
+        521,
+        583,
+        584
+      ]
+    }
+  ],
+  "editor": {
+    "activeLayer": 2,
+    "view": {
+      "zoom": 0.9477110347284867,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "showGrid": false
+    }
+  }
+}

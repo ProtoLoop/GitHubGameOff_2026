@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mosaic</title>
+    <style>
+        :root
+        {
+            color-scheme: dark;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: #111613;
+            color: #e4e8e1;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; }
+        h1, h2, p { margin-top: 0; }
+        h1 { margin: 0; font-size: 22px; letter-spacing: -0.035em; }
+        h2 { margin-bottom: 10px; font-size: 15px; }
+        .hint { color: #9ba89e; font-size: 13px; line-height: 1.5; }
+
+        #mosaic
+        {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+        }
+
+        .project-bar
+        {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) minmax(140px, 240px);
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #2a352d;
+            background: #171e19;
+        }
+
+        .controls, .layer-actions
+        {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        button
+        {
+            padding: 8px 12px;
+            border: 1px solid #3b4940;
+            border-radius: 6px;
+            background: #202922;
+            color: #e4e8e1;
+            font: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        button:disabled { opacity: 0.45; cursor: default; }
+        button[aria-pressed="true"] { border-color: #a4c78a; background: #30432f; }
+        button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible
+        {
+            outline: 2px solid #e2e9d6;
+            outline-offset: 3px;
+        }
+
+        label { display: flex; align-items: center; gap: 8px; color: #cad3ca; min-width: 0; }
+        select, input[type="number"]
+        {
+            min-width: 0;
+            max-width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #3b4940;
+            border-radius: 6px;
+            background: #202922;
+            color: #e4e8e1;
+            font: inherit;
+            font-size: 13px;
+        }
+        #project-dialog
+        {
+            width: min(480px, calc(100vw - 32px));
+            max-height: calc(100dvh - 32px);
+            overflow: auto;
+            padding: 24px;
+            border: 1px solid #3b4940;
+            border-radius: 12px;
+            background: #171e19;
+            color: #e4e8e1;
+        }
+        #project-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+        #project-choice { display: block; width: 100%; margin: 12px 0; }
+        #project-choice option { padding: 8px; }
+        #project-message { display: block; min-height: 3em; margin-bottom: 12px; }
+        .chooser-actions { justify-content: flex-end; }
+        output { color: #a4c78a; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        #save-status { padding: 8px 12px; border-left: 2px solid #a4c78a; font-size: 13px; }
+
+        #editor
+        {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr);
+            min-height: 0;
+        }
+
+        .sidebar
+        {
+            min-width: 0;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+            padding: 16px;
+            border-right: 1px solid #2a352d;
+            background: #141b16;
+        }
+        .sidebar > details { margin-bottom: 24px; }
+        .sidebar > :last-child { margin-bottom: 0; }
+        .settings { display: grid; gap: 12px; }
+        .settings label:not(.checkbox) { display: grid; gap: 6px; font-size: 13px; }
+        summary { cursor: pointer; font-weight: 600; }
+        details[open] summary { margin-bottom: 12px; }
+        #mask-links { overflow-wrap: anywhere; }
+        a { color: #a4c78a; }
+
+        .layer-list { display: grid; gap: 10px; margin-top: 12px; }
+        .layer-card
+        {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid #2a352d;
+            border-radius: 8px;
+            background: #171e19;
+            min-width: 0;
+        }
+        .layer-card strong, .layer-card label, .sheet-info { flex: 1 1 100%; min-width: 0; }
+        .layer-card label { flex-wrap: wrap; font-size: 13px; }
+        .layer-card select { flex: 1; }
+        .sheet-info { overflow-wrap: anywhere; }
+        .layer-actions button { padding: 6px 8px; font-size: 12px; }
+
+        .material-palette { display: flex; flex-wrap: wrap; gap: 8px; }
+        .material-choice { display: flex; padding: 6px; }
+        .material-preview
+        {
+            width: 56px;
+            height: 56px;
+            background-color: #464646;
+            background-position: 0 0;
+            image-rendering: pixelated;
+            border-radius: 4px;
+        }
+
+        .editor-area
+        {
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+            gap: 10px;
+            padding: 16px;
+            min-width: 0;
+            min-height: 0;
+        }
+        .layout
+        {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 240px;
+            gap: 16px;
+            min-height: 0;
+            min-width: 0;
+        }
+        .map-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
+        .canvas-wrap
+        {
+            overflow: auto;
+            padding: 12px;
+            border: 1px solid #2a352d;
+            border-radius: 8px;
+            background-color: #171e19;
+            background-image: radial-gradient(#273229 1px, transparent 1px);
+            background-size: 12px 12px;
+        }
+        canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+        #map { cursor: crosshair; touch-action: none; }
+        .map-surface { position: relative; width: max-content; }
+        #map-grid
+        {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            fill: none;
+            stroke: rgb(230, 238, 225);
+            stroke-width: 1px;
+            shape-rendering: crispEdges;
+        }
+        #map-viewport { min-height: 0; min-width: 0; touch-action: none; overscroll-behavior: contain; }
+        #map-viewport.panning, #map-viewport.panning #map { cursor: grabbing; }
+        .coverage-panel { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+        .coverage-panel .canvas-wrap { overflow: hidden; }
+        #coverage { width: 100%; height: auto; }
+        .map-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+        .map-footer .checkbox { flex: 0 0 auto; font-size: 13px; }
+        #status { display: block; margin: 0; min-width: 0; flex: 1 1 200px; }
+
+        @media (max-width: 1100px)
+        {
+            .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 170px; }
+            .coverage-panel { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: start; }
+        }
+
+        @media (max-width: 900px)
+        {
+            .project-bar { grid-template-columns: minmax(0, 1fr) minmax(140px, 240px); gap: 10px; }
+            .project-bar .controls { grid-column: 1 / -1; grid-row: 2; }
+            #save-status { grid-column: 2; grid-row: 1; }
+            #editor { grid-template-columns: 240px minmax(0, 1fr); }
+        }
+
+        @media (max-width: 650px)
+        {
+            .project-bar { padding: 8px; }
+            .project-bar .controls { gap: 6px; }
+            .project-bar button { padding: 6px 8px; }
+            #editor { grid-template-columns: minmax(140px, 36%) minmax(0, 1fr); }
+            .sidebar, .editor-area { padding: 10px; }
+            .layout { gap: 10px; grid-template-rows: minmax(0, 1fr) 150px; }
+            .coverage-panel { display: block; }
+            .coverage-panel .canvas-wrap { max-width: 120px; }
+            .coverage-panel .hint { display: none; }
+            .material-preview { width: 42px; height: 42px; }
+        }
+    </style>
+</head>
+<body>
+    <main id="mosaic" inert>
+        <header class="project-bar">
+            <h1>Mosaic</h1>
+            <div class="controls" role="group" aria-label="Project controls">
+                <button id="project-open" title="Choose a project to open." type="button">Open Project</button>
+                <button id="project-reload" title="Save pending changes, then reload the current project and its images." type="button">Reload Project</button>
+                <button id="project-undo" title="Undo the last edit (Ctrl/Cmd+Z)." type="button">Undo</button>
+                <button id="project-redo" title="Redo the last undone edit (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)." type="button">Redo</button>
+            </div>
+            <output id="save-status" title="Changes save automatically. Press Ctrl/Cmd+S to save now or retry a failed save." aria-live="polite">Choose a project</output>
+        </header>
+        <div id="editor" inert>
+            <aside class="sidebar" aria-label="Materials and layer settings">
+                <details open aria-labelledby="palette-heading">
+                    <summary id="palette-heading">Material palette</summary>
+                    <div id="material-palette" class="material-palette" role="group" aria-label="Material to edit"></div>
+                </details>
+                <details aria-labelledby="layers-heading">
+                    <summary id="layers-heading">Layer stack</summary>
+                    <button id="add-layer" title="Add an empty layer above the existing layers." type="button">Add layer</button>
+                    <div id="layers" class="layer-list"></div>
+                </details>
+                <details aria-labelledby="settings-heading">
+                    <summary id="settings-heading">Map settings</summary>
+                    <div class="settings">
+                        <label>Mask set
+                            <select id="active-mask" title="Choose the mask sheet used for overlay junctions. Changing this regenerates overlay masks."><option value="random">Random per junction</option></select>
+                        </label>
+                        <label>Tile size (source pixels)
+                            <input id="map-tile-size" title="Source tile size in pixels, shared by every layer. Each sheet must divide into an even grid." type="number" min="1" step="1" value="64">
+                        </label>
+                        <button id="reset" title="Replace the current layers with the sample layout. This edit autosaves and can be undone." type="button">Load sample</button>
+                    </div>
+                </details>
+                <details>
+                    <summary>Help</summary>
+                    <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
+                    <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
+                    <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
+                    <p class="hint">Layers composite from bottom to top. Each square tile sheet must divide into an even grid at the shared tile size. Atlas tiles and junction masks are chosen automatically when painting.</p>
+                    <h2>Mask sheets</h2>
+                    <p id="mask-links" class="hint"></p>
+                </details>
+            </aside>
+            <div class="editor-area" aria-label="Map editor">
+                <div class="layout">
+                    <section class="map-panel" aria-labelledby="map-heading">
+                        <h2 id="map-heading">Tilemap · 64 × 64</h2>
+                        <div id="map-viewport" class="canvas-wrap">
+                            <div class="map-surface">
+                                <canvas id="map" aria-label="Editable 64 by 64 layered material tilemap"></canvas>
+                                <svg id="map-grid" aria-hidden="true" focusable="false"></svg>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="coverage-panel" aria-labelledby="coverage-heading">
+                        <div>
+                            <h2 id="coverage-heading">Selected layer coverage</h2>
+                            <p class="hint">White shows coverage. Transparent areas reveal the layers below.</p>
+                        </div>
+                        <div class="canvas-wrap">
+                            <canvas id="coverage" aria-label="Selected layer alpha mask for the full 64 by 64 tilemap"></canvas>
+                        </div>
+                    </section>
+                </div>
+                <div class="map-footer">
+                    <label class="checkbox"><input id="show-grid" title="Show or hide the grid over the map." type="checkbox" checked> Show grid</label>
+                    <output id="status" class="hint" aria-live="polite">Loading Mosaic assets…</output>
+                </div>
+            </div>
+        </div>
+    </main>
+    <dialog id="project-dialog" aria-labelledby="project-dialog-heading">
+        <h2 id="project-dialog-heading">Open Project</h2>
+        <label for="project-choice">Available projects</label>
+        <select id="project-choice" title="Select a project, then click Open or press Enter." size="8" aria-describedby="project-message"></select>
+        <output id="project-message" class="hint" aria-live="polite">Select a project to open.</output>
+        <div class="controls chooser-actions">
+            <button id="project-refresh" title="Refresh the list of available project folders." type="button">Refresh Projects</button>
+            <button id="project-cancel" title="Close the chooser without opening another project (Escape)." type="button">Cancel</button>
+            <button id="project-confirm" title="Save pending changes and open the selected project." type="button" disabled>Open</button>
+        </div>
+    </dialog>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

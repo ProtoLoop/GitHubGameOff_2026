@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "lib": [
+            "dom",
+            "dom.iterable",
+            "esnext",
+            "deno.ns"
+        ]
+    },
+    "lock": false
+}
