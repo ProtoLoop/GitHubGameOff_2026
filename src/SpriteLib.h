@@ -90,8 +90,6 @@ public:
 
     bool IsPending() const;
 
-    bool IsLoaded() const;
-
     Result<SpriteLib> Take();
 
 private:

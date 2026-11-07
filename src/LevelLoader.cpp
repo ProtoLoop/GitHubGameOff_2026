@@ -43,9 +43,3 @@ LevelLoader::IsPending() const
 {
     return m_Status == Status::FetchingFile || m_Status == Status::LoadingLevel;
 }
-
-bool
-LevelLoader::IsLoaded() const
-{
-    return m_Status == Status::Loaded;
-}

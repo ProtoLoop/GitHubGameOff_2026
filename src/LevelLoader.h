@@ -12,8 +12,6 @@ public:
 
     bool IsPending() const;
 
-    bool IsLoaded() const;
-
 private:
 
     enum class Status

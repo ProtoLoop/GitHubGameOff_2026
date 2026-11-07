@@ -354,16 +354,6 @@ SDL_AppIterate(void* appstate)
                 return SDL_APP_CONTINUE;
             }
 
-            if(!GG_VERIFY(state.SpriteLibLoader->IsLoaded()))
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            if(!GG_VERIFY(state.LevelLoader->IsLoaded()))
-            {
-                return SDL_APP_FAILURE;
-            }
-
             auto spriteLibResult = state.SpriteLibLoader->Take();
             if(!GG_VERIFY(spriteLibResult, "Failed to load sprite lib"))
             {

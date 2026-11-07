@@ -390,19 +390,13 @@ SpriteLibLoader::IsPending() const
     return m_Status == Status::Loading;
 }
 
-bool
-SpriteLibLoader::IsLoaded() const
-{
-    return m_Status == Status::Loaded;
-}
-
 Result<SpriteLib>
 SpriteLibLoader::Take()
 {
     GG_CHECKB(Status::Failed != m_Status, "Sprite lib loading failed");
     GG_CHECKB(Status::Loading != m_Status, "Sprite lib is still loading");
     GG_CHECKB(Status::Taken != m_Status, "Sprite lib has already been taken");
-    GG_CHECKB(Status::Loaded == m_Status, "Sprite lib is not loaded");
+    GG_CHECKB(Status::Loaded == m_Status, "Sprite lib did not load");
 
     m_Status = Status::Taken;
 
