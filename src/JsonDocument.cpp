@@ -55,16 +55,18 @@ JsonValue::JsonValue(
         "Expected a valid JSON value token");
 }
 
-Result<uint32_t>
-JsonValue::AsUint32() const
+Result<>
+JsonValue::TryGetUint32(uint32_t& value) const
 {
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_PRIMITIVE, "Expected token to be a primitive");
 
     const std::string_view sv = TokStr(tok, m_Json);
 
-    uint32_t value = 0;
-    const auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value);
+    //NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
 
     GG_CHECK(ec == std::errc{},
         "Failed to parse number (line:{})",
@@ -73,12 +75,15 @@ JsonValue::AsUint32() const
     GG_CHECK(ptr == sv.data() + sv.size(),
         "Unexpected trailing characters: (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
-    return value;
+
+    return Result<>::Success();
 }
 
-Result<bool>
-JsonValue::AsBool() const
+Result<>
+JsonValue::TryGetBool(bool& value) const
 {
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_PRIMITIVE,
         "Expected token to be a primitive (line:{})",
@@ -88,28 +93,38 @@ JsonValue::AsBool() const
 
     if(sv == "true")
     {
-        return true;
+        value = true;
+
+        return Result<>::Success();
     }
 
     GG_CHECKB(sv == "false", "Invalid boolean value (line:{})", GetLine(m_Index, m_Tokens, m_Json));
 
-    return false;
+    value = false;
+
+    return Result<>::Success();
 }
 
-Result<std::string_view>
-JsonValue::AsString() const
+Result<>
+JsonValue::TryGetString(std::string_view& value) const
 {
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_STRING,
         "Expected token to be a string (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
 
-    return TokStr(tok, m_Json);
+    value = TokStr(tok, m_Json);
+
+    return Result<>::Success();
 }
 
-Result<JsonObject>
-JsonValue::AsObject() const
+Result<>
+JsonValue::TryGetObject(JsonObject& value) const
 {
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_OBJECT,
         "Expected token to be an object (line:{})",
@@ -120,12 +135,15 @@ JsonValue::AsObject() const
         "Object tokens out of bounds: (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
 
-    return JsonObject(m_Index, m_Tokens, m_Json);
+    value = JsonObject(m_Index, m_Tokens, m_Json);
+    return Result<>::Success();
 }
 
-Result<JsonArray>
-JsonValue::AsArray() const
+Result<>
+JsonValue::TryGetArray(JsonArray& value) const
 {
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_ARRAY,
         "Expected value to be an array (line:{})",
@@ -138,23 +156,29 @@ JsonValue::AsArray() const
         "Array tokens out of bounds: (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
 
-    return JsonArray(m_Index, m_Tokens, m_Json);
+    value = JsonArray(m_Index, m_Tokens, m_Json);
+    return Result<>::Success();
 }
 
 /// JsonProperty
 
-Result<std::string_view>
-JsonProperty::Key() const
+Result<>
+JsonProperty::TryGetKey(std::string_view& key) const
 {
-    GG_CHECKB(m_Index < m_Tokens.size(), "JsonProperty value out of bounds");
-    return TokStr(m_Tokens[m_Index], m_Json);
+    GG_CHECKB(m_Index < m_Tokens.size(), "JsonProperty out of bounds");
+
+    key = TokStr(m_Tokens[m_Index], m_Json);
+
+    return Result<>::Success();
 }
 
-Result<JsonValue>
-JsonProperty::Value() const
+Result<>
+JsonProperty::TryGetValue(JsonValue& value) const
 {
-    GG_CHECKB(m_Index + 1 < m_Tokens.size(), "JsonProperty value out of bounds");
-    return JsonValue(m_Index + 1, m_Tokens, m_Json);
+    GG_CHECKB(m_Index + 1 < m_Tokens.size(), "JsonProperty out of bounds");
+
+    value = JsonValue(m_Index + 1, m_Tokens, m_Json);
+    return Result<>::Success();
 }
 
 JsonProperty::JsonProperty(
@@ -197,20 +221,43 @@ template<>
 JsonValue
 JsonIterator<JsonValue>::operator*() const
 {
+    if(!GG_VERIFYB(m_Index < m_Tokens.size(), "JsonValue out of bounds"))
+    {
+        return JsonValue();
+    }
+
     return JsonValue(m_Index, m_Tokens, m_Json);
 }
 
-JsonArray::iterator
+JsonIterator<JsonValue>
 JsonArray::begin() const
 {
+    if(m_Index >= m_Tokens.size() || m_Tokens[m_Index].type != JSMN_ARRAY)
+    {
+        return iterator(m_Index, 0, 0, m_Tokens, m_Json);
+    }
+
     const size_t childTokenCount = static_cast<size_t>(m_Tokens[m_Index].size);
-    return iterator(m_Index + 1, childTokenCount, m_Tokens, m_Json);
+    return iterator(m_Index, m_Index + 1, childTokenCount, m_Tokens, m_Json);
 }
 
-JsonArray::iterator
+JsonIterator<JsonValue>
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 JsonArray::end() const
 {
-    return iterator(0, 0, m_Tokens, m_Json);
+    return iterator(m_Index, 0, 0, m_Tokens, m_Json);
+}
+
+size_t
+JsonArray::size() const
+{
+    size_t count = 0;
+    for(auto it = begin(); it != end(); ++it)
+    {
+        ++count;
+    }
+
+    return count;
 }
 
 JsonArray::JsonArray(
@@ -234,7 +281,7 @@ JsonIterator<JsonProperty>::operator++()
         // m_Tokens[m_Index] is the key token
         // m_Tokens[m_Index + 1] is the value token
 
-        if(!GG_VERIFY(m_Index + 1 < m_Tokens.size(), "JsonObject::iterator out of bounds"))
+        if(!GG_VERIFYB(m_Index + 1 < m_Tokens.size(), "JsonObject::iterator out of bounds"))
         {
             m_Remaining = 0;
             return *this;
@@ -267,6 +314,11 @@ template<>
 JsonProperty
 JsonIterator<JsonProperty>::operator*() const
 {
+    // The current token (they key) and the next token (the value) must exist.
+    if(!GG_VERIFYB(m_Index + 1 < m_Tokens.size(), "JsonProperty value out of bounds"))
+    {
+        return JsonProperty();
+    }
     return JsonProperty(m_Index, m_Tokens, m_Json);
 }
 
@@ -283,14 +335,19 @@ JsonObject::JsonObject(
 JsonObject::iterator
 JsonObject::begin() const
 {
+    if(m_Index + 1 >= m_Tokens.size() || m_Tokens[m_Index].type != JSMN_OBJECT)
+    {
+        return iterator(m_Index, 0, 0, m_Tokens, m_Json);
+    }
+
     const size_t childTokenCount = static_cast<size_t>(m_Tokens[m_Index].size);
-    return iterator(m_Index + 1, childTokenCount, m_Tokens, m_Json);
+    return iterator(m_Index, m_Index + 1, childTokenCount, m_Tokens, m_Json);
 }
 
 JsonObject::iterator
 JsonObject::end() const
 {
-    return iterator(0, 0, m_Tokens, m_Json);
+    return iterator(m_Index, 0, 0, m_Tokens, m_Json);
 }
 
 /// JsonDocument

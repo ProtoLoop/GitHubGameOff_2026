@@ -25,14 +25,15 @@ template<typename T>
 class JsonIterator
 {
 public:
-
     JsonIterator& operator++();
 
     T operator*() const;
 
     friend bool operator==(const JsonIterator& lhs, const JsonIterator& rhs)
     {
-        return lhs.m_Tokens.data() == rhs.m_Tokens.data() && lhs.m_Remaining == rhs.m_Remaining;
+        return lhs.m_ParentTokenIndex == rhs.m_ParentTokenIndex
+            && lhs.m_Tokens.data() == rhs.m_Tokens.data()
+            && lhs.m_Remaining == rhs.m_Remaining;
     }
 
     friend bool operator!=(const JsonIterator& lhs, const JsonIterator& rhs)
@@ -41,22 +42,25 @@ public:
     }
 
 private:
-
     friend class JsonObject;
     friend class JsonArray;
 
-    JsonIterator(const size_t index,
+    JsonIterator(const size_t parentTokenIndex,
+        const size_t index,
         const size_t remaining,
         const std::span<const jsmntok_t> tokens,
         const std::string_view json)
-        : m_Index(index),
+        : m_ParentTokenIndex(parentTokenIndex),
+          m_Index(index),
           m_Remaining(remaining),
           m_Tokens(tokens),
           m_Json(json)
     {
-        GG_ASSERT(m_Index < m_Tokens.size() || m_Remaining == 0,
-            "JsonArray::iterator out of bounds");
+        GG_ASSERT(!m_Tokens.empty() || m_Remaining == 0, "JsonIterator tokens cannot be empty");
+        GG_ASSERT(m_Index < m_Tokens.size() || m_Remaining == 0, "JsonIterator out of bounds");
     }
+
+    size_t m_ParentTokenIndex;
     size_t m_Index;
     size_t m_Remaining; // Remaining elements in the iteration
     std::span<const jsmntok_t> m_Tokens;
@@ -67,20 +71,19 @@ private:
 class JsonValue
 {
 public:
+    JsonValue() = default;
 
-    JsonValue() = delete;
+    Result<> TryGetUint32(uint32_t& value) const;
 
-    Result<uint32_t> AsUint32() const;
-
-    Result<bool> AsBool() const;
+    Result<> TryGetBool(bool& value) const;
 
     /// Convert the JSON value to a string.
     /// Does not handle escape sequences.
-    Result<std::string_view> AsString() const;
+    Result<> TryGetString(std::string_view& value) const;
 
-    Result<JsonObject> AsObject() const;
+    Result<> TryGetObject(JsonObject& value) const;
 
-    Result<JsonArray> AsArray() const;
+    Result<> TryGetArray(JsonArray& value) const;
 
 private:
     friend class JsonProperty;
@@ -89,7 +92,7 @@ private:
     JsonValue(
         const size_t index, const std::span<const jsmntok_t> tokens, const std::string_view json);
 
-    size_t m_Index;
+    size_t m_Index{ 0 };
     std::span<const jsmntok_t> m_Tokens;
     std::string_view m_Json;
 };
@@ -98,14 +101,13 @@ private:
 class JsonProperty
 {
 public:
-
-    JsonProperty() = delete;
+    JsonProperty() = default;
 
     /// Get the key of the JSON property.
     /// Does not handle escape sequences.
-    Result<std::string_view> Key() const;
+    Result<> TryGetKey(std::string_view& key) const;
 
-    Result<JsonValue> Value() const;
+    Result<> TryGetValue(JsonValue& value) const;
 
 private:
     friend class JsonIterator<JsonProperty>;
@@ -113,7 +115,7 @@ private:
     JsonProperty(
         const size_t index, const std::span<const jsmntok_t> tokens, const std::string_view json);
 
-    size_t m_Index;
+    size_t m_Index{ 0 };
     std::span<const jsmntok_t> m_Tokens;
     std::string_view m_Json;
 };
@@ -122,14 +124,17 @@ private:
 class JsonArray
 {
 public:
-
     using iterator = JsonIterator<JsonValue>;
 
-    JsonArray() = delete;
+    JsonArray() = default;
 
     iterator begin() const;
 
     iterator end() const;
+
+    /// Get the number of elements in the JSON array.
+    /// WARNING: This is O(n) where n is the number of elements in the array.
+    size_t size() const;
 
 private:
     friend class JsonValue;
@@ -137,7 +142,7 @@ private:
     JsonArray(
         const size_t index, const std::span<const jsmntok_t> tokens, const std::string_view json);
 
-    size_t m_Index;
+    size_t m_Index{ 0 };
     std::span<const jsmntok_t> m_Tokens;
     std::string_view m_Json;
 };
@@ -146,10 +151,9 @@ private:
 class JsonObject
 {
 public:
-
     using iterator = JsonIterator<JsonProperty>;
 
-    JsonObject() = delete;
+    JsonObject() = default;
 
     iterator begin() const;
 
@@ -161,7 +165,7 @@ private:
 
     JsonObject(const size_t index, std::span<const jsmntok_t> tokens, const std::string_view json);
 
-    size_t m_Index;
+    size_t m_Index{ 0 };
     std::span<const jsmntok_t> m_Tokens;
     std::string_view m_Json;
 };
@@ -175,14 +179,13 @@ private:
 class JsonDocument
 {
 public:
-
     JsonDocument() = delete;
     ~JsonDocument() = default;
     JsonDocument(const JsonDocument&) = delete;
     JsonDocument& operator=(const JsonDocument&) = delete;
     JsonDocument(JsonDocument&&) = default;
     JsonDocument& operator=(JsonDocument&&) = default;
-    
+
     static Result<JsonDocument> Create(std::vector<std::byte> data);
 
     JsonObject GetRootObject() const;

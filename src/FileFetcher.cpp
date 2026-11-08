@@ -1,5 +1,7 @@
 #include "FileFetcher.h"
 
+#include "Shortcuts.h"
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten/fetch.h>
 #include <limits>
@@ -18,13 +20,13 @@ public:
     {
         if(file)
         {
-            //NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+            // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
             std::fclose(file);
         }
     }
 };
 using FilePtr = std::unique_ptr<std::FILE, FileCloser>;
-}
+} // namespace
 
 /// ReleaseFetcher
 
@@ -67,15 +69,15 @@ Result<std::span<const std::byte>>
 FileFetchRequest::GetData() const
 {
     GG_CHECKB(!IsPending(), "Request is still pending");
+    GG_CHECKB(m_Status != Status::Taken, "Data has already been taken");
     GG_CHECK(m_Status == Status::Succeeded, "Request did not succeed");
 
 #ifdef __EMSCRIPTEN__
+    GG_CHECKB(m_Fetch, "Fetch object is null");
     GG_CHECKB(m_Fetch->numBytes <= std::numeric_limits<size_t>::max(),
         "Data size exceeds maximum allowed size");
 
-    const void* p = m_Fetch->data;
-
-    return std::span(static_cast<const std::byte*>(p), static_cast<size_t>(m_Fetch->numBytes));
+    return std::span(recast<const std::byte*>(m_Fetch->data), scast<size_t>(m_Fetch->numBytes));
 #else
 
     return std::span<const std::byte>(m_Data);
@@ -88,22 +90,28 @@ FileFetchRequest::TakeData()
     GG_CHECKB(!IsPending(), "Request is still pending");
     GG_CHECKB(m_Status != Status::Taken, "Data has already been taken");
     GG_CHECK(m_Status == Status::Succeeded, "Request did not succeed");
-    
-    m_Status = Status::Taken;
+
+    std::vector<std::byte> data;
 
 #ifdef __EMSCRIPTEN__
+    GG_CHECKB(m_Fetch, "Fetch object is null");
     GG_CHECKB(m_Fetch->numBytes <= std::numeric_limits<size_t>::max(),
         "Data size exceeds maximum allowed size");
 
-    const void* p = m_Fetch->data;
+    const std::span sp =
+        std::span(recast<const std::byte*>(m_Fetch->data), scast<size_t>(m_Fetch->numBytes));
 
-    const std::span sp = std::span(static_cast<const std::byte*>(p), static_cast<size_t>(m_Fetch->numBytes));
+    data.assign(sp.begin(), sp.end());
 
-    return std::vector<std::byte>(sp.begin(), sp.end());
+    emscripten_fetch_close(m_Fetch);
+    m_Fetch = nullptr;
 #else
 
-    return std::move(m_Data);
+    data = std::move(m_Data);
 #endif
+
+    m_Status = Status::Taken;
+    return std::move(data);
 }
 
 /// FileFetcher
@@ -159,7 +167,7 @@ FileFetcher::Fetch(const FilePath& path)
     }
 
     const FilePath localPath(sv);
-    
+
     const FilePtr file(std::fopen(localPath.c_str(), "rb"));
     GG_CHECKB(file, "Failed to open file: {} - {}", localPath.c_str(), std::strerror(errno));
 
@@ -168,7 +176,7 @@ FileFetcher::Fetch(const FilePath& path)
 
     const std::span buffer(bytes);
 
-    for(; !std::feof(file.get()); )
+    for(; !std::feof(file.get());)
     {
         const auto count = std::fread(buffer.data(), 1, buffer.size(), file.get());
 

@@ -1,54 +1,114 @@
 #include "LevelLoader.h"
 
+#include "BoundedVector.h"
 #include "JsonDocument.h"
 
 #include <optional>
+#include <string_view>
 
 namespace
 {
 
-struct Layer
+class Layer
 {
+public:
+    Layer() = delete;
+    ~Layer() = default;
+    Layer(const Layer&) = delete;
+    Layer& operator=(const Layer&) = delete;
+    Layer(Layer&&) = default;
+    Layer& operator=(Layer&&) = default;
+
+    Layer(uint32_t sheetIndex, BoundedVector<uint32_t>&& cells)
+        : m_SheetIndex(sheetIndex), m_Cells(std::move(cells))
+    {
+    }
+
+    uint32_t GetSheetIndex() const { return m_SheetIndex; }
+    std::span<const uint32_t> GetCells() const { return m_Cells; }
+
+private:
     uint32_t m_SheetIndex;
-    std::vector<uint32_t> m_Cells;
+    BoundedVector<uint32_t> m_Cells;
 };
 
 Result<Layer>
-ParseLayers(const JsonArray& layers)
+ParseLayer(const JsonObject& layer)
 {
-    for(const auto& val : layers)
+    std::optional<uint32_t> sheetIndex;
+    std::optional<JsonArray> cellsArray;
+
+    for(const auto& prop : layer)
     {
-        const auto obj = val.AsObject();
-        GG_CHECK(obj, "Failed to parse layer object");
-        
-        for(const auto& prop : *obj)
+        if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
         {
-            const auto key = prop.Key();
-            GG_CHECK(key, "Failed to get property key");
-            const auto value = prop.Value();
-            GG_CHECK(value, "Failed to get property value");
-            
-            if(*key == "sheet")
+            return Result<>::Fail();
+        }
+        else if(key == "sheet")
+        {
+            GG_CHECKB(!sheetIndex.has_value(), "Duplicate sheet index");
+
+            JsonValue value;
+            if(!GG_VERIFYB(prop.TryGetValue(value), "Failed to get property value")
+                || !GG_VERIFYB(value.TryGetUint32(sheetIndex.emplace()),
+                    "Failed to get sheet index"))
             {
-                const auto sheetIndex = value->AsUint32();
-                GG_CHECK(sheetIndex, "Failed to parse sheet index");
-                GG_INFO("Sheet: {}", *sheetIndex);
+                return Result<>::Fail();
             }
-            else if(*key == "cells")
+        }
+        else if(key == "cells")
+        {
+            GG_CHECKB(!cellsArray.has_value(), "Duplicate cells array");
+
+            JsonValue value;
+            if(!GG_VERIFYB(prop.TryGetValue(value), "Failed to get property value")
+                || !GG_VERIFYB(value.TryGetArray(cellsArray.emplace()),
+                    "Failed to get cells array"))
             {
-                const auto cells = value->AsArray();
-                GG_CHECK(cells, "Failed to parse cells array");
-                for(const auto& cell : *cells)
-                {
-                    const auto cellResult = cell.AsUint32();
-                    GG_CHECK(cellResult, "Failed to parse cell");
-                    GG_INFO("Cell: {}", *cellResult);
-                }
+                return Result<>::Fail();
             }
         }
     }
 
-    return Layer{};
+    GG_CHECKB(sheetIndex.has_value(), "Missing sheet index");
+    GG_CHECKB(cellsArray.has_value(), "Missing cells array");
+
+    const size_t cellCount = cellsArray->size();
+    BoundedVector<uint32_t> cells(cellCount);
+
+    for(const JsonValue& cell : *cellsArray)
+    {
+        uint32_t cellValue{ 0 };
+
+        GG_CHECKB(cell.TryGetUint32(cellValue));
+
+        cells.push_back(cellValue);
+    }
+
+    return Layer{ *sheetIndex, std::move(cells) };
+}
+
+Result<BoundedVector<Layer>>
+ParseLayers(const JsonArray& jsonLayers)
+{
+    const size_t count = jsonLayers.size();
+
+    BoundedVector<Layer> layers(count);
+
+    for(const JsonValue& value : jsonLayers)
+    {
+        JsonObject layer;
+        if(!GG_VERIFYB(value.TryGetObject(layer), "Failed to get layer object"))
+        {
+            return Result<>::Fail();
+        }
+
+        auto layerResult = ParseLayer(layer);
+        GG_CHECKB(layerResult, "Failed to parse layer");
+        layers.push_back(std::move(*layerResult));
+    }
+
+    return std::move(layers);
 }
 
 Result<>
@@ -61,53 +121,77 @@ Parse(std::vector<std::byte> data)
 
     std::optional<uint32_t> gridSize, tileSize;
 
+    std::optional<BoundedVector<std::string_view>> tileSheets;
+    std::optional<BoundedVector<std::string_view>> maskSheets;
+    std::optional<BoundedVector<Layer>> layers;
+
     for(const auto& prop : jobj)
     {
-        const auto key = prop.Key();
-        GG_CHECK(key, "Failed to get property key");
-        const auto& value = prop.Value();
-        GG_CHECK(value, "Failed to get property value");
+        if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
+        {
+            return Result<>::Fail();
+        }
+        else if(JsonValue value;
+            !GG_VERIFYB(prop.TryGetValue(value), "Failed to get property value"))
+        {
+            return Result<>::Fail();
+        }
+        else if(key == "gridSize")
+        {
+            GG_CHECKB(!gridSize.has_value(), "Duplicate \"gridSize\"");
+            GG_CHECKB(value.TryGetUint32(gridSize.emplace()), "Failed to get gridSize");
+        }
+        else if(key == "tileSize")
+        {
+            GG_CHECKB(!tileSize.has_value(), "Duplicate \"tileSize\"");
+            GG_CHECKB(value.TryGetUint32(tileSize.emplace()), "Failed to get tileSize");
+        }
+        else if(key == "tileSheets")
+        {
+            GG_CHECKB(!tileSheets.has_value(), "Duplicate \"tileSheets\"");
 
-        if(*key == "gridSize")
-        {
-            const auto valueResult = value->AsUint32();
-            GG_CHECK(valueResult, "Failed to parse gridSize");
-            gridSize = *valueResult;
-        }
-        else if(*key == "tileSize")
-        {
-            const auto valueResult = value->AsUint32();
-            GG_CHECK(valueResult, "Failed to parse tileSize");
-            tileSize = *valueResult;
-        }
-        else if(*key == "tileSheets")
-        {
-            const auto sheets = value->AsArray();
-            GG_CHECK(sheets, "Failed to parse tileSheets array");
-            for(const auto& sheet : *sheets)
+            JsonArray array;
+            GG_CHECKB(value.TryGetArray(array), "Failed to get tileSheets array");
+
+            const size_t count = array.size();
+
+            tileSheets.emplace(count);
+
+            for(const auto& sheet : array)
             {
-                const auto sheetResult = sheet.AsString();
-                GG_CHECK(sheetResult, "Failed to parse tile sheet");
-                GG_INFO("Parsing tile sheet: {}", *sheetResult);
+                std::string_view str;
+                GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+                tileSheets->push_back(str);
             }
         }
-        else if(*key == "maskSheets")
+        else if(key == "maskSheets")
         {
-            const auto sheets = value->AsArray();
-            GG_CHECK(sheets, "Failed to parse maskSheets array");
-            for(const auto& sheet : *sheets)
+            GG_CHECKB(!maskSheets.has_value(), "Duplicate \"maskSheets\"");
+
+            JsonArray array;
+            GG_CHECKB(value.TryGetArray(array), "Failed to get maskSheets array");
+
+            const size_t count = array.size();
+
+            maskSheets.emplace(count);
+
+            for(const auto& sheet : array)
             {
-                const auto sheetResult = sheet.AsString();
-                GG_CHECK(sheetResult, "Failed to parse tile sheet");
-                GG_INFO("Parsing tile sheet: {}", *sheetResult);
+                std::string_view str;
+                GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+                maskSheets->push_back(str);
             }
         }
-        else if(*key == "layers")
+        else if(key == "layers")
         {
-            auto objResult = value->AsArray();
-            GG_CHECK(objResult, "Failed to parse layer object");
-            const auto layerResult = ParseLayers(*objResult);
+            GG_CHECKB(!layers.has_value(), "Duplicate \"layers\"");
+
+            JsonArray array;
+            GG_CHECK(value.TryGetArray(array), "Failed to get layers array");
+            auto layerResult = ParseLayers(array);
             GG_CHECK(layerResult, "Failed to parse layer");
+
+            layers.emplace(std::move(*layerResult));
         }
     }
 

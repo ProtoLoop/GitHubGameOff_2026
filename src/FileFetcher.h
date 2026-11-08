@@ -48,10 +48,18 @@ public:
 
     bool IsPending() const { return m_Status == Status::Pending; }
 
-    Result<std::span<const std::byte>> GetData() const;
+    /// Borrows the fetched bytes without consuming the request.
+    /// Requires a successful request whose data has not been taken.
+    /// The returned span is valid until TakeData() succeeds or the request is released.
+    /// The FileFetcher must outlive the request and any use of the span.
+    Result<std::span<const std::byte>> GetData() const; // FIXME(KB) - implement borrowing semantics correctly
 
-    /// Takes ownership of the fetched data, returning it as a vector of bytes. This invalidates the
-    /// internal storage.
+    /// Returns independently owned bytes and consumes the request's data.
+    /// Requires a successful request whose data has not been taken.
+    /// Moves the native buffer, or copies the browser buffer and closes the fetch.
+    /// On success, any previous spans borrowed from GetData() become invalid.
+    /// On failure, leaves the request unchanged.
+    /// Does not release the request's pool slot. Release the FetchRequestPtr to do that.
     Result<std::vector<std::byte>> TakeData();
 
 private:
