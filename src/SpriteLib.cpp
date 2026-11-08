@@ -275,7 +275,7 @@ SpriteLibLoader::SpriteLibLoader(const size_t sheetCount,
 void
 SpriteLibLoader::Update()
 {
-    if(!GG_VERIFY(Status::None != m_Status, "SpriteLib has not been loaded"))
+    if(!GG_VERIFYB(Status::None != m_Status, "SpriteLib has not been loaded"))
     {
         return;
     }
@@ -333,7 +333,7 @@ SpriteLibLoader::Update()
     {
         const size_t spriteIndex = m_Sprites.size();
 
-        if(!GG_VERIFY(spriteIndex < m_SpriteNames.size(),
+        if(!GG_VERIFYB(spriteIndex < m_SpriteNames.size(),
                "Mismatch between sprites and sprite names: {} >= {}",
                m_Sprites.size(),
                m_SpriteNames.size()))
@@ -343,7 +343,7 @@ SpriteLibLoader::Update()
 
         const Sprite::NameType& name = *m_SpriteNames.TryGet(spriteIndex);
 
-        if(!GG_VERIFY(entry.SheetIndex < m_Textures.size(),
+        if(!GG_VERIFYB(entry.SheetIndex < m_Textures.size(),
                "Invalid texture index in sprite entry: {} ({})",
                entry.SheetIndex,
                name))
@@ -351,7 +351,7 @@ SpriteLibLoader::Update()
             return;
         }
 
-        if(!GG_VERIFY(entry.FrameIndex + entry.FrameCount <= m_SpriteRects.size(),
+        if(!GG_VERIFYB(entry.FrameIndex + entry.FrameCount <= m_SpriteRects.size(),
                "Invalid frame span in sprite entry: {}-{} ({})",
                entry.FrameIndex,
                entry.FrameIndex + entry.FrameCount,
@@ -361,7 +361,7 @@ SpriteLibLoader::Update()
         }
 
         const TexturePtr* texture = m_Textures.TryGet(entry.SheetIndex);
-        if(!GG_VERIFY(texture, "Failed to get texture at index: {}", entry.SheetIndex))
+        if(!GG_VERIFYB(texture, "Failed to get texture at index: {}", entry.SheetIndex))
         {
             return;
         }

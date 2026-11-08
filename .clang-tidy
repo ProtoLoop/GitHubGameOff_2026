@@ -35,6 +35,7 @@ Checks: >
     -readability-function-cognitive-complexity,
     -readability-use-anyofallof,
     -readability-qualified-auto,
+    -readability-else-after-return,
   google-explicit-constructor,
 
 WarningsAsErrors: '*'

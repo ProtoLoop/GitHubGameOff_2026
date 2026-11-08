@@ -25,7 +25,7 @@ public:
 
     const SDL_FRect& GetRect(const size_t frameIndex) const
     {
-        return GG_VERIFY(frameIndex < m_Rects.size()) ? m_Rects[frameIndex] : m_Rects[0];
+        return GG_VERIFYB(frameIndex < m_Rects.size()) ? m_Rects[frameIndex] : m_Rects[0];
     }
 
 private:

@@ -252,7 +252,7 @@ SDL_AppInit(void** appstate, int, char**)
                      AppState::WindowHeight,
                      SDL_WINDOW_RESIZABLE);
 
-    if(!GG_VERIFY(state.Window))
+    if(!GG_VERIFYB(state.Window))
     {
         GG_ERROR("Window creation failed: {}", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -260,13 +260,13 @@ SDL_AppInit(void** appstate, int, char**)
 
     state.Renderer = SDL_CreateRenderer(state.Window, nullptr);
     //state.Renderer = SDL_CreateGPURenderer(nullptr, state.Window);
-    if(!GG_VERIFY(state.Renderer))
+    if(!GG_VERIFYB(state.Renderer))
     {
         GG_ERROR("Renderer creation failed: {}", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    if(!GG_VERIFY(SDL_SetRenderLogicalPresentation(state.Renderer,
+    if(!GG_VERIFYB(SDL_SetRenderLogicalPresentation(state.Renderer,
         AppState::WindowWidth,
         AppState::WindowHeight,
         SDL_LOGICAL_PRESENTATION_LETTERBOX)))
@@ -284,13 +284,13 @@ SDL_AppInit(void** appstate, int, char**)
     state.SpriteLibLoader =
         SpriteLibLoader::Load(kSpriteSheetDefs, state.FileFetcher, state.Renderer);
 
-    if(!GG_VERIFY(state.SpriteLibLoader))
+    if(!GG_VERIFYB(state.SpriteLibLoader))
     {
         return SDL_APP_FAILURE;
     }
 
     state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", state.FileFetcher);
-    if(!GG_VERIFY(state.LevelLoader))
+    if(!GG_VERIFYB(state.LevelLoader))
     {
         return SDL_APP_FAILURE;
     }
@@ -355,7 +355,7 @@ SDL_AppIterate(void* appstate)
             }
 
             auto spriteLibResult = state.SpriteLibLoader->Take();
-            if(!GG_VERIFY(spriteLibResult, "Failed to load sprite lib"))
+            if(!GG_VERIFYB(spriteLibResult, "Failed to load sprite lib"))
             {
                 return SDL_APP_FAILURE;
             }

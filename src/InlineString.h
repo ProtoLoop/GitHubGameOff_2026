@@ -13,7 +13,7 @@ public:
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr InlineString(const std::string_view str)
     {
-        if(GG_VERIFY(str.size() < N, "String too long for InlineString"))
+        if(GG_VERIFYB(str.size() < N, "String too long for InlineString"))
         {
             std::ranges::copy(str, std::begin(data));
             m_Size = str.size();

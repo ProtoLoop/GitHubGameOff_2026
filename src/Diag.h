@@ -70,11 +70,14 @@ public:
 #define GG_DEBUG_BREAK void(Diag::IsDebuggerAttached() && (SDL_TriggerBreakpoint(), true))
 #endif
 
-#define GG_VERIFY(expr, ...)                                                                       \
+#define GG_VERIFYB(expr, ...)                                                                      \
     (static_cast<bool>(expr) || (__VA_OPT__(GG_ERROR(__VA_ARGS__), ) GG_DEBUG_BREAK, false))
 
+#define GG_VERIFY(expr, ...)                                                                       \
+    (static_cast<bool>(expr) || (__VA_OPT__(GG_ERROR(__VA_ARGS__), ) false))
+
 #ifndef NDEBUG
-#define GG_ASSERT(expr, ...) void(GG_VERIFY(expr __VA_OPT__(, ) __VA_ARGS__))
+#define GG_ASSERT(expr, ...) void(GG_VERIFYB(expr __VA_OPT__(, ) __VA_ARGS__))
 #else
 #define GG_ASSERT(expr, ...) ((void)0)
 #endif

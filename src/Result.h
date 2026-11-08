@@ -99,7 +99,7 @@ private:
     }
 
 #define GG_CHECKB(expr, ...)                                                                       \
-    while(!GG_VERIFY(expr __VA_OPT__(, ) __VA_ARGS__))                                             \
+    while(!GG_VERIFYB(expr __VA_OPT__(, ) __VA_ARGS__))                                             \
     {                                                                                              \
         return Result<>::Fail();                                                                   \
     }

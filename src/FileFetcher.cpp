@@ -113,7 +113,7 @@ FileFetcher::FileFetcher()
     for(size_t i = 0; i < m_RequestHeap.capacity(); ++i)
     {
         const Result<> result = m_RequestHeap.emplace_back(FileFetchRequest::PassKey(this));
-        if(!GG_VERIFY(result))
+        if(!GG_VERIFYB(result))
         {
             continue;
         }
