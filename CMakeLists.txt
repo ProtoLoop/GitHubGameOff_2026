@@ -57,10 +57,14 @@ set(GAMEOFF_SOURCES
     src/InlineVector.h
     src/Input.h
     src/Input.cpp
+    src/jsmn.cpp
+    src/JsonDocument.h
+    src/JsonDocument.cpp
     src/LevelLoader.h
     src/LevelLoader.cpp
     src/main.cpp
     src/Result.h
+    src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp
     src/SpriteLib.h

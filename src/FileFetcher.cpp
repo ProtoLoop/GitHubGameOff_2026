@@ -82,6 +82,30 @@ FileFetchRequest::GetData() const
 #endif
 }
 
+Result<std::vector<std::byte>>
+FileFetchRequest::TakeData()
+{
+    GG_CHECKB(!IsPending(), "Request is still pending");
+    GG_CHECKB(m_Status != Status::Taken, "Data has already been taken");
+    GG_CHECK(m_Status == Status::Succeeded, "Request did not succeed");
+    
+    m_Status = Status::Taken;
+
+#ifdef __EMSCRIPTEN__
+    GG_CHECKB(m_Fetch->numBytes <= std::numeric_limits<size_t>::max(),
+        "Data size exceeds maximum allowed size");
+
+    const void* p = m_Fetch->data;
+
+    const std::span sp = std::span(static_cast<const std::byte*>(p), static_cast<size_t>(m_Fetch->numBytes));
+
+    return std::vector<std::byte>(sp.begin(), sp.end());
+#else
+
+    return std::move(m_Data);
+#endif
+}
+
 /// FileFetcher
 
 FileFetcher::FileFetcher()

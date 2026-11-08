@@ -6,11 +6,10 @@
 
 #include <memory>
 #include <span>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
 struct emscripten_fetch_t;
-#else
-#include <vector>
 #endif
 
 static constexpr size_t kMaxFilePathLength = 256 - 1;
@@ -50,6 +49,10 @@ public:
     bool IsPending() const { return m_Status == Status::Pending; }
 
     Result<std::span<const std::byte>> GetData() const;
+
+    /// Takes ownership of the fetched data, returning it as a vector of bytes. This invalidates the
+    /// internal storage.
+    Result<std::vector<std::byte>> TakeData();
 
 private:
     friend class FileFetcher;
@@ -95,7 +98,8 @@ private:
         None,
         Pending,
         Succeeded,
-        Failed
+        Failed,
+        Taken
     };
 
     FileFetchRequest* m_Next{ nullptr };
