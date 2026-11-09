@@ -136,6 +136,8 @@ Result<FetchRequestPtr>
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 FileFetcher::Fetch(const FilePath& path)
 {
+    GG_INFO("Fetching: {}", path.c_str());
+
     GG_CHECKB(m_FreeList, "Fetch request pool exhausted");
 
     FileFetchRequest* request = m_FreeList;
@@ -240,7 +242,7 @@ FileFetcher::onSuccess(emscripten_fetch_t* fetch)
         return;
     }
 
-    GG_INFO("Fetch succeeded: {}", request->GetPath());
+    GG_INFO("Fetched: {}", request->GetPath());
 
     request->m_Status = FileFetchRequest::Status::Succeeded;
 

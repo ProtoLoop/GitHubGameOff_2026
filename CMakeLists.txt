@@ -26,6 +26,19 @@ if(EMSCRIPTEN)
 endif()
 add_subdirectory(thirdparty/SDL EXCLUDE_FROM_ALL SYSTEM)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC CACHE STRING "Build static Dawn" FORCE)
+set(DAWN_FETCH_DEPENDENCIES ON CACHE BOOL "Fetch Dawn dependencies" FORCE)
+set(DAWN_BUILD_SAMPLES OFF CACHE BOOL "Disable Dawn samples" FORCE)
+set(DAWN_BUILD_TESTS OFF CACHE BOOL "Disable Dawn tests" FORCE)
+set(TINT_BUILD_TESTS OFF CACHE BOOL "Disable Tint tests" FORCE)
+set(DAWN_USE_GLFW OFF CACHE BOOL "Disable GLFW" FORCE)
+
+add_subdirectory(thirdparty/dawn EXCLUDE_FROM_ALL SYSTEM)
+target_compile_definitions(dawn_utils_config INTERFACE
+    "$<$<CONFIG:Debug>:DAWN_ENABLE_ASSERTS>"
+)
+
 # Enable analysis after third-party targets and before project targets are created.
 option(ENABLE_CLANG_TIDY "Analyze project code with clang-tidy" ON)
 if(ENABLE_CLANG_TIDY)
@@ -64,6 +77,8 @@ set(GAMEOFF_SOURCES
     src/LevelLoader.cpp
     src/main.cpp
     src/Result.h
+    src/Scene.h
+    src/Scene.cpp
     src/Shortcuts.h
     src/SpriteLib.h
     src/SpriteLib.cpp
@@ -72,10 +87,17 @@ set(GAMEOFF_SOURCES
     src/stb_image.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
+    src/WebGpu.h
+    src/WebGpu.cpp
 )
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
+if(EMSCRIPTEN)
+    target_link_libraries(gameoff2026 PRIVATE emdawnwebgpu_cpp)
+else()
+    target_link_libraries(gameoff2026 PRIVATE dawn::webgpu_dawn)
+endif()
 target_include_directories(gameoff2026 SYSTEM PRIVATE thirdparty/stb thirdparty/jsmn)
 set_target_properties(gameoff2026 PROPERTIES
     CXX_STANDARD 23
@@ -97,7 +119,10 @@ set_source_files_properties(src/stb_image.cpp PROPERTIES SKIP_LINTING ON)
 
 if(EMSCRIPTEN)
     set_target_properties(gameoff2026 PROPERTIES OUTPUT_NAME index SUFFIX ".html")
+    set(GAMEOFF_WEB_SHELL "${CMAKE_CURRENT_SOURCE_DIR}/web/index.html")
+    set_property(TARGET gameoff2026 APPEND PROPERTY LINK_DEPENDS "${GAMEOFF_WEB_SHELL}")
     target_link_options(gameoff2026 PRIVATE
+        "SHELL:--shell-file \"${GAMEOFF_WEB_SHELL}\""
         "-sALLOW_MEMORY_GROWTH=1"
         "-sFETCH=1"
         "-sSTACK_OVERFLOW_CHECK=2"

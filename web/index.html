@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GraveyardShift</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        padding: 20px;
+        background: #16181d;
+        color: #e8e9ed;
+        font-family: system-ui, sans-serif;
+      }
+      h1 { margin: 0 0 16px; font-size: 20px; }
+      main {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+      figure { margin: 0; min-width: 0; }
+      figcaption { margin-bottom: 8px; }
+      canvas {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border: 0;
+        padding: 0;
+        background: #000;
+      }
+      #canvas { touch-action: none; }
+      #status { min-height: 1.5em; color: #b5b9c5; }
+      @media (max-width: 700px) {
+        main { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GraveyardShift</h1>
+    <main>
+      <figure>
+        <figcaption>SDL</figcaption>
+        <canvas id="canvas" width="800" height="600" tabindex="0"
+                aria-label="SDL game view"></canvas>
+      </figure>
+      <figure>
+        <figcaption>WebGPU</figcaption>
+        <canvas id="webgpu-canvas" width="800" height="600"
+                aria-label="WebGPU game view"></canvas>
+      </figure>
+    </main>
+    <p id="status" role="status">Loading…</p>
+    <script>
+      const sdlCanvas = document.getElementById('canvas');
+      const webgpuCanvas = document.getElementById('webgpu-canvas');
+      const statusElement = document.getElementById('status');
+
+      // SDL owns the input canvas and its backing size. Mirror that size for comparison.
+      function syncCanvasSize() {
+        if (webgpuCanvas.width !== sdlCanvas.width) {
+          webgpuCanvas.width = sdlCanvas.width;
+        }
+        if (webgpuCanvas.height !== sdlCanvas.height) {
+          webgpuCanvas.height = sdlCanvas.height;
+        }
+      }
+      const sizeObserver = new MutationObserver(syncCanvasSize);
+      sizeObserver.observe(sdlCanvas, {
+        attributes: true,
+        attributeFilter: ['width', 'height']
+      });
+      syncCanvasSize();
+      sdlCanvas.addEventListener('contextmenu', event => event.preventDefault());
+
+      var Module = {
+        canvas: sdlCanvas,
+        print: (...args) => console.log(...args),
+        printErr: (...args) => console.error(...args),
+        setStatus: text => { statusElement.textContent = text; },
+        onAbort: reason => {
+          statusElement.textContent = `Application stopped: ${reason}. See the browser console.`;
+        }
+      };
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>

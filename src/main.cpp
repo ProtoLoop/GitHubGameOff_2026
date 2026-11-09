@@ -3,11 +3,12 @@
 #include "Angle.h"
 #include "Input.h"
 #include "LevelLoader.h"
+#include "Scene.h"
 #include "SpriteLib.h"
+#include "WebGpu.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <limits>
 #include <numbers>
 #include <optional>
 #include <SDL3/SDL.h>
@@ -65,12 +66,15 @@ struct AppState
     enum class Stage
     {
         None,
+        InitializingWebGpu,
         Loading,
         Running,
     };
 
     SDL_Window* Window = nullptr;
     SDL_Renderer* Renderer = nullptr;
+    WebGpu WebGpu;
+    Result<Scene> Scene;
     FileFetcher FileFetcher;
     Result<SpriteLibLoader> SpriteLibLoader;
     Result<LevelLoader> LevelLoader;
@@ -147,21 +151,12 @@ SDL_AppInit(void** appstate, int, char**)
         GG_WARN("Vsync unavailable: {}", SDL_GetError());
     }
 
-    state.SpriteLibLoader =
-        SpriteLibLoader::Load(kSpriteSheetDefs, state.FileFetcher, state.Renderer);
-
-    if(!GG_VERIFYB(state.SpriteLibLoader))
+    if(!state.WebGpu.Start(state.Window))
     {
         return SDL_APP_FAILURE;
     }
 
-    state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", state.FileFetcher);
-    if(!GG_VERIFYB(state.LevelLoader))
-    {
-        return SDL_APP_FAILURE;
-    }
-
-    state.m_Stage = AppState::Stage::Loading;
+    state.m_Stage = AppState::Stage::InitializingWebGpu;
 
     *appstate = &state;
     return SDL_APP_CONTINUE;
@@ -202,10 +197,43 @@ SDL_AppIterate(void* appstate)
         return SDL_APP_SUCCESS;
     }
 
+    // Call every frame to catch device lost.
+    if(!state.WebGpu.Update())
+    {
+        return SDL_APP_FAILURE;
+    }
+
     switch(state.m_Stage)
     {
         case AppState::Stage::None:
             break;
+        case AppState::Stage::InitializingWebGpu:
+        {
+            if(!state.WebGpu.IsReady())
+            {
+                return SDL_APP_CONTINUE;
+            }
+
+            state.Scene = Scene::Create(state.WebGpu);
+            if(!state.Scene)
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            state.SpriteLibLoader =
+                SpriteLibLoader::Load(kSpriteSheetDefs, state.FileFetcher, state.Renderer);
+            if(!state.SpriteLibLoader)
+            {
+                return SDL_APP_FAILURE;
+            }
+            state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", state.FileFetcher);
+            if(!state.LevelLoader)
+            {
+                return SDL_APP_FAILURE;
+            }
+            state.m_Stage = AppState::Stage::Loading;
+            return SDL_APP_CONTINUE;
+        }
         case AppState::Stage::Loading:
         {
             if(state.SpriteLibLoader->IsPending())
@@ -339,6 +367,16 @@ SDL_AppIterate(void* appstate)
         || !SDL_RenderPresent(state.Renderer))
     {
         GG_ERROR("Rendering failed: {}", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    if(!GG_VERIFYB(state.Scene->Render(state.WebGpu), "Failed to render scene"))
+    {
+        return SDL_APP_FAILURE;
+    }
+    
+    if(!GG_VERIFYB(state.WebGpu.Present(), "Failed to present swapchain texture"))
+    {
         return SDL_APP_FAILURE;
     }
 

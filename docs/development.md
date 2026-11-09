@@ -47,7 +47,7 @@ on `PATH`, including in VS Code's environment.
 
 | Tool | Used for |
 | --- | --- |
-| Git | Cloning the project and initializing the pinned SDL, stb, and jsmn submodules |
+| Git | Cloning the project and initializing the pinned SDL, stb, jsmn, and Dawn submodules |
 | CMake 3.27 or newer | Configuring native and web builds |
 | Ninja | Building with Ninja Multi-Config |
 | Python 3 | Running the web compiler and serving browser builds locally |
@@ -68,7 +68,7 @@ on the first web configure. No separate SDK manager, Node installation, or npm
 install is needed. That first configure needs internet access or the
 [cached toolchain archives](#toolchain-cache-and-offline-builds).
 
-Initialize the pinned SDL and stb submodules after cloning:
+Initialize the pinned submodules after cloning:
 
 ```sh
 git submodule update --init --recursive
@@ -77,8 +77,8 @@ git submodule update --init --recursive
 ## Build structure
 
 The root [CMakeLists.txt](../CMakeLists.txt) builds one C++ executable,
-`gameoff2026`, and its static SDL dependency. CMake also enables C because SDL
-contains C sources. The reasons for this structure are recorded in
+`gameoff2026`, with static SDL and native Dawn dependencies. CMake also enables C
+because SDL contains C sources. The reasons for this structure are recorded in
 [architecture decisions](architecture/decisions.md#bootstrap-platform-and-build-foundation).
 
 Use Ninja Multi-Config. Each platform has its own configure step, CMake cache,
@@ -128,6 +128,14 @@ The game uses `jsmn.h` directly for JSON tokenization, and the jsmn include
 directory is treated as a system include directory. jsmn has no third-party
 runtime dependencies. Its MIT notice is included in
 [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
+
+`thirdparty/dawn` is a Git submodule of `https://github.com/google/dawn.git`,
+pinned to release `v20261106.204713` at
+`797946823414be58054116de563d9ec4636dcb2e`. Initialize it with the other submodules.
+CMake fetches Dawn's dependencies at the revisions in its `DEPS` file, so the
+first configure needs network access. Native builds link static
+`dawn::webgpu_dawn`. Browser builds use `emdawnwebgpu_cpp`. Bundled notices are
+included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
 
 ## Asset locations
 
@@ -182,7 +190,8 @@ Keep these files together when hosting the game, and include
 
 Publish the required assets as described in [Asset locations](#asset-locations).
 
-The bootstrap uses Emscripten's default HTML shell and has no worker threads.
+The browser build uses the custom [HTML shell](../web/index.html), with separate
+SDL and WebGPU canvases, and has no worker threads.
 Keep native and browser build trees separate. When changing toolchains, use a
 fresh build directory.
 
@@ -369,6 +378,9 @@ in VS Code while the game runs in Chrome. See
 SDL drives initialization, events, frames, and shutdown on both native and browser
 targets, allowing the browser event loop to schedule frames. The application
 releases its window and renderer before SDL shuts down.
+
+The app initializes WebGPU asynchronously before loading assets. SDL continues
+to handle rendering and presentation.
 
 The smoke test uses SDL's 2D renderer with a fixed logical canvas and letterboxing.
 Vsync is requested but is not required for startup. The browser build is
