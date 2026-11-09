@@ -1,13 +1,10 @@
 #pragma once
 
 #include "BoundedVector.h"
-#include "Result.h"
-#include "Sprite.h"
+#include "SpriteSheet.h"
 #include "TextureLoader.h"
 
 #include <string_view>
-#include <variant>
-#include <vector>
 
 struct RectDef
 {
@@ -17,69 +14,49 @@ struct RectDef
     uint32_t Height;
 };
 
-/// Defines a sequence of sprite frames by specifying
-/// the rectangle enclosing all frames and the number of frames.
-/// Frames move horizontally, left to right, within the rectangle.
-/// The height of each frame is the height of the rectangle.
-/// The width of each frame is the width of the rectangle divided by the number of frames.
-struct SpriteFrameDef
+struct Dimension2Def
 {
-    /// The rectangle enclosing all frames of this sprite.
-    RectDef Rect;
-    /// The number of frames in this sprite.
-    uint32_t Count;
-};
-
-struct SpriteFrameListDef
-{
-    std::vector<RectDef> Rects;
-};
-
-struct SpriteDef
-{
-    Sprite::NameType Name;
-    std::variant<SpriteFrameListDef, SpriteFrameDef> Frames;
+    uint32_t Width;
+    uint32_t Height;
 };
 
 struct SpriteSheetDef
 {
     FilePath Path;
-    std::vector<SpriteDef> Sprites;
+    SpriteSheet::NameType Name;
+    /// The rectangle enclosing the sprite sheet.
+    /// Could be a subrectangle of the full atlas texture.
+    /// If width/height are zero, the full texture dimensions will be used.
+    RectDef SheetRect{};
+    Dimension2Def SpriteDims{};
 };
 
 class SpriteLib
 {
 public:
-
     SpriteLib() = default;
 
-    Result<const Sprite*> GetSprite(const std::string_view name) const;
-    Result<const Sprite*> GetSprite(const Sprite::NameType& name) const;
+    Result<const SpriteSheet*> GetSpriteSheet(const std::string_view name) const;
 
 private:
-
     friend class SpriteLibLoader;
 
-    SpriteLib(BoundedVector<TexturePtr>&& textures,
-        BoundedVector<SDL_FRect>&& spriteRects,
-        BoundedVector<Sprite::NameType>&& spriteNames,
-        BoundedVector<Sprite>&& sprites);
+    SpriteLib(BoundedVector<TexturePtr>&& textures, BoundedVector<SpriteSheet>&& spriteSheets);
 
-    BoundedVector<TexturePtr> m_Textures{0};
-    BoundedVector<SDL_FRect> m_SpriteRects{0};
-    BoundedVector<Sprite::NameType> m_SpriteNames{0};
-    BoundedVector<Sprite> m_Sprites{0};
+    BoundedVector<TexturePtr> m_Textures{ 0 };
+    BoundedVector<SpriteSheet> m_SpriteSheets{ 0 };
 };
 
 class SpriteLibLoader
 {
 public:
-
-    struct SpriteEntry
+    struct SpriteSheetInfo
     {
-        uint32_t SheetIndex{ 0 };
-        uint32_t FrameIndex{ 0 };
-        uint32_t FrameCount{ 0 };
+        SpriteSheet::NameType Name;
+        uint32_t AtlasIndex{ 0 };
+        SDL_FRect SheetRect{};
+        uint32_t SpriteWidth{ 0 };
+        uint32_t SpriteHeight{ 0 };
     };
 
     static Result<SpriteLibLoader> Load(const std::span<const SpriteSheetDef> defs,
@@ -102,19 +79,13 @@ private:
         Taken
     };
 
-    SpriteLibLoader(const size_t sheetCount,
-        BoundedVector<SDL_FRect>&& spriteRects,
-        BoundedVector<SpriteEntry>&& spriteEntries,
-        BoundedVector<Sprite::NameType>&& spriteNames,
+    SpriteLibLoader(BoundedVector<SpriteSheetInfo>&& spriteSheets,
         BoundedVector<TextureLoader>&& textureLoaders);
 
     BoundedVector<TextureLoader> m_TextureLoaders;
 
-    BoundedVector<SDL_FRect> m_SpriteRects;
-    BoundedVector<SpriteEntry> m_SpriteEntries;
-    BoundedVector<Sprite> m_Sprites;
+    BoundedVector<SpriteSheetInfo> m_SpriteSheetInfos;
     BoundedVector<TexturePtr> m_Textures;
-    BoundedVector<Sprite::NameType> m_SpriteNames;
 
     Status m_Status{ Status::None };
 };

@@ -21,147 +21,13 @@ const SpriteSheetDef kSpriteSheetDefs[] //
     {
         {
             .Path{ "/assets/male_hero-walk.png" },
-            .Sprites //
-            {
-                {
-                    .Name{ "male_hero-walk" },
-                    .Frames = SpriteFrameListDef //
-                    {
-                        .Rects//
-                        {
-                            { .X = 0, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 128, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 256, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 384, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 512, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 640, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 768, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 896, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 1024, .Y = 0, .Width = 128, .Height = 128 },
-                            { .X = 1152, .Y = 0, .Width = 128, .Height = 128 },
-                        },
-                    },
-                },            }
+            .Name{ "male_hero-walk" },
+            .SpriteDims{ .Width = 128, .Height = 128 },
         },
-        /*{
-            .Path{ "/assets/walk.png" },
-            .Sprites //
-            {
-                {
-                    .Name{ "walk-down" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-down-left" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 1 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up-left" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 2 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 3 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up-right" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 4 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-down-right" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 5 * 64, .Width = 384, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-            },
-        },*/
         {
             .Path{ "/assets/lost_soul_east_8x64_clean_feet.png" },
-            .Sprites //
-            {
-                {
-                    .Name{ "walk-down" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-down-left" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up-left" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-up-right" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-                {
-                    .Name{ "walk-down-right" },
-                    .Frames =
-                        SpriteFrameDef //
-                    {
-                        .Rect = { .X = 0, .Y = 0 * 64, .Width = 512, .Height = 64 },
-                        .Count = 8,
-                    },
-                },
-            },
+            .Name{ "lost_soul" },
+            .SpriteDims{ .Width = 64, .Height = 64 },
         },
     };
 
@@ -171,8 +37,8 @@ struct AppState
     static constexpr int WindowWidth = 800;
     static constexpr int WindowHeight = 600;
 
-//constexpr int WindowWidth = 960;
-//constexpr int WindowHeight = 540;
+    // constexpr int WindowWidth = 960;
+    // constexpr int WindowHeight = 540;
 
     AppState() = default;
     AppState(const AppState&) = delete;
@@ -248,9 +114,9 @@ SDL_AppInit(void** appstate, int, char**)
     AppState& state = *g_AppState;
 
     state.Window = SDL_CreateWindow(AppState::WindowTitle,
-                     AppState::WindowWidth,
-                     AppState::WindowHeight,
-                     SDL_WINDOW_RESIZABLE);
+        AppState::WindowWidth,
+        AppState::WindowHeight,
+        SDL_WINDOW_RESIZABLE);
 
     if(!GG_VERIFYB(state.Window))
     {
@@ -259,7 +125,7 @@ SDL_AppInit(void** appstate, int, char**)
     }
 
     state.Renderer = SDL_CreateRenderer(state.Window, nullptr);
-    //state.Renderer = SDL_CreateGPURenderer(nullptr, state.Window);
+    // state.Renderer = SDL_CreateGPURenderer(nullptr, state.Window);
     if(!GG_VERIFYB(state.Renderer))
     {
         GG_ERROR("Renderer creation failed: {}", SDL_GetError());
@@ -267,9 +133,9 @@ SDL_AppInit(void** appstate, int, char**)
     }
 
     if(!GG_VERIFYB(SDL_SetRenderLogicalPresentation(state.Renderer,
-        AppState::WindowWidth,
-        AppState::WindowHeight,
-        SDL_LOGICAL_PRESENTATION_LETTERBOX)))
+           AppState::WindowWidth,
+           AppState::WindowHeight,
+           SDL_LOGICAL_PRESENTATION_LETTERBOX)))
     {
         GG_ERROR("Failed to set logical presentation for renderer: {}", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -364,25 +230,12 @@ SDL_AppIterate(void* appstate)
             state.SpriteLibLoader = {};
             state.m_Stage = AppState::Stage::Running;
         }
-            break;
+        break;
         case AppState::Stage::Running:
             break;
     }
 
-    static constexpr std::string_view kSpriteDirNames[]//
-    {
-        "walk-up",
-        "walk-up-right",
-        "walk-down-right",
-        "walk-down",
-        "walk-down-left",
-        "walk-up-left",
-    };
-
-    static std::string_view spriteName = kSpriteDirNames[0];
-
     static constexpr float kTurnsPerSec = 1;
-    static constexpr uint32_t kNumDirs = std::size(kSpriteDirNames);
 
     constexpr uint64_t kAnimFps = 10;
     constexpr uint64_t kmspf = 1000 / kAnimFps;
@@ -405,22 +258,18 @@ SDL_AppIterate(void* appstate)
 
     if(state.Input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
-        spriteName = "walk-up-left";
         state.PlayerLoc.x -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveRight, value))
     {
-        spriteName = "walk-up-right";
         state.PlayerLoc.x += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveForward, value))
     {
-        spriteName = "walk-up";
         state.PlayerLoc.y -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
-        spriteName = "walk-down";
         state.PlayerLoc.y += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::RotateLeft, value))
@@ -438,10 +287,10 @@ SDL_AppIterate(void* appstate)
 
     constexpr int halfSquareSize = SquareSize / 2;
 
-    state.PlayerLoc.x =
-        std::min(std::max(state.PlayerLoc.x, halfSquareSize), AppState::WindowWidth - halfSquareSize);
-    state.PlayerLoc.y =
-        std::min(std::max(state.PlayerLoc.y, halfSquareSize), AppState::WindowHeight - halfSquareSize);
+    state.PlayerLoc.x = std::min(std::max(state.PlayerLoc.x, halfSquareSize),
+        AppState::WindowWidth - halfSquareSize);
+    state.PlayerLoc.y = std::min(std::max(state.PlayerLoc.y, halfSquareSize),
+        AppState::WindowHeight - halfSquareSize);
 
     const SDL_FRect square //
         {
@@ -451,14 +300,16 @@ SDL_AppIterate(void* appstate)
             .h = SquareSize,
         };
 
-    const uint32_t dirIndex = state.PlayerRot.GetDirection(kNumDirs);
-    spriteName = kSpriteDirNames[dirIndex];
-    const auto spriteResult = state.SpriteLib.GetSprite(spriteName);
-    GG_ASSERT(spriteResult, "Failed to get sprite");
+    const auto spriteSheetResult = state.SpriteLib.GetSpriteSheet("lost_soul");
+    GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
 
-    const Sprite* sprite = *spriteResult;
+    const SpriteSheet* spriteSheet = *spriteSheetResult;
+    const uint32_t dirIndex = state.PlayerRot.GetDirection(spriteSheet->GetRowCount());
+    const uint32_t animFrame = frame % spriteSheet->GetColCount();
+    const auto srcRectResult = spriteSheet->GetFrameRect(dirIndex, animFrame);
+    GG_ASSERT(srcRectResult);
 
-    const SDL_FRect srcRect = sprite->GetRect(frame % sprite->GetFrameCount());
+    const SDL_FRect srcRect = *srcRectResult;
 
     const SDL_FRect dstRect //
         {
@@ -468,18 +319,14 @@ SDL_AppIterate(void* appstate)
             .h = static_cast<float>(srcRect.h),
         };
 
+    SDL_Texture* texture = spriteSheet->GetTexture();
+
     auto renderSprite = [&]()
     {
-        if(sprite)
+        if(!SDL_RenderTexture(state.Renderer, texture, &srcRect, &dstRect))
         {
-            if(!SDL_RenderTexture(state.Renderer,
-                   sprite->GetTexture(),
-                   &srcRect,
-                   &dstRect))
-            {
-                GG_ERROR("Failed to render texture: {}", SDL_GetError());
-                return false;
-            }
+            GG_ERROR("Failed to render texture: {}", SDL_GetError());
+            return false;
         }
         return true;
     };

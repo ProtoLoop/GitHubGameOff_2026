@@ -3,15 +3,15 @@
 #include <SDL3/SDL_messagebox.h>
 
 #if defined(_WIN32)
-    #include <Windows.h>
+#include <Windows.h>
 #elif defined(__linux__)
-    #include <fstream>
-    #include <sstream>
-    #include <string>
+#include <fstream>
+#include <sstream>
+#include <string>
 #elif defined(__APPLE__)
-    #include <sys/types.h>
-    #include <sys/sysctl.h>
-    #include <unistd.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 bool
@@ -49,7 +49,8 @@ Diag::IsDebuggerAttached()
         return false;
     }
 
-    return (info.kp_proc.p_flag & P_TRACED) != 0;
+    const bool is_traced = (info.kp_proc.p_flag & P_TRACED) != 0;
+    return is_traced;
 
 #else
     return false;
@@ -59,8 +60,5 @@ Diag::IsDebuggerAttached()
 void
 Diag::ShowAlert()
 {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-        "Error",
-        "There was an error",
-        nullptr);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "There was an error", nullptr);
 }

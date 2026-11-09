@@ -65,10 +65,10 @@ set(GAMEOFF_SOURCES
     src/main.cpp
     src/Result.h
     src/Shortcuts.h
-    src/Sprite.h
-    src/Sprite.cpp
     src/SpriteLib.h
     src/SpriteLib.cpp
+    src/SpriteSheet.h
+    src/SpriteSheet.cpp
     src/stb_image.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
