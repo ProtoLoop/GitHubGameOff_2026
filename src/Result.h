@@ -8,7 +8,7 @@ template<class T = void>
 class [[nodiscard]] Result;
 
 template<>
-class Result<void>
+class [[nodiscard]] Result<void>
 {
 public:
     struct Error
@@ -41,7 +41,7 @@ private:
 };
 
 template<class T>
-class Result
+class [[nodiscard]] Result
 {
     using Storage = std::expected<T, Result<>::Error>;
 

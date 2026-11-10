@@ -85,8 +85,6 @@ set(GAMEOFF_SOURCES
     src/SpriteSheet.h
     src/SpriteSheet.cpp
     src/stb_image.cpp
-    src/TextureLoader.h
-    src/TextureLoader.cpp
     src/WebGpu.h
     src/WebGpu.cpp
 )

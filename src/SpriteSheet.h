@@ -4,8 +4,7 @@
 #include "Result.h"
 
 #include <SDL3/SDL_rect.h>
-
-struct SDL_Texture;
+#include <webgpu/webgpu_cpp.h>
 
 class SpriteSheet
 {
@@ -16,6 +15,12 @@ public:
 
     SpriteSheet() = delete;
 
+    SpriteSheet(const NameType& name,
+        const uint32_t atlasIndex,
+        const SDL_FRect& rect,
+        const uint32_t frameWidth,
+        const uint32_t frameHeight);
+
     const NameType& GetName() const { return m_Name; }
 
     uint32_t GetRowCount() const { return m_RowCount; }
@@ -24,19 +29,13 @@ public:
 
     Result<SDL_FRect> GetFrameRect(const uint32_t row, const uint32_t col) const;
 
-    SDL_Texture* GetTexture() const { return m_Texture; }
-
 private:
     friend class SpriteLibLoader;
 
-    SpriteSheet(const NameType& name,
-        SDL_Texture* texture,
-        const SDL_FRect& rect,
-        const uint32_t frameWidth,
-        const uint32_t frameHeight);
-
     NameType m_Name;
-    SDL_Texture* m_Texture;
+    // Index into the webgpu texture array - passed to the shader.
+    // Used by the sampler.
+    uint32_t m_AtlasIndex;
     SDL_FRect m_SheetRect;
     uint32_t m_FrameWidth;
     uint32_t m_FrameHeight;

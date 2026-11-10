@@ -3,12 +3,12 @@
 #include <SDL3/SDL_render.h>
 
 SpriteSheet::SpriteSheet(const NameType& name,
-    SDL_Texture* texture,
+    const uint32_t atlasIndex,
     const SDL_FRect& rect,
     const uint32_t frameWidth,
     const uint32_t frameHeight)
     : m_Name(name),
-      m_Texture(texture),
+      m_AtlasIndex(atlasIndex),
       m_SheetRect(rect),
       m_FrameWidth(frameWidth),
       m_FrameHeight(frameHeight),

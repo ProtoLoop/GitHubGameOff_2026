@@ -10,7 +10,7 @@
 
 namespace
 {
-constexpr wgpu::TextureFormat kRenderTargetFormat = wgpu::TextureFormat::RGBA8Unorm;
+constexpr wgpu::TextureFormat kDefaultTextureFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
 
 bool
 TryGetWindowDims(SDL_Window* window, uint32_t& width, uint32_t& height)
@@ -45,23 +45,14 @@ GetPresentModeString(const wgpu::PresentMode presentMode)
 }
 
 wgpu::PresentMode
-ChoosePresentMode(const std::span<const wgpu::PresentMode> availableModes,
-    const wgpu::PresentMode preferredMode)
+ChoosePresentMode(const std::span<const wgpu::PresentMode> availableModes)
 {
-    for(const wgpu::PresentMode mode : availableModes)
-    {
-        if(mode == preferredMode)
-        {
-            return mode;
-        }
-    }
-
-    // Find the next best mode.
+    // Preferred modes in order of preference.
     constexpr wgpu::PresentMode modePreference[] //
         {
+            wgpu::PresentMode::Immediate,
             wgpu::PresentMode::Mailbox,
             wgpu::PresentMode::Fifo,
-            wgpu::PresentMode::Immediate,
             wgpu::PresentMode::FifoRelaxed,
         };
 
@@ -82,6 +73,7 @@ ChoosePresentMode(const std::span<const wgpu::PresentMode> availableModes,
 wgpu::TextureFormat
 ChooseBackbufferFormat(const std::span<const wgpu::TextureFormat> availableFormats)
 {
+    // Preferred formats in order of preference.
     constexpr wgpu::TextureFormat preferredFormats[] = //
         {
             wgpu::TextureFormat::RGBA8UnormSrgb,
@@ -126,7 +118,7 @@ CreateSurface(const wgpu::Instance& instance,
 #if defined(__EMSCRIPTEN__)
 
     wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector canvas_desc = {};
-    canvas_desc.selector = "#webgpu-canvas";
+    canvas_desc.selector = "#canvas";
 
     surfaceDesc.nextInChain = &canvas_desc;
     surface = instance.CreateSurface(&surfaceDesc);
@@ -214,8 +206,7 @@ ConfigureSurface(const wgpu::Adapter& adapter,
     const std::span<const wgpu::TextureFormat> formats(capabilities.formats,
         capabilities.formatCount);
 
-    const wgpu::PresentMode presentMode =
-        ChoosePresentMode(presentModes, wgpu::PresentMode::Immediate);
+    const wgpu::PresentMode presentMode = ChoosePresentMode(presentModes);
     GG_CHECK(presentMode != wgpu::PresentMode::Undefined, "No supported present mode found");
 
     GG_INFO("Present mode: {}", GetPresentModeString(presentMode));
@@ -237,6 +228,23 @@ ConfigureSurface(const wgpu::Adapter& adapter,
     surface.Configure(&config);
 
     return format;
+}
+
+wgpu::Sampler
+CreateSampler(const wgpu::Device& gpuDevice)
+{
+    const wgpu::SamplerDescriptor desc //
+        {
+            .label = "Scene::Sampler",
+            .addressModeU = wgpu::AddressMode::ClampToEdge,
+            .addressModeV = wgpu::AddressMode::ClampToEdge,
+            .addressModeW = wgpu::AddressMode::ClampToEdge,
+            .magFilter = wgpu::FilterMode::Nearest,
+            .minFilter = wgpu::FilterMode::Nearest,
+            .mipmapFilter = wgpu::MipmapFilterMode::Linear,
+        };
+
+    return gpuDevice.CreateSampler(&desc);
 }
 } // namespace
 
@@ -348,6 +356,9 @@ WebGpu::Update()
             auto surfaceFormat = ConfigureSurface(m_Adapter, m_Device, m_Surface, width, height);
             GG_CHECK(surfaceFormat, "Failed to configure WebGPU surface");
 
+            m_DefaultSampler = CreateSampler(m_Device);
+            GG_CHECK(m_DefaultSampler, "Failed to create default sampler");
+
             m_Stage = Stage::Ready;
         }
         break;
@@ -390,32 +401,160 @@ WebGpu::GetQueue() const
 }
 
 wgpu::Texture
-WebGpu::CreateRenderTarget(const uint32_t width, const uint32_t height)
+WebGpu::CreateTexture(const uint32_t width,
+    const uint32_t height,
+    std::span<const std::byte> data,
+    const std::string_view name) const
 {
     GG_ASSERT(IsReady());
 
+    GG_ASSERT(width > 0 && height > 0);
+    GG_ASSERT(4uz * width * height == data.size(),
+        "Texture data size does not match width * height * 4");
+
     const wgpu::TextureDescriptor desc //
         {
-            .label = "RenderTarget",
-            .usage = wgpu::TextureUsage::RenderAttachment
-                | wgpu::TextureUsage::TextureBinding, // For post-processing and compositing
+            .label = name,
+            .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
             .dimension = wgpu::TextureDimension::e2D,
-            .size = //
+            .size //
             {
                 .width = width,
                 .height = height,
                 .depthOrArrayLayers = 1,
             },
-            .format = kRenderTargetFormat,
+            .format = kDefaultTextureFormat,
             .mipLevelCount = 1,
             .sampleCount = 1,
         };
 
-    return m_Device.CreateTexture(&desc);
+    const wgpu::Texture texture = m_Device.CreateTexture(&desc);
+    GG_ASSERT(texture);
+
+    if(!data.empty())
+    {
+        const wgpu::TexelCopyTextureInfo dest //
+            { .texture = texture, .mipLevel = 0, .origin = { .x = 0, .y = 0, .z = 0 } };
+
+        const wgpu::TexelCopyBufferLayout layout //
+            {
+                .bytesPerRow = width * 4,
+                .rowsPerImage = height,
+            };
+
+        const wgpu::Extent3D copyExtent //
+            {
+                .width = width,
+                .height = height,
+                .depthOrArrayLayers = 1,
+            };
+
+        m_Queue.WriteTexture(&dest, data.data(), data.size(), &layout, &copyExtent);
+    }
+
+    return texture;
+}
+
+wgpu::Texture
+WebGpu::CreateTextureArray(const uint32_t width,
+    const uint32_t height,
+    std::span<std::span<const std::byte>> data,
+    const std::string_view name) const
+{
+    GG_ASSERT(IsReady());
+
+    GG_ASSERT(width > 0 && height > 0);
+    GG_ASSERT(!data.empty(), "Texture array data cannot be empty");
+
+    const wgpu::TextureDescriptor desc //
+        {
+            .label = name,
+            .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
+            .dimension = wgpu::TextureDimension::e2D,
+            .size //
+            {
+                .width = width,
+                .height = height,
+                .depthOrArrayLayers = scast<uint32_t>(data.size()),
+            },
+            .format = kDefaultTextureFormat,
+            .mipLevelCount = 1,
+            .sampleCount = 1,
+        };
+
+    const wgpu::Texture texture = m_Device.CreateTexture(&desc);
+    GG_ASSERT(texture);
+
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        GG_ASSERT(4uz * width * height == data[i].size(),
+            "Texture data size does not match width * height * 4 at layer: {}", i);
+
+        const wgpu::TexelCopyTextureInfo dest //
+            { .texture = texture, .mipLevel = 0, .origin = { .x = 0, .y = 0, .z = scast<uint32_t>(i) } };
+
+        const wgpu::TexelCopyBufferLayout layout //
+            {
+                .bytesPerRow = width * 4,
+                .rowsPerImage = height,
+            };
+
+        const wgpu::Extent3D copyExtent //
+            {
+                .width = width,
+                .height = height,
+                .depthOrArrayLayers = 1,
+            };
+
+        m_Queue.WriteTexture(&dest, data[i].data(), data[i].size(), &layout, &copyExtent);
+    }
+
+    return texture;
+}
+
+wgpu::Buffer
+WebGpu::CreateStorageBuffer(const uint32_t size, const std::string_view name) const
+{
+    GG_ASSERT(IsReady());
+
+    GG_ASSERT(size > 0);
+
+    const wgpu::BufferDescriptor desc //
+        {
+            .label = name,
+            .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Storage,
+            .size = size,
+        };
+
+    return m_Device.CreateBuffer(&desc);
+}
+
+wgpu::Buffer
+WebGpu::CreateUniformBuffer(const uint32_t size, const std::string_view name) const
+{
+    GG_ASSERT(IsReady());
+
+    GG_ASSERT(size > 0);
+
+    const wgpu::BufferDescriptor desc //
+        {
+            .label = name,
+            .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform,
+            .size = size,
+        };
+
+    return m_Device.CreateBuffer(&desc);
+}
+
+wgpu::Sampler
+WebGpu::GetDefaultSampler() const
+{
+    GG_ASSERT(IsReady());
+    return m_DefaultSampler;
 }
 
 Result<wgpu::Texture>
-WebGpu::GetSwapchainTexture()
+WebGpu::GetSwapchainTexture() const
 {
     GG_CHECKB(IsReady(), "WebGPU is not ready");
 
@@ -432,14 +571,15 @@ WebGpu::GetSwapchainTexture()
                 "GetCurrentTexture() returned SuccessSuboptimal - the surface may need to be reconfigured");
             [[fallthrough]];
         case wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal:
-                if(width != surfaceTexture.texture.GetWidth() || height != surfaceTexture.texture.GetHeight())
-                {
-                    GG_INFO("Window size changed - reconfiguring surface...");
-                }
-                else
-                {
-                    return surfaceTexture.texture;
-                }
+            if(width != surfaceTexture.texture.GetWidth()
+                || height != surfaceTexture.texture.GetHeight())
+            {
+                GG_INFO("Window size changed - reconfiguring surface...");
+            }
+            else
+            {
+                return surfaceTexture.texture;
+            }
             break;
         case wgpu::SurfaceGetCurrentTextureStatus::Timeout:
             GG_WARN("Reconfiguring surface: Timeout...");
@@ -482,8 +622,9 @@ WebGpu::Present() const
 
 #if !defined(__EMSCRIPTEN__)
 
-    auto result = m_Surface.Present();
-    GG_CHECK(result.status == wgpu::Status::Success, "Failed to present current surface texture");
+    const wgpu::Status status = m_Surface.Present();
+    GG_CHECK(status == wgpu::Status::Success, "Failed to present current surface texture");
+
 #endif // !defined(__EMSCRIPTEN__)
 
     return Result<>::Success();
@@ -515,7 +656,7 @@ void
 WebGpu::OnDeviceLostCb(
     const wgpu::Device&, wgpu::DeviceLostReason reason, wgpu::StringView message, WebGpu* context)
 {
-    const char* reasonString = "Unknown";
+    const char* reasonString = nullptr;
     switch(reason)
     {
         case wgpu::DeviceLostReason::Unknown:
@@ -543,9 +684,10 @@ WebGpu::OnDeviceLostCb(
 }
 
 void
-WebGpu::OnUncapturedErrorCb(const wgpu::Device&, wgpu::ErrorType errorType, wgpu::StringView message)
+WebGpu::OnUncapturedErrorCb(
+    const wgpu::Device&, wgpu::ErrorType errorType, wgpu::StringView message)
 {
-    const char* errorTypeString = "Unknown";
+    const char* errorTypeString = nullptr;
     switch(errorType)
     {
         case wgpu::ErrorType::NoError:

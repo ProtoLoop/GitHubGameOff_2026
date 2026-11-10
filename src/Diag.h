@@ -3,6 +3,7 @@
 #include <format>
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_log.h>
+#include <string_view>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -50,10 +51,25 @@ public:
             logFunc = SDL_LogError;
         }
 
+        // Extract the relative path from the full file path to make log output more concise.
+        std::string_view relativePath{ file };
+        const size_t filenameSeparator = relativePath.find_last_of("/\\");
+        if(filenameSeparator != std::string_view::npos && filenameSeparator > 0)
+        {
+            const size_t parentSeparator =
+                relativePath.find_last_of("/\\", filenameSeparator - 1);
+            if(parentSeparator != std::string_view::npos)
+            {
+                relativePath.remove_prefix(parentSeparator + 1);
+            }
+        }
+
+        const char* relativePathCStr = relativePath.data();
+
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         logFunc(SDL_LOG_CATEGORY_APPLICATION,
             "%s:%d: %s",
-            file,
+            relativePathCStr,
             line,
             std::format(pattern, std::forward<Args>(args)...).c_str());
     }

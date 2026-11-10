@@ -33,9 +33,23 @@ public:
     /// Requires IsReady(). Returned handles must be released on the main thread.
     wgpu::Queue GetQueue() const;
 
-    wgpu::Texture CreateRenderTarget(const uint32_t width, const uint32_t height);
+    wgpu::Texture CreateTexture(const uint32_t width,
+        const uint32_t height,
+        std::span<const std::byte> data,
+        const std::string_view name) const;
 
-    Result<wgpu::Texture> GetSwapchainTexture();
+    wgpu::Texture CreateTextureArray(const uint32_t width,
+        const uint32_t height,
+        std::span<std::span<const std::byte>> data,
+        const std::string_view name) const;
+
+    wgpu::Buffer CreateStorageBuffer(const uint32_t size, const std::string_view name) const;
+
+    wgpu::Buffer CreateUniformBuffer(const uint32_t size, const std::string_view name) const;
+
+    wgpu::Sampler GetDefaultSampler() const;
+
+    Result<wgpu::Texture> GetSwapchainTexture() const;
 
     Result<> Present() const;
 
@@ -79,4 +93,5 @@ private:
     wgpu::Device m_Device;
     wgpu::Queue m_Queue;
     wgpu::Surface m_Surface;
+    wgpu::Sampler m_DefaultSampler;
 };

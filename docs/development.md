@@ -18,8 +18,8 @@ and rendering rules.
 C++ bootstrap for GitHub Game Off 2026. The current targets are macOS and
 the browser through Emscripten. Windows and Linux support is planned.
 
-The smoke test opens a resizable window and renders animated sprites and geometry
-against a dark blue background. Close the native window or press Escape to quit.
+The smoke test opens a resizable window and renders an animated sprite against a
+black background. Close the native window or press Escape to quit.
 
 ## Daily workflow
 
@@ -190,8 +190,8 @@ Keep these files together when hosting the game, and include
 
 Publish the required assets as described in [Asset locations](#asset-locations).
 
-The browser build uses the custom [HTML shell](../web/index.html), with separate
-SDL and WebGPU canvases, and has no worker threads.
+The browser build uses the custom [HTML shell](../web/index.html) and displays
+rendering in its WebGPU canvas. It has no worker threads.
 Keep native and browser build trees separate. When changing toolchains, use a
 fresh build directory.
 
@@ -375,17 +375,15 @@ in VS Code while the game runs in Chrome. See
 
 ## Runtime boundary
 
-SDL drives initialization, events, frames, and shutdown on both native and browser
-targets, allowing the browser event loop to schedule frames. The application
-releases its window and renderer before SDL shuts down.
+SDL handles windows, input, and application callbacks on native and browser
+targets. WebGPU handles rendering and presentation. The app initializes WebGPU
+asynchronously before loading assets.
 
-The app initializes WebGPU asynchronously before loading assets. SDL continues
-to handle rendering and presentation.
+Rendering uses an 800×600 logical canvas, scaled to fit the window while
+preserving its aspect ratio. Unused space forms black borders.
 
-The smoke test uses SDL's 2D renderer with a fixed logical canvas and letterboxing.
-Vsync is requested but is not required for startup. The browser build is
-single-threaded, with SDL pthread support disabled and WebAssembly memory growth
-enabled.
+The browser build is single-threaded, with SDL pthread support disabled and
+WebAssembly memory growth enabled.
 
 ## Maintaining this guide
 

@@ -1,10 +1,12 @@
 #pragma once
 
 #include "BoundedVector.h"
+#include "FileFetcher.h"
 #include "SpriteSheet.h"
-#include "TextureLoader.h"
 
 #include <string_view>
+
+class WebGpu;
 
 struct RectDef
 {
@@ -38,32 +40,26 @@ public:
 
     Result<const SpriteSheet*> GetSpriteSheet(const std::string_view name) const;
 
+    wgpu::Texture GetTexture() const { return m_Texture; }
+
 private:
     friend class SpriteLibLoader;
 
-    SpriteLib(BoundedVector<TexturePtr>&& textures, BoundedVector<SpriteSheet>&& spriteSheets);
+    explicit SpriteLib(wgpu::Texture texture, BoundedVector<SpriteSheet>&& spriteSheets);
 
-    BoundedVector<TexturePtr> m_Textures{ 0 };
+    wgpu::Texture m_Texture;
     BoundedVector<SpriteSheet> m_SpriteSheets{ 0 };
 };
 
 class SpriteLibLoader
 {
 public:
-    struct SpriteSheetInfo
-    {
-        SpriteSheet::NameType Name;
-        uint32_t AtlasIndex{ 0 };
-        SDL_FRect SheetRect{};
-        uint32_t SpriteWidth{ 0 };
-        uint32_t SpriteHeight{ 0 };
-    };
 
     static Result<SpriteLibLoader> Load(const std::span<const SpriteSheetDef> defs,
         FileFetcher& fileFetcher,
-        SDL_Renderer* renderer);
+        const WebGpu& webGpu);
 
-    void Update();
+    Result<> Update();
 
     bool IsPending() const;
 
@@ -79,13 +75,19 @@ private:
         Taken
     };
 
-    SpriteLibLoader(BoundedVector<SpriteSheetInfo>&& spriteSheets,
-        BoundedVector<TextureLoader>&& textureLoaders);
+    SpriteLibLoader(BoundedVector<SpriteSheet>&& spriteSheets,
+        BoundedVector<FetchRequestPtr>&& textureFetchRequests,
+        const WebGpu& webGpu);
 
-    BoundedVector<TextureLoader> m_TextureLoaders;
+    Result<> FixupSpriteSheets();
 
-    BoundedVector<SpriteSheetInfo> m_SpriteSheetInfos;
-    BoundedVector<TexturePtr> m_Textures;
+    BoundedVector<FetchRequestPtr> m_TextureFetchRequests;
+
+    BoundedVector<SpriteSheet> m_SpriteSheets;
+
+    wgpu::Texture m_TextureArray;
+
+    const WebGpu* m_WebGpu{ nullptr };
 
     Status m_Status{ Status::None };
 };
