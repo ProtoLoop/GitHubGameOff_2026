@@ -48,6 +48,13 @@ Deno.test("document validation rejects invalid IDs, cells, masks, and view setti
     validateDocument(original);
 });
 
+Deno.test("documents accept image assets larger than 32 MiB", () => {
+    const tile = { ...asset("tile"), blob: new Blob([new Uint8Array(32 * 1024 * 1024 + 1)], { type: "image/png" }) };
+    const project = createDocument([tile], [asset("mask")]);
+    validateDocument(project);
+    assert.equal(project.tileSheets[0].blob, tile.blob);
+});
+
 Deno.test("snapshots preserve occupancy and reproduce mask choices", () => {
     const project = createDocument([asset("tile")], [asset("mask")]);
     project.layers[1].painted[65] = true;

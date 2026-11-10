@@ -38,8 +38,8 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "-1"))
         except ValueError:
             length = -1
-        if length < 0 or length > 16 * 1024 * 1024:
-            self.send_error(400, "Expected Content-Length up to 16 MiB")
+        if length < 0:
+            self.send_error(400, "Expected nonnegative Content-Length")
             return
         temporary = None
         try:

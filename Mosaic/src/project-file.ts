@@ -19,7 +19,6 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
             view: project.view
         }
     }, null, 2) + "\n"], { type: "application/json" });
-    if(blob.size > 16 * 1024 * 1024) { throw new Error("Level data exceeds 16 MiB"); }
     return Promise.resolve(blob);
 }
 
@@ -58,7 +57,6 @@ function list(value: unknown, min: number, max: number): unknown[]
 
 export async function readProject(blob: Blob, available: readonly ImageAsset[]): Promise<ProjectDocument>
 {
-    if(blob.size > 16 * 1024 * 1024) { throw new Error("Level data exceeds 16 MiB"); }
     const data = object(JSON.parse(await blob.text()));
     if(data.format !== "mosaic" || data.version !== 4)
     {

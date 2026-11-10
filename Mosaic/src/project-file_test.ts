@@ -49,6 +49,14 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
 });
 
+Deno.test("level JSON larger than 16 MiB loads and can be saved again", async () => {
+    const original = await writeProject(fixture());
+    const large = new Blob([" ".repeat(16 * 1024 * 1024), original]);
+    assert(large.size > 16 * 1024 * 1024);
+    const loaded = await readProject(large, [tile, mask]);
+    assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), JSON.parse(await original.text()));
+});
+
 Deno.test("newly discovered sheets append without changing occupancy or catalog indices", async () => {
     const project = fixture();
     const blob = await writeProject(project);

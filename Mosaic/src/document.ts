@@ -163,9 +163,9 @@ export function validateDocument(project: ProjectDocument): void
         || new Set(project.masks).size !== project.masks.length
         || new Set(assets.map((asset) => asset.id)).size !== assets.length
         || assets.some((asset) => !/^assets\/(tiles|masks)\/[^/\\]+$/.test(asset.id)
-            || !asset.label || asset.label.length > 1024 || asset.blob.size > 32 * 1024 * 1024))
+            || !asset.label || asset.label.length > 1024))
     {
-        fail("invalid or conflicting asset identity, filename, or size");
+        fail("invalid or conflicting asset identity or filename");
     }
     const view = project.view;
     if(!Number.isFinite(view.zoom) || view.zoom < 1 / 16 || view.zoom > 4
@@ -180,10 +180,6 @@ export function validateDocument(project: ProjectDocument): void
 /// Decode once. The returned bytes and pixels are immutable for the asset lifetime.
 export async function decodeAsset(blob: Blob, label: string, id: string, kind: "tile" | "mask"): Promise<ImageAsset>
 {
-    if(blob.size > 32 * 1024 * 1024)
-    {
-        throw new Error(`${label}: image exceeds 32 MiB`);
-    }
     let bitmap: ImageBitmap;
     try { bitmap = await createImageBitmap(blob); }
     catch { throw new Error(`Could not decode ${label}`); }

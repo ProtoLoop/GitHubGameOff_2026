@@ -185,10 +185,10 @@ Labels come from filenames. Image bytes remain in separate files. Renaming a
 referenced image requires updating its catalog path.
 
 At most 256 layers, 256 tile sheets, and 64 mask sheets are supported. Images
-are square, at most 4096 pixels wide and 32 MiB each. Mask sheets must be
+are square and at most 4096 pixels wide. There is no encoded image file-size
+limit. Mask sheets must be
 256×256. Tile sheets used by layers must divide into an even grid of at least
-2×2 tiles. Indented level JSON is limited to 16 MiB on both read and write.
-The byte limit can be reached before the layer-count limit.
+2×2 tiles. Level JSON has no file-size cap on read or write.
 
 Catalog order is preserved on load. Newly discovered sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
@@ -211,7 +211,7 @@ Other failures are reported. Reload bypasses cached listings and images.
 
 Save sends the complete JSON body with PUT `/projects/<name>/level.json` and
 `Content-Type: application/json`. A successful HTTP response marks that revision
-saved. The supplied server accepts a Content-Length up to 16 MiB, restricts writes
+saved. The supplied server requires a nonnegative Content-Length without a size cap, restricts writes
 to level files within the configured root, and replaces the file after receiving
 the complete body. It does not interpret level JSON.
 

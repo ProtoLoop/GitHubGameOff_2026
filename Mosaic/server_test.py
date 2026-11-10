@@ -33,6 +33,9 @@ class ServerTest(unittest.TestCase):
                 self.assertEqual(request("PUT", "/projects/one/level.json", b'{"one":1}')[0], 204)
                 self.assertEqual(request("PUT", "/projects/two/level.json", b'{"two":2}')[0], 204)
                 self.assertEqual(request("GET", "/projects/one/level.json"), (200, b'{"one":1}'))
+                large_level = b" " * (16 * 1024 * 1024) + b'{"one":1}'
+                self.assertEqual(request("PUT", "/projects/one/level.json", large_level)[0], 204)
+                self.assertEqual((projects / "one/level.json").read_bytes(), large_level)
                 for path in ["/index.html", "/projects/one/a.png", "/projects/../level.json",
                              "/projects/%2e%2e/level.json", "/projects/missing/level.json"]:
                     self.assertEqual(request("PUT", path, b"bad")[0], 403)
