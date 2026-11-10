@@ -1,6 +1,6 @@
 #include "Scene.h"
 
-#include "Shortcuts.h"
+#include "CellMap.h"
 #include "SpriteLib.h"
 
 #include <iterator>
@@ -8,7 +8,30 @@
 
 namespace
 {
+
+struct CellMapParams
+{
+    float logicalTargetSize[2]{};
+    float cellSize{};// Also the size of tiles in the tile sheet
+    uint32_t tileSheetRowCount{};
+    uint32_t tileSheetColCount{};
+    uint32_t cellMapRowCount{};
+    uint32_t cellMapColCount{};
+
+    // Pad to 16 bytes for alignment with std140 layout rules.
+    uint32_t pad0{};
+};
+
+struct ShaderInfo
+{
+    std::string_view Label;
+    const char* Code;
+};
+
 extern const char* const kSpriteShaderCode;
+extern const char* const kTileMapShaderCode;
+extern const ShaderInfo kSpriteShaderInfo;
+extern const ShaderInfo kTileMapShaderInfo;
 
 constexpr const char* kVertexEntry = "vs_main";
 /// Entry point for the fragment shader when outputting to a non-sRGB framebuffer.
@@ -17,18 +40,19 @@ constexpr const char* kFragmentEntry_non_srgb = "fs_main_non_srgb";
 constexpr const char* kFragmentEntry_srgb = "fs_main_srgb";
 
 wgpu::ShaderModule
-CreateShaderModule(const wgpu::Device& gpuDevice)
+CreateShaderModule(const wgpu::Device& gpuDevice, const ShaderInfo& shaderInfo)
 {
-    const wgpu::StringView shaderCode{ kSpriteShaderCode };
-    const wgpu::StringView label = "Scene::Shader";
+    const wgpu::StringView shaderCode{ shaderInfo.Code };
     const wgpu::ShaderSourceWGSL wgsl{ { .code = shaderCode } };
-    const wgpu::ShaderModuleDescriptor shaderModelDesc{ .nextInChain = &wgsl, .label = label };
+    const wgpu::ShaderModuleDescriptor shaderModelDesc{ .nextInChain = &wgsl,
+        .label = shaderInfo.Label };
 
     return gpuDevice.CreateShaderModule(&shaderModelDesc);
 }
 
 Result<wgpu::RenderPipeline>
-CreateRenderPipeline(const wgpu::Device& gpuDevice, wgpu::TextureFormat targetFormat)
+CreateRenderPipeline(
+    const wgpu::Device& gpuDevice, wgpu::TextureFormat targetFormat, const ShaderInfo& shaderInfo)
 {
     static constexpr wgpu::BlendState blendState //
     {
@@ -55,7 +79,7 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice, wgpu::TextureFormat targetFo
 
     const char* fragmentEntry = nullptr;
 
-    const wgpu::ShaderModule shader = CreateShaderModule(gpuDevice);
+    const wgpu::ShaderModule shader = CreateShaderModule(gpuDevice, shaderInfo);
     GG_CHECK(shader, "Failed to create shader module");
 
     if(wgpu::TextureFormat::RGBA8UnormSrgb == targetFormat
@@ -78,7 +102,7 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice, wgpu::TextureFormat targetFo
 
     const wgpu::RenderPipelineDescriptor desc//
     {
-        .label = "Scene",
+        .label = shaderInfo.Label,
         .layout = nullptr,
         .vertex =
         {
@@ -130,7 +154,7 @@ CreateRenderPassEncoder(wgpu::CommandEncoder cmdEncoder, wgpu::Texture renderTar
 }
 
 wgpu::BindGroup
-CreateBindGroup(wgpu::Device gpuDevice,
+CreateSpriteShaderBindGroup(wgpu::Device gpuDevice,
     wgpu::BindGroupLayout layout,
     wgpu::Texture texture,
     wgpu::Sampler sampler,
@@ -164,6 +188,46 @@ CreateBindGroup(wgpu::Device gpuDevice,
 
     const wgpu::BindGroupDescriptor desc //
         {
+            .label = "SpriteShaderBindGroup",
+            .layout = layout,
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return gpuDevice.CreateBindGroup(&desc);
+}
+
+wgpu::BindGroup
+CreateTileShaderBindGroup(wgpu::Device gpuDevice,
+    wgpu::BindGroupLayout layout,
+    wgpu::Texture texture,
+    wgpu::Sampler sampler,
+    wgpu::Buffer cellMapParamsBuffer)
+{
+    const wgpu::TextureViewDescriptor viewDesc //
+        {
+            .dimension = wgpu::TextureViewDimension::e2DArray,
+        };
+
+    const wgpu::BindGroupEntry entries[] //
+        {
+            {
+                .binding = 0,
+                .textureView = texture.CreateView(&viewDesc),
+            },
+            {
+                .binding = 1,
+                .sampler = sampler,
+            },
+            {
+                .binding = 2,
+                .buffer = cellMapParamsBuffer,
+            },
+        };
+
+    const wgpu::BindGroupDescriptor desc //
+        {
+            .label = "TileShaderBindGroup",
             .layout = layout,
             .entryCount = std::size(entries),
             .entries = &entries[0],
@@ -174,21 +238,40 @@ CreateBindGroup(wgpu::Device gpuDevice,
 } // namespace
 
 Result<Scene>
-Scene::Create(const WebGpu& webGpu, const SpriteLib& spriteLib, BoundedVector<LostSoul>&& lostSouls)
+Scene::Create(const uint32_t logicalDisplayWidth,
+    const uint32_t logicalDisplayHeight,
+    const WebGpu& webGpu,
+    const SpriteLib& spriteLib,
+    const CellMap& cellMap,
+    BoundedVector<LostSoul>&& lostSouls)
 {
-    return Scene{ webGpu, spriteLib, std::move(lostSouls) };
+    return Scene{ logicalDisplayWidth,
+        logicalDisplayHeight,
+        webGpu,
+        spriteLib,
+        cellMap,
+        std::move(lostSouls) };
 }
 
-Scene::Scene(const WebGpu& webGpu, const SpriteLib& spriteLib, BoundedVector<LostSoul>&& lostSouls)
+Scene::Scene(const uint32_t logicalDisplayWidth,
+    const uint32_t logicalDisplayHeight,
+    const WebGpu& webGpu,
+    const SpriteLib& spriteLib,
+    const CellMap& cellMap,
+    BoundedVector<LostSoul>&& lostSouls)
     : m_LostSouls(std::move(lostSouls)),
       m_SpriteStates(m_LostSouls.size()),
       m_Visibility(m_LostSouls.size()),
+      m_LogicalDisplayWidth(logicalDisplayWidth),
+      m_LogicalDisplayHeight(logicalDisplayHeight),
       m_WebGpu(&webGpu),
-      m_SpriteLib(&spriteLib)
+      m_SpriteLib(&spriteLib),
+      m_CellMap(&cellMap)
 {
 }
 
-void Scene::SetFrameAndDir(uint32_t index, uint32_t frame, uint32_t dir)
+void
+Scene::SetFrameAndDir(uint32_t index, uint32_t frame, uint32_t dir)
 {
     if(!GG_VERIFYB(index < m_SpriteStates.size(), "Invalid sprite index"))
     {
@@ -213,23 +296,15 @@ Scene::Render()
     const wgpu::CommandEncoder encoder = gpuDevice.CreateCommandEncoder();
     GG_CHECK(encoder, "Failed to create command encoder");
 
-    GG_CHECK(EnsurePipeline(renderTarget), "Failed to ensure pipeline");
+    GG_CHECK(EnsurePipelines(renderTarget), "Failed to ensure pipeline");
 
     GG_CHECK(EnsureSpriteStateBuffer(), "Failed to ensure sprite state buffer");
 
     GG_CHECK(EnsureLogicalTargetSizeBuffer(), "Failed to ensure target size buffer");
 
-    if(!m_BindGroup)
-    {
-        m_BindGroup = CreateBindGroup(gpuDevice,
-            m_Pipeline.GetBindGroupLayout(0),
-            m_SpriteLib->GetTexture(),
-            m_WebGpu->GetDefaultSampler(),
-            m_SpriteStateBuffer,
-            m_TargetSizeBuffer);
+    GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
 
-        GG_CHECK(m_BindGroup, "Failed to create bind group");
-    }
+    GG_CHECK(EnsureBindGroups(), "Failed to ensure bind groups");
 
     // Update the sprite state buffer with the current sprite states
     m_WebGpu->GetQueue().WriteBuffer(m_SpriteStateBuffer,
@@ -240,19 +315,21 @@ Scene::Render()
     const wgpu::RenderPassEncoder renderPass = CreateRenderPassEncoder(encoder, renderTarget);
     GG_CHECK(renderPass, "Failed to create render pass");
 
-    renderPass.SetBindGroup(0, m_BindGroup);
+    const float ldw = static_cast<float>(m_LogicalDisplayWidth);
+    const float ldh = static_cast<float>(m_LogicalDisplayHeight);
 
-    renderPass.SetPipeline(m_Pipeline);
-
-    const float rtW = scast<float>(renderTarget.GetWidth());
-    const float rtH = scast<float>(renderTarget.GetHeight());
-    const float scale = std::min(rtW / kLogicalWidth, rtH / kLogicalHeight);
-    const float vpW = kLogicalWidth * scale;
-    const float vpH = kLogicalHeight * scale;
-    const float vpX = (rtW - vpW)  / 2;
+    const float rtW = static_cast<float>(renderTarget.GetWidth());
+    const float rtH = static_cast<float>(renderTarget.GetHeight());
+    const float scale = std::min(rtW / ldw, rtH / ldh);
+    const float vpW = ldw * scale;
+    const float vpH = ldh * scale;
+    const float vpX = (rtW - vpW) / 2;
     const float vpY = (rtH - vpH) / 2;
 
     renderPass.SetViewport(vpX, vpY, vpW, vpH, 0.0f, 1.0f);
+
+    /*renderPass.SetBindGroup(0, m_SpriteBindGroup);
+    renderPass.SetPipeline(m_SpritePipeline);
 
     for(size_t instanceIndex = 0; instanceIndex < m_SpriteStates.size(); ++instanceIndex)
     {
@@ -261,10 +338,18 @@ Scene::Render()
             continue;
         }
         // NOLINTNEXTLINE(readability-magic-numbers)
-        renderPass.Draw(6, 1, 0, scast<uint32_t>(instanceIndex));
-    }
-    renderPass.End();
+        renderPass.Draw(6, 1, 0, static_cast<uint32_t>(instanceIndex));
+    }*/
 
+    renderPass.SetBindGroup(0, m_TileBindGroup);
+    renderPass.SetPipeline(m_TilePipeline);
+
+    const uint32_t instanceCount = m_CellMap->GetRowCount() * m_CellMap->GetColCount();
+
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    renderPass.Draw(6, instanceCount, 0, 0);
+
+    renderPass.End();
 
     const wgpu::CommandBuffer commandBuffer = encoder.Finish();
     GG_CHECK(commandBuffer, "Failed to finish command buffer");
@@ -277,15 +362,27 @@ Scene::Render()
 // private:
 
 Result<>
-Scene::EnsurePipeline(const wgpu::Texture renderTarget)
+Scene::EnsurePipelines(const wgpu::Texture renderTarget)
 {
-    if(!m_Pipeline || m_PipelineFormat != renderTarget.GetFormat())
+    if(!m_SpritePipeline || m_PipelineFormat != renderTarget.GetFormat())
     {
-        m_PipelineFormat = renderTarget.GetFormat();
-        auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(), m_PipelineFormat);
-        GG_CHECK(pipelineResult, "Failed to create render pipeline");
-        m_Pipeline = std::move(*pipelineResult);
+        auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
+            renderTarget.GetFormat(),
+            kSpriteShaderInfo);
+        GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kSpriteShaderInfo.Label);
+        m_SpritePipeline = std::move(*pipelineResult);
     }
+
+    if(!m_TilePipeline || m_PipelineFormat != renderTarget.GetFormat())
+    {
+        auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
+            renderTarget.GetFormat(),
+            kTileMapShaderInfo);
+        GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kTileMapShaderInfo.Label);
+        m_TilePipeline = std::move(*pipelineResult);
+    }
+
+    m_PipelineFormat = renderTarget.GetFormat();
 
     return Result<>::Success();
 }
@@ -298,7 +395,7 @@ Scene::EnsureSpriteStateBuffer()
     if(!m_SpriteStateBuffer || m_SpriteStateBuffer.GetSize() < bufferSize)
     {
         m_SpriteStateBuffer =
-            m_WebGpu->CreateStorageBuffer(scast<uint32_t>(bufferSize), "SpriteStateBuffer");
+            m_WebGpu->CreateStorageBuffer(static_cast<uint32_t>(bufferSize), "SpriteStateBuffer");
         GG_CHECK(m_SpriteStateBuffer, "Failed to create sprite state buffer");
     }
 
@@ -312,8 +409,8 @@ Scene::EnsureLogicalTargetSizeBuffer()
     {
         const float targetSize[] //
             {
-                static_cast<float>(kLogicalWidth),
-                static_cast<float>(kLogicalHeight),
+                static_cast<float>(m_LogicalDisplayWidth),
+                static_cast<float>(m_LogicalDisplayHeight),
             };
 
         m_TargetSizeBuffer = m_WebGpu->CreateUniformBuffer(sizeof(targetSize), "LogicalTargetSize");
@@ -325,7 +422,72 @@ Scene::EnsureLogicalTargetSizeBuffer()
     return Result<>::Success();
 }
 
+Result<>
+Scene::EnsureCellMapParamsBuffer()
+{
+    if(!m_CellMapParamsBuffer)
+    {
+        const CellMapParams cellMapParams //
+            {
+                .logicalTargetSize //
+                {
+                    static_cast<float>(m_LogicalDisplayWidth),
+                    static_cast<float>(m_LogicalDisplayHeight),
+                },
+                .cellSize = 64.0f,
+                .tileSheetRowCount = 4,
+                .tileSheetColCount = 4,
+                .cellMapRowCount = m_CellMap->GetRowCount(),
+                .cellMapColCount = m_CellMap->GetColCount(),
+            };
+        m_CellMapParamsBuffer =
+            m_WebGpu->CreateUniformBuffer(sizeof(CellMapParams), "CellMapParams");
+        GG_CHECK(m_CellMapParamsBuffer, "Failed to create cell map params buffer");
+
+        m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
+            0,
+            &cellMapParams,
+            sizeof(cellMapParams));
+    }
+
+    return Result<>::Success();
+}
+
+Result<>
+Scene::EnsureBindGroups()
+{
+    if(!m_SpriteBindGroup)
+    {
+        m_SpriteBindGroup = CreateSpriteShaderBindGroup(m_WebGpu->GetDevice(),
+            m_SpritePipeline.GetBindGroupLayout(0),
+            m_SpriteLib->GetTexture(),
+            m_WebGpu->GetDefaultSampler(),
+            m_SpriteStateBuffer,
+            m_TargetSizeBuffer);
+
+        GG_CHECK(m_SpriteBindGroup, "Failed to create bind group");
+    }
+
+    if(!m_TileBindGroup)
+    {
+        m_TileBindGroup = CreateTileShaderBindGroup(m_WebGpu->GetDevice(),
+            m_TilePipeline.GetBindGroupLayout(0),
+            m_CellMap->GetTileSetTexture(),
+            m_WebGpu->GetDefaultSampler(),
+            m_CellMapParamsBuffer);
+
+        GG_CHECK(m_TileBindGroup, "Failed to create bind group");
+    }
+
+    return Result<>::Success();
+}
+
 namespace
 {
-#include "SpriteShader.h"
+#include "Shaders/SpriteShader.wgsl"
+#include "Shaders/TileMapShader.wgsl"
+
+const ShaderInfo kSpriteShaderInfo{ .Label = "SpriteShader", .Code = kSpriteShaderCode };
+const ShaderInfo kTileMapShaderInfo{ .Label = "TileShader", .Code = kTileMapShaderCode };
+
 } // namespace

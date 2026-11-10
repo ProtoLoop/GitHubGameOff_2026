@@ -456,7 +456,7 @@ WebGpu::CreateTexture(const uint32_t width,
 }
 
 wgpu::Texture
-WebGpu::CreateTextureArray(const uint32_t width,
+WebGpu::CreateTexture(const uint32_t width,
     const uint32_t height,
     std::span<std::span<const std::byte>> data,
     const std::string_view name) const
@@ -709,7 +709,7 @@ WebGpu::OnUncapturedErrorCb(
 
     GG_ERROR("WebGPU error ({}): {}", errorTypeString, std::string_view(message));
 
-    // When a debugger is attach trigger a BP so we can inspect the error
+    // When a debugger is attached trigger a BP so we can inspect the error
     GG_DEBUG_BREAK;
 }
 

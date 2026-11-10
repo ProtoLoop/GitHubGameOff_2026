@@ -6,6 +6,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include <vector>
 
+class CellMap;
 class SpriteLib;
 
 struct LostSoul
@@ -15,11 +16,12 @@ struct LostSoul
 class Scene
 {
 public:
-    static constexpr uint32_t kLogicalWidth = 800;
-    static constexpr uint32_t kLogicalHeight = 600;
-
-    static Result<Scene> Create(
-        const WebGpu& webGpu, const SpriteLib& spriteLib, BoundedVector<LostSoul>&& lostSouls);
+    static Result<Scene> Create(const uint32_t logicalDisplayWidth,
+        const uint32_t logicalDisplayHeight,
+        const WebGpu& webGpu,
+        const SpriteLib& spriteLib,
+        const CellMap& cellMap,
+        BoundedVector<LostSoul>&& lostSouls);
 
     void SetFrameAndDir(uint32_t index, uint32_t frame, uint32_t dir);
 
@@ -33,21 +35,35 @@ private:
         uint32_t sheet{ 0 };
     };
 
-    Scene(const WebGpu& webGpu, const SpriteLib& spriteLib, BoundedVector<LostSoul>&& lostSouls);
+    Scene(const uint32_t logicalDisplayWidth,
+        const uint32_t logicalDisplayHeight,
+        const WebGpu& webGpu,
+        const SpriteLib& spriteLib,
+        const CellMap& cellMap,
+        BoundedVector<LostSoul>&& lostSouls);
 
-    Result<> EnsurePipeline(const wgpu::Texture renderTarget);
+    Result<> EnsurePipelines(const wgpu::Texture renderTarget);
     Result<> EnsureSpriteStateBuffer();
     Result<> EnsureLogicalTargetSizeBuffer();
+    Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureBindGroups();
 
     BoundedVector<LostSoul> m_LostSouls;
     std::vector<SpriteState> m_SpriteStates;
     std::vector<bool> m_Visibility;
 
+    uint32_t m_LogicalDisplayWidth{ 0 };
+    uint32_t m_LogicalDisplayHeight{ 0 };
     const WebGpu* m_WebGpu{ nullptr };
     const SpriteLib* m_SpriteLib{ nullptr };
+    const CellMap* m_CellMap{ nullptr };
     wgpu::TextureFormat m_PipelineFormat{ wgpu::TextureFormat::Undefined };
-    wgpu::RenderPipeline m_Pipeline;
     wgpu::Buffer m_SpriteStateBuffer;
     wgpu::Buffer m_TargetSizeBuffer;
-    wgpu::BindGroup m_BindGroup;
+    wgpu::Buffer m_CellMapParamsBuffer;
+    wgpu::RenderPipeline m_SpritePipeline;
+    wgpu::BindGroup m_SpriteBindGroup;
+
+    wgpu::RenderPipeline m_TilePipeline;
+    wgpu::BindGroup m_TileBindGroup;
 };

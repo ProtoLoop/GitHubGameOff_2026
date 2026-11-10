@@ -1,8 +1,8 @@
 #pragma once
 
 #include "BoundedVector.h"
-#include "FileFetcher.h"
 #include "SpriteSheet.h"
+#include "TextureLoader.h"
 
 #include <string_view>
 
@@ -36,7 +36,7 @@ struct SpriteSheetDef
 class SpriteLib
 {
 public:
-    SpriteLib() = default;
+    SpriteLib() = delete;
 
     Result<const SpriteSheet*> GetSpriteSheet(const std::string_view name) const;
 
@@ -54,10 +54,8 @@ private:
 class SpriteLibLoader
 {
 public:
-
-    static Result<SpriteLibLoader> Load(const std::span<const SpriteSheetDef> defs,
-        FileFetcher& fileFetcher,
-        const WebGpu& webGpu);
+    static Result<SpriteLibLoader> Load(
+        const std::span<const SpriteSheetDef> defs, FileFetcher& fileFetcher, const WebGpu& webGpu);
 
     Result<> Update();
 
@@ -75,19 +73,18 @@ private:
         Taken
     };
 
-    SpriteLibLoader(BoundedVector<SpriteSheet>&& spriteSheets,
-        BoundedVector<FetchRequestPtr>&& textureFetchRequests,
-        const WebGpu& webGpu);
+    SpriteLibLoader(BoundedVector<SpriteSheet>&& spriteSheets, TextureLoader&& textureLoader);
 
-    Result<> FixupSpriteSheets();
+    /// Validate that sprite sheet rectangles are within the bounds of the texture and have valid
+    /// dimensions. For sprite sheets where rectangles were not specified, the full texture
+    /// dimensions will be used.
+    Result<> FixupSpriteSheets(const wgpu::Texture texture);
 
-    BoundedVector<FetchRequestPtr> m_TextureFetchRequests;
+    TextureLoader m_TextureLoader;
 
     BoundedVector<SpriteSheet> m_SpriteSheets;
 
-    wgpu::Texture m_TextureArray;
-
-    const WebGpu* m_WebGpu{ nullptr };
+    wgpu::Texture m_Texture;
 
     Status m_Status{ Status::None };
 };

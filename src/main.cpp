@@ -1,10 +1,12 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include "Angle.h"
+#include "CellMap.h"
 #include "Input.h"
 #include "LevelLoader.h"
 #include "Scene.h"
 #include "SpriteLib.h"
+#include "TextureLoader.h"
 #include "WebGpu.h"
 
 #include <algorithm>
@@ -39,12 +41,13 @@ const SpriteSheetDef kSpriteSheetDefs[] //
 
 struct AppState
 {
-    static constexpr const char* WindowTitle = "GraveyardShift";
-    static constexpr int WindowWidth = 800;
-    static constexpr int WindowHeight = 600;
-
-    // constexpr int WindowWidth = 960;
-    // constexpr int WindowHeight = 540;
+    static constexpr const char* const kWindowTitle = "GraveyardShift";
+    static constexpr int kWindowWidth = 800;
+    static constexpr int kWindowHeight = 600;
+    static constexpr uint32_t kCellMapRowCount = 1024;
+    static constexpr uint32_t kCellMapColCount = 1024;
+    static constexpr uint32_t kLogicalDisplayWidth = 800;
+    static constexpr uint32_t kLogicalDisplayHeight = 600;
 
     AppState() = default;
     AppState(const AppState&) = delete;
@@ -78,7 +81,8 @@ struct AppState
     FileFetcher FileFetcher;
     Result<SpriteLibLoader> SpriteLibLoader;
     Result<LevelLoader> LevelLoader;
-    SpriteLib SpriteLib;
+    Result<SpriteLib> SpriteLib;
+    Result<CellMap> CellMap;
 
     Input Input;
 
@@ -117,9 +121,9 @@ SDL_AppInit(void** appstate, int, char**)
 
     AppState& state = *g_AppState;
 
-    state.Window = SDL_CreateWindow(AppState::WindowTitle,
-        AppState::WindowWidth,
-        AppState::WindowHeight,
+    state.Window = SDL_CreateWindow(AppState::kWindowTitle,
+        AppState::kWindowWidth,
+        AppState::kWindowHeight,
         SDL_WINDOW_RESIZABLE);
 
     if(!GG_VERIFYB(state.Window))
@@ -244,7 +248,39 @@ SDL_AppIterate(void* appstate)
                 }
             }
 
-            state.Scene = Scene::Create(state.WebGpu, state.SpriteLib, std::move(lostSouls));
+            auto texLoadResult =
+                TextureLoader::Load("/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+                    state.FileFetcher,
+                    state.WebGpu,
+                    "Test");
+            if(!texLoadResult)
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            while(texLoadResult->IsPending())
+            {
+            }
+
+            auto texResult = texLoadResult->Take();
+            if(!texResult)
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            state.CellMap =
+                CellMap::Create(*texResult, AppState::kCellMapRowCount, AppState::kCellMapColCount);
+            if(!state.CellMap)
+            {
+                return SDL_APP_FAILURE;
+            }
+
+            state.Scene = Scene::Create(AppState::kLogicalDisplayWidth,
+                AppState::kLogicalDisplayHeight,
+                state.WebGpu,
+                *state.SpriteLib,
+                *state.CellMap,
+                std::move(lostSouls));
             if(!state.Scene)
             {
                 return SDL_APP_FAILURE;
@@ -308,11 +344,11 @@ SDL_AppIterate(void* appstate)
     constexpr int halfSquareSize = SquareSize / 2;
 
     state.PlayerLoc.x = std::min(std::max(state.PlayerLoc.x, halfSquareSize),
-        AppState::WindowWidth - halfSquareSize);
+        AppState::kWindowWidth - halfSquareSize);
     state.PlayerLoc.y = std::min(std::max(state.PlayerLoc.y, halfSquareSize),
-        AppState::WindowHeight - halfSquareSize);
+        AppState::kWindowHeight - halfSquareSize);
 
-    const auto spriteSheetResult = state.SpriteLib.GetSpriteSheet("lost_soul1");
+    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("lost_soul1");
     GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
 
     const SpriteSheet* spriteSheet = *spriteSheetResult;

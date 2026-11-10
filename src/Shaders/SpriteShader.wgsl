@@ -1,4 +1,3 @@
-
 const char* const kSpriteShaderCode = R"(
 struct VSOut
 {
@@ -17,35 +16,41 @@ struct SpriteState
 @group(0) @binding(0) var animSheets : texture_2d_array<f32>;
 @group(0) @binding(1) var smp : sampler;
 @group(0) @binding(2) var<storage, read> spriteStates : array<SpriteState>;
+// Logical size of the render target.
 @group(0) @binding(3) var<uniform> logicalTargetSize : vec2<f32>;
 
-const rowCount: f32 = 8.0;
-const colCount: f32 = 8.0;
+// Number of rows and columns in each tile sheet.
+const sheetRowCount: u32 = 8u;
+const sheetColCount: u32 = 8u;
+const sheetRowsCols = vec2<f32>(f32(sheetRowCount), f32(sheetColCount));
 
 const vsout = array<VSOut, 6>
 (
     VSOut(vec4<f32>(-1.0, 1.0, 0.0, 1.0), vec2<f32>(0.0, 0.0), 0),
-    VSOut(vec4<f32>(1.0, 1.0, 0.0, 1.0), vec2<f32>(1.0/colCount, 0.0), 0),
-    VSOut(vec4<f32>(1.0, -1.0, 0.0, 1.0), vec2<f32>(1.0/colCount, 1.0/rowCount), 0),
+    VSOut(vec4<f32>(1.0, 1.0, 0.0, 1.0), vec2<f32>(1.0, 0.0), 0),
+    VSOut(vec4<f32>(1.0, -1.0, 0.0, 1.0), vec2<f32>(1.0, 1.0), 0),
 
     VSOut(vec4<f32>(-1.0, 1.0, 0.0, 1.0), vec2<f32>(0.0, 0.0), 0),
-    VSOut(vec4<f32>(1.0, -1.0, 0.0, 1.0), vec2<f32>(1.0/colCount, 1.0/rowCount), 0),
-    VSOut(vec4<f32>(-1.0, -1.0, 0.0, 1.0), vec2<f32>(0.0, 1.0/rowCount), 0)
+    VSOut(vec4<f32>(1.0, -1.0, 0.0, 1.0), vec2<f32>(1.0, 1.0), 0),
+    VSOut(vec4<f32>(-1.0, -1.0, 0.0, 1.0), vec2<f32>(0.0, 1.0), 0)
 );
 
 @vertex
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: u32) -> VSOut
 {
     let texDims = vec2<f32>(textureDimensions(animSheets, 0).xy);
-    let spriteSize = vec2<f32>(texDims.x / colCount, texDims.y / rowCount);
+    let spriteSize = texDims / sheetRowsCols;
     var v = vsout[vid];
 
     let state = spriteStates[spriteId];
 
-    v.pos.xy *= spriteSize / logicalTargetSize;
+    v.pos = vec4<f32>(v.pos.xy * (spriteSize / logicalTargetSize), v.pos.zw);
 
-    v.uv.x += f32(state.frame) / colCount;
-    v.uv.y += f32(state.dir) / rowCount;
+    let frame = f32(state.frame % sheetColCount);
+    let dir = f32(state.dir % sheetRowCount);
+
+    v.uv = (v.uv + vec2<f32>(frame, dir)) / sheetRowsCols;
+
     v.sheet = state.sheet;
 
     return v;

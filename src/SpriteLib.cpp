@@ -5,41 +5,8 @@
 #include "Shortcuts.h"
 #include "WebGpu.h"
 
-#include <SDL3/SDL_render.h>
-#include <stb_image.h>
-#include <webgpu/webgpu_cpp.h>
-
 namespace
 {
-constexpr int kNumTextureChannels = 4;
-
-struct stbiDeleter
-{
-    void operator()(stbi_uc* ptr) const
-    {
-        if(ptr)
-        {
-            stbi_image_free(ptr);
-        }
-    }
-};
-
-using StbiImagePtr = std::unique_ptr<stbi_uc, stbiDeleter>;
-
-struct Image
-{
-    Image() = delete;
-
-    Image(StbiImagePtr data, const uint32_t width, const uint32_t height)
-        : Data(std::move(data)),
-          Width(width),
-          Height(height)
-    {
-    }
-    StbiImagePtr Data;
-    uint32_t Width{ 0 };
-    uint32_t Height{ 0 };
-};
 
 Result<BoundedVector<FilePath>>
 CollectPaths(const std::span<const SpriteSheetDef> defs)
@@ -121,53 +88,6 @@ CollectSpriteSheets(const std::span<const SpriteSheetDef> defs,
     }
     return sheets;
 }
-
-Result<Image>
-LoadImageFromMemory(const FetchRequestPtr& rqstPtr)
-{
-    auto dataResult = rqstPtr->GetData();
-    GG_CHECKB(dataResult, "Failed to get fetch data");
-    GG_CHECKB(dataResult->size() <= std::numeric_limits<int>::max(),
-        "Data size exceeds maximum allowed size");
-
-    const void* p = dataResult->data();
-    const stbi_uc* imageData = static_cast<const stbi_uc*>(p);
-    const int numBytes = static_cast<int>(dataResult->size());
-
-    int width = 0;
-    int height = 0;
-    stbi_uc* image =
-        stbi_load_from_memory(imageData, numBytes, &width, &height, nullptr, kNumTextureChannels);
-
-    GG_CHECKB(image, "Failed to load image: {}", stbi_failure_reason());
-
-    return Image(StbiImagePtr(image), scast<uint32_t>(width), scast<uint32_t>(height));
-}
-
-Result<wgpu::Texture>
-CreateTextureArray(const std::span<Image> images, const WebGpu& webGpu)
-{
-    uint32_t width = 0, height = 0;
-
-    BoundedVector<std::span<const std::byte>> imageDataSpans(images.size());
-
-    for(const Image& image : images)
-    {
-        GG_CHECKB(image.Width > 0 && image.Height > 0, "Invalid image dimensions");
-        GG_CHECKB(width == 0 || width == image.Width, "Inconsistent image width");
-        GG_CHECKB(height == 0 || height == image.Height, "Inconsistent image height");
-
-        width = image.Width;
-        height = image.Height;
-
-        const std::span<const std::byte> imageSpan(recast<const std::byte*>(image.Data.get()),
-            scast<size_t>(image.Width) * image.Height * kNumTextureChannels);
-
-        GG_CHECKB(imageDataSpans.push_back(imageSpan));
-    }
-
-    return webGpu.CreateTextureArray(width, height, imageDataSpans, "Sprites");
-}
 } // namespace
 
 SpriteLib::SpriteLib(wgpu::Texture texture, BoundedVector<SpriteSheet>&& spriteSheets)
@@ -204,25 +124,16 @@ SpriteLibLoader::Load(
     auto sheetResult = CollectSpriteSheets(defs, paths);
     GG_CHECK(sheetResult, "Failed to collect sprite sheets");
 
-    BoundedVector<FetchRequestPtr> fetchRequests(paths.size());
+    auto texLoaderResult = TextureLoader::Load(paths, fileFetcher, webGpu, "SpriteLib");
+    GG_CHECK(texLoaderResult, "Failed to load textures");
 
-    for(const FilePath& path : paths)
-    {
-        auto fetchResult = fileFetcher.Fetch(path);
-        GG_CHECK(fetchResult, "Failed to fetch file: {}", path);
-
-        GG_CHECKB(fetchRequests.push_back(std::move(*fetchResult)));
-    }
-
-    return SpriteLibLoader(std::move(*sheetResult), std::move(fetchRequests), webGpu);
+    return SpriteLibLoader(std::move(*sheetResult), std::move(*texLoaderResult));
 }
 
 SpriteLibLoader::SpriteLibLoader(BoundedVector<SpriteSheet>&& spriteSheets,
-    BoundedVector<FetchRequestPtr>&& textureFetchRequests,
-    const WebGpu& webGpu)
-    : m_TextureFetchRequests(std::move(textureFetchRequests)),
+    TextureLoader&& textureLoader)
+    : m_TextureLoader(std::move(textureLoader)),
       m_SpriteSheets(std::move(spriteSheets)),
-      m_WebGpu(&webGpu),
       m_Status(Status::Loading)
 {
 }
@@ -237,17 +148,7 @@ SpriteLibLoader::Update()
         return Result<>::Success();
     }
 
-    bool pending = false;
-    for(const FetchRequestPtr& fetchRequest : m_TextureFetchRequests)
-    {
-        if(fetchRequest->IsPending())
-        {
-            pending = true;
-            break;
-        }
-    }
-
-    if(pending)
+    if(m_TextureLoader.IsPending())
     {
         return Result<>::Success();
     }
@@ -257,34 +158,15 @@ SpriteLibLoader::Update()
     auto cleanup = GG_DEFER
     {
         // Free resources.
-        auto bye = std::move(m_TextureFetchRequests);
+        auto byeLoades = std::move(m_TextureLoader);
     };
 
-    auto bailOnError = GG_DEFER
-    {
-        // If we bail due to error then just free everything.
-        auto bye = std::move(m_TextureArray);
-    };
+    auto texResult = m_TextureLoader.Take();
+    GG_CHECKB(texResult, "Failed to create texture array");
 
-    const size_t textureCount = m_TextureFetchRequests.size();
+    GG_CHECK(FixupSpriteSheets(*texResult), "Failed to validate sprite sheets");
 
-    BoundedVector<Image> images(textureCount);
-
-    for(const FetchRequestPtr& fetchRequest : m_TextureFetchRequests)
-    {
-        auto imageResult = LoadImageFromMemory(fetchRequest);
-        GG_CHECKB(imageResult, "Failed to load image from memory");
-        GG_CHECKB(images.push_back(std::move(*imageResult)));
-    }
-
-    auto texArrayResult = CreateTextureArray(images, *m_WebGpu);
-    GG_CHECKB(texArrayResult, "Failed to create texture array");
-
-    m_TextureArray = *texArrayResult;
-
-    GG_CHECK(FixupSpriteSheets(), "Failed to validate sprite sheets");
-
-    bailOnError.release();
+    m_Texture = std::move(*texResult);
 
     m_Status = Status::Loaded;
 
@@ -307,17 +189,17 @@ SpriteLibLoader::Take()
 
     m_Status = Status::Taken;
 
-    return SpriteLib(m_TextureArray, std::move(m_SpriteSheets));
+    return SpriteLib(m_Texture, std::move(m_SpriteSheets));
 }
 
 // private:
 
 Result<>
-SpriteLibLoader::FixupSpriteSheets()
+SpriteLibLoader::FixupSpriteSheets(const wgpu::Texture texture)
 {
-    const float texWidth = scast<float>(m_TextureArray.GetWidth());
-    const float texHeight = scast<float>(m_TextureArray.GetHeight());
-    const uint32_t layerCount = m_TextureArray.GetDepthOrArrayLayers();
+    const float texWidth = scast<float>(texture.GetWidth());
+    const float texHeight = scast<float>(texture.GetHeight());
+    const uint32_t layerCount = texture.GetDepthOrArrayLayers();
 
     // Validate sprite sheets
     for(SpriteSheet& sheet : m_SpriteSheets)

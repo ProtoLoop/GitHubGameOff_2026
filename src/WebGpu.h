@@ -33,12 +33,14 @@ public:
     /// Requires IsReady(). Returned handles must be released on the main thread.
     wgpu::Queue GetQueue() const;
 
+    /// Creates a single layer texture.
     wgpu::Texture CreateTexture(const uint32_t width,
         const uint32_t height,
         std::span<const std::byte> data,
         const std::string_view name) const;
 
-    wgpu::Texture CreateTextureArray(const uint32_t width,
+    /// Creates multilayer texture. Each element in `data` represents a layer.
+    wgpu::Texture CreateTexture(const uint32_t width,
         const uint32_t height,
         std::span<std::span<const std::byte>> data,
         const std::string_view name) const;

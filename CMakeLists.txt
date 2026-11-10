@@ -61,6 +61,8 @@ endif()
 set(GAMEOFF_SOURCES
     src/Angle.h
     src/BoundedVector.h
+    src/CellMap.h
+    src/CellMap.cpp
     src/Defer.h
     src/Diag.h
     src/Diag.cpp
@@ -84,6 +86,8 @@ set(GAMEOFF_SOURCES
     src/SpriteLib.cpp
     src/SpriteSheet.h
     src/SpriteSheet.cpp
+    src/TextureLoader.h
+    src/TextureLoader.cpp
     src/stb_image.cpp
     src/WebGpu.h
     src/WebGpu.cpp
