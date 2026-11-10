@@ -24,11 +24,23 @@ public:
     ~InlineVector() { clear(); }
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-    InlineVector(const InlineVector& other)
+    constexpr InlineVector(const InlineVector& other)
     {
         for(const T& t : other)
         {
-            push_back(t);
+            std::construct_at(AsPointer(m_Size++), t);
+        }
+    }
+
+    template<size_t M>
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
+    explicit constexpr InlineVector(const InlineVector<T, M>& other)
+    {
+        static_assert(M <= N, "Cannot construct InlineVector from a larger InlineVector");
+
+        for(const T& t : other)
+        {
+            std::construct_at(AsPointer(m_Size++), t);
         }
     }
 
@@ -39,24 +51,53 @@ public:
             clear();
             for(const T& t : other)
             {
-                push_back(t);
+                std::construct_at(AsPointer(m_Size++), t);
+            }
+        }
+        return *this;
+    }
+
+    template<size_t M>
+    constexpr InlineVector& operator=(const InlineVector<T, M>& other)
+    {
+        static_assert(M <= N, "Cannot construct InlineVector from a larger InlineVector");
+
+        if constexpr(M == N)
+        {
+            // Can only check for self assignment when M==N, otherwise the types are different and
+            // self assignment is not possible.
+            if(this != &other)
+            {
+                clear();
+                for(const T& t : other)
+                {
+                    std::construct_at(AsPointer(m_Size++), t);
+                }
+            }
+        }
+        else
+        {
+            clear();
+            for(const T& t : other)
+            {
+                std::construct_at(AsPointer(m_Size++), t);
             }
         }
         return *this;
     }
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-    InlineVector(InlineVector&& other) noexcept
+    constexpr InlineVector(InlineVector&& other) noexcept
     {
         for(T& t : other)
         {
-            push_back(std::move(t));
+            std::construct_at(AsPointer(m_Size++), std::move(t));
         }
 
         other.clear();
     }
 
-    InlineVector& operator=(InlineVector&& other) noexcept
+    constexpr InlineVector& operator=(InlineVector&& other) noexcept
     {
         if(this != &other)
         {
@@ -64,13 +105,14 @@ public:
 
             for(T& t : other)
             {
-                push_back(std::move(t));
+                std::construct_at(AsPointer(m_Size++), std::move(t));
             }
 
             other.clear();
         }
         return *this;
     }
+
     Result<> push_back(const T& value)
     {
         GG_CHECKB(m_Size < N)
@@ -122,7 +164,6 @@ public:
     const_iterator cend() const { return AsPointer(m_Size); }
 
 private:
-
     T* AsPointer(const size_t index)
     {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
