@@ -141,6 +141,11 @@ class FileFetcher
 {
 public:
     FileFetcher();
+    ~FileFetcher();
+    FileFetcher(const FileFetcher&) = delete;
+    FileFetcher& operator=(const FileFetcher&) = delete;
+    FileFetcher(FileFetcher&&) = delete;
+    FileFetcher& operator=(FileFetcher&&) = delete;
 
     Result<FetchRequestPtr> Fetch(const FilePath& path);
 

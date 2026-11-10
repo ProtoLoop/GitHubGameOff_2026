@@ -132,6 +132,12 @@ FileFetcher::FileFetcher()
     }
 }
 
+
+FileFetcher::~FileFetcher()
+{
+    GG_ASSERT(!m_PendingList, "There are still pending fetch requests");
+}
+
 Result<FetchRequestPtr>
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 FileFetcher::Fetch(const FilePath& path)
