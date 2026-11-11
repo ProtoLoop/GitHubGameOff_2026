@@ -1,4 +1,4 @@
-const char* const kSpriteShaderCode = R"(
+constexpr const char* const kSpriteShaderCode = R"(
 struct VSOut
 {
     @builtin(position) pos : vec4<f32>,
@@ -16,8 +16,12 @@ struct SpriteState
 @group(0) @binding(0) var animSheets : texture_2d_array<f32>;
 @group(0) @binding(1) var smp : sampler;
 @group(0) @binding(2) var<storage, read> spriteStates : array<SpriteState>;
-// Logical size of the render target.
-@group(0) @binding(3) var<uniform> logicalTargetSize : vec2<f32>;
+
+override logicalTargetWidth: f32 = 800;     // Logical width of the render target in pixels
+override logicalTargetHeight: f32 = 600;    // Logical height of the render target in pixels
+override cellPixelSize: u32 = 64;           // Number of pixels along each axis of a cell
+override sheetGridSize: u32 = 1;            // Number of tiles along each axis in the tile sheet
+override cellMapGridSize: u32 = 128;        // Number of cells along each axis in the map
 
 // Number of rows and columns in each tile sheet.
 const sheetRowCount: u32 = 8u;
@@ -44,6 +48,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
 
     let state = spriteStates[spriteId];
 
+    let logicalTargetSize = vec2<f32>(logicalTargetWidth, logicalTargetHeight);
     v.pos = vec4<f32>(v.pos.xy * (spriteSize / logicalTargetSize), v.pos.zw);
 
     let frame = f32(state.frame % sheetColCount);

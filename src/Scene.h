@@ -25,6 +25,8 @@ public:
 
     void SetFrameAndDir(uint32_t index, uint32_t frame, uint32_t dir);
 
+    void SetView(const float viewRow, const float viewCol);
+
     Result<> Render();
 
 private:
@@ -44,13 +46,16 @@ private:
 
     Result<> EnsurePipelines(const wgpu::Texture renderTarget);
     Result<> EnsureSpriteStateBuffer();
-    Result<> EnsureLogicalTargetSizeBuffer();
     Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureCellOccupancyBuffer();
     Result<> EnsureBindGroups();
 
     BoundedVector<LostSoul> m_LostSouls;
     std::vector<SpriteState> m_SpriteStates;
     std::vector<bool> m_Visibility;
+
+    float m_ViewRow{ 0 };
+    float m_ViewCol{ 0 };
 
     uint32_t m_LogicalDisplayWidth{ 0 };
     uint32_t m_LogicalDisplayHeight{ 0 };
@@ -59,8 +64,8 @@ private:
     const CellMap* m_CellMap{ nullptr };
     wgpu::TextureFormat m_PipelineFormat{ wgpu::TextureFormat::Undefined };
     wgpu::Buffer m_SpriteStateBuffer;
-    wgpu::Buffer m_TargetSizeBuffer;
     wgpu::Buffer m_CellMapParamsBuffer;
+    wgpu::Buffer m_CellOccupancyBuffer;
     wgpu::RenderPipeline m_SpritePipeline;
     wgpu::BindGroup m_SpriteBindGroup;
 

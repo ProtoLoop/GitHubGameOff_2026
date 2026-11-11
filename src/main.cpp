@@ -44,8 +44,7 @@ struct AppState
     static constexpr const char* const kWindowTitle = "GraveyardShift";
     static constexpr int kWindowWidth = 800;
     static constexpr int kWindowHeight = 600;
-    static constexpr uint32_t kCellMapRowCount = 1024;
-    static constexpr uint32_t kCellMapColCount = 1024;
+    static constexpr uint32_t kCellMapGridCount = 128;
     static constexpr uint32_t kLogicalDisplayWidth = 800;
     static constexpr uint32_t kLogicalDisplayHeight = 600;
 
@@ -85,6 +84,9 @@ struct AppState
     Result<CellMap> CellMap;
 
     Input Input;
+
+    float ViewRow{ 0 };
+    float ViewCol{ 0 };
 
     SDL_Point PlayerLoc{};
     Angle PlayerRot;
@@ -248,11 +250,15 @@ SDL_AppIterate(void* appstate)
                 }
             }
 
+            const FilePath paths[]//
+            {
+                //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+                "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+                "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
+            };
+
             auto texLoadResult =
-                TextureLoader::Load("/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-                    state.FileFetcher,
-                    state.WebGpu,
-                    "Test");
+                TextureLoader::Load(paths, state.FileFetcher, state.WebGpu, "Test");
             if(!texLoadResult)
             {
                 return SDL_APP_FAILURE;
@@ -269,7 +275,7 @@ SDL_AppIterate(void* appstate)
             }
 
             state.CellMap =
-                CellMap::Create(*texResult, AppState::kCellMapRowCount, AppState::kCellMapColCount);
+                CellMap::Create(*texResult, AppState::kCellMapGridCount);
             if(!state.CellMap)
             {
                 return SDL_APP_FAILURE;
@@ -314,18 +320,26 @@ SDL_AppIterate(void* appstate)
 
     if(state.Input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
+        state.ViewCol -= value * 0.1f;//NOLINT
+
         state.PlayerLoc.x -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveRight, value))
     {
+        state.ViewCol += value * 0.1f;//NOLINT
+
         state.PlayerLoc.x += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveForward, value))
     {
+        state.ViewRow -= value * 0.1f;//NOLINT
+
         state.PlayerLoc.y -= static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
+        state.ViewRow += value * 0.1f;//NOLINT
+
         state.PlayerLoc.y += static_cast<int>(value);
     }
     if(state.Input.IsTriggered(Input::ActionId::RotateLeft, value))
@@ -358,6 +372,7 @@ SDL_AppIterate(void* appstate)
     GG_ASSERT(srcRectResult);
 
     state.Scene->SetFrameAndDir(0, animFrame, dirIndex);
+    state.Scene->SetView(state.ViewRow, state.ViewCol);
 
     if(!GG_VERIFYB(state.Scene->Render(), "Failed to render scene"))
     {

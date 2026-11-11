@@ -45,9 +45,9 @@ public:
         std::span<std::span<const std::byte>> data,
         const std::string_view name) const;
 
-    wgpu::Buffer CreateStorageBuffer(const uint32_t size, const std::string_view name) const;
+    wgpu::Buffer CreateStorageBuffer(const size_t size, const std::string_view name) const;
 
-    wgpu::Buffer CreateUniformBuffer(const uint32_t size, const std::string_view name) const;
+    wgpu::Buffer CreateUniformBuffer(const size_t size, const std::string_view name) const;
 
     wgpu::Sampler GetDefaultSampler() const;
 

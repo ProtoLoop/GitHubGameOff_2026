@@ -7,19 +7,14 @@
 class CellMap
 {
 public:
-    static Result<CellMap> Create(
-        const wgpu::Texture tileSets, const uint32_t rowCount, const uint32_t colCount);
+    static Result<CellMap> Create(const wgpu::Texture tileSets, const uint32_t gridSize);
 
-    uint32_t GetRowCount() const { return m_RowCount; }
-    uint32_t GetColCount() const { return m_ColCount; }
+    uint32_t GetGridSize() const { return m_GridSize; }
     wgpu::Texture GetTileSetTexture() const { return m_TileSets; }
 
 private:
-    CellMap(const wgpu::Texture tileSets,
-        const uint32_t rowCount,
-        const uint32_t colCount);
+    CellMap(const wgpu::Texture tileSets, const uint32_t gridSize);
 
     wgpu::Texture m_TileSets;
-    uint32_t m_RowCount;
-    uint32_t m_ColCount;
+    uint32_t m_GridSize;
 };

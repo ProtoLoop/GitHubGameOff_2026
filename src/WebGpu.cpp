@@ -513,7 +513,7 @@ WebGpu::CreateTexture(const uint32_t width,
 }
 
 wgpu::Buffer
-WebGpu::CreateStorageBuffer(const uint32_t size, const std::string_view name) const
+WebGpu::CreateStorageBuffer(const size_t size, const std::string_view name) const
 {
     GG_ASSERT(IsReady());
 
@@ -530,7 +530,7 @@ WebGpu::CreateStorageBuffer(const uint32_t size, const std::string_view name) co
 }
 
 wgpu::Buffer
-WebGpu::CreateUniformBuffer(const uint32_t size, const std::string_view name) const
+WebGpu::CreateUniformBuffer(const size_t size, const std::string_view name) const
 {
     GG_ASSERT(IsReady());
 
