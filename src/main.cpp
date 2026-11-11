@@ -16,6 +16,7 @@
 #include <optional>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <variant>
 
 namespace
 {
@@ -85,9 +86,8 @@ struct Game
 
     ~Game()
     {
-        // Release sprite resources.
-        SpriteLibLoader = {};
-        SpriteLib = {};
+        // Release resources.
+        m_State = std::monostate{};
 
         if(Window)
         {
@@ -114,15 +114,24 @@ struct Game
 
     SDL_Window* Window = nullptr;
     WebGpu WebGpu;
-    Result<Scene> Scene;
     FileFetcher FileFetcher;
-    Result<SpriteLibLoader> SpriteLibLoader;
-    Result<LevelLoader> LevelLoader;
-    Result<TextureLoader> CellMapTextureLoader;
-    Result<SpriteLib> SpriteLib;
-    Result<CellMap> CellMap;
-
     Input Input;
+
+    struct LoadingState
+    {
+        Result<SpriteLibLoader> SpriteLibLoader;
+        Result<LevelLoader> LevelLoader;
+        Result<TextureLoader> CellMapTextureLoader;
+    };
+
+    struct RunState
+    {
+        Result<SpriteLib> SpriteLib;
+        Result<CellMap> CellMap;
+        Result<Scene> Scene;
+    };
+
+    std::variant<std::monostate, LoadingState, RunState> m_State = LoadingState{};
 
     float ViewRow{ 0 };
     float ViewCol{ 0 };
@@ -178,11 +187,13 @@ Game::Update()
             break;
         case Stage::WebGpuReady:
         {
-            SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, FileFetcher, WebGpu);
-            GG_CHECKB(SpriteLibLoader, "Failed to start loading sprite lib loader");
+            auto& state = std::get<LoadingState>(m_State);
 
-            LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
-            GG_CHECKB(LevelLoader, "Failed to start loading level");
+            state.SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, FileFetcher, WebGpu);
+            GG_CHECKB(state.SpriteLibLoader, "Failed to start loading sprite lib loader");
+
+            state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
+            GG_CHECKB(state.LevelLoader, "Failed to start loading level");
 
             const FilePath paths[] //
                 {                  //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
@@ -190,28 +201,46 @@ Game::Update()
                     "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
                 };
 
-            CellMapTextureLoader = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
-            GG_CHECKB(CellMapTextureLoader, "Failed to start texture load");
+            state.CellMapTextureLoader = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
+            GG_CHECKB(state.CellMapTextureLoader, "Failed to start texture load");
 
             m_Stage = Stage::Loading;
         }
             break;
         case Stage::Loading:
-            GG_CHECK(SpriteLibLoader->Update(), "Failed to update sprite lib loader");
-            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
+        {
+                auto& state = std::get<LoadingState>(m_State);
+                
+                GG_CHECK(state.SpriteLibLoader->Update(), "Failed to update sprite lib loader");
+                GG_CHECK(state.LevelLoader->Update(), "Failed to update level loader");
 
-            if(!SpriteLibLoader->IsPending() && !LevelLoader->IsPending() && !CellMapTextureLoader->IsPending())
-            {
-                m_Stage = Stage::Loaded;
+                if(!state.SpriteLibLoader->IsPending() && !state.LevelLoader->IsPending() && !state.CellMapTextureLoader->IsPending())
+                {
+                    m_Stage = Stage::Loaded;
+                }
             }
             break;
         case Stage::Loaded:
         {
-            auto spriteLibResult = SpriteLibLoader->Take();
+            auto& state = std::get<LoadingState>(m_State);
+                
+            auto spriteLibResult = state.SpriteLibLoader->Take();
             GG_CHECKB(spriteLibResult, "Failed to load sprite lib");
 
-            SpriteLib = std::move(*spriteLibResult);
-            SpriteLibLoader = {};
+            auto texResult = state.CellMapTextureLoader->Take();
+            GG_CHECKB(texResult, "Failed to load texture");
+
+            auto cellmapResult = CellMap::Create(*texResult, kCellMapGridCount);
+            GG_CHECK(cellmapResult, "Failed to create cell map");
+
+            m_State = RunState
+            {
+                .SpriteLib = std::move(*spriteLibResult),
+                .CellMap = std::move(*cellmapResult),
+                .Scene = {}  
+            };
+
+            auto& runState = std::get<RunState>(m_State);
 
             BoundedVector<LostSoul> lostSouls(8); // NOLINT
             for(size_t i = 0; i < lostSouls.capacity(); ++i)
@@ -219,21 +248,13 @@ Game::Update()
                 GG_CHECKB(lostSouls.push_back(LostSoul{}), "Failed to add lost soul");
             }
 
-            auto texResult = CellMapTextureLoader->Take();
-            GG_CHECKB(texResult, "Failed to load texture");
-
-            CellMapTextureLoader = {};
-
-            CellMap = CellMap::Create(*texResult, kCellMapGridCount);
-            GG_CHECK(CellMap, "Failed to create cell map");
-
-            Scene = Scene::Create(kLogicalDisplayWidth,
+            runState.Scene = Scene::Create(kLogicalDisplayWidth,
                 kLogicalDisplayHeight,
                 WebGpu,
-                *SpriteLib,
-                *CellMap,
+                *runState.SpriteLib,
+                *runState.CellMap,
                 std::move(lostSouls));
-            GG_CHECKB(Scene, "Failed to create scene");
+            GG_CHECKB(runState.Scene, "Failed to create scene");
 
             m_Stage = Stage::Running;
         }
@@ -261,6 +282,8 @@ Game::Run()
     static uint32_t frame = 0;
     static uint64_t ms = SDL_GetTicks();
     static uint64_t elapsedMs = 0;
+
+    auto& state = std::get<RunState>(m_State);
 
     const uint64_t curMs = SDL_GetTicks();
     const uint64_t deltaMs = curMs - ms;
@@ -318,7 +341,7 @@ Game::Run()
     PlayerLoc.y =
         std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
 
-    const auto spriteSheetResult = SpriteLib->GetSpriteSheet("run_body");
+    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("run_body");
     GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
 
     const SpriteSheet* spriteSheet = *spriteSheetResult;
@@ -327,10 +350,10 @@ Game::Run()
     const auto srcRectResult = spriteSheet->GetFrameRect(dirIndex, animFrame);
     GG_ASSERT(srcRectResult);
 
-    Scene->SetFrameAndDir(0, animFrame, dirIndex);
-    Scene->SetView(ViewRow, ViewCol);
+    state.Scene->SetFrameAndDir(0, animFrame, dirIndex);
+    state.Scene->SetView(ViewRow, ViewCol);
 
-    GG_CHECKB(Scene->Render(), "Failed to render scene");
+    GG_CHECKB(state.Scene->Render(), "Failed to render scene");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 
