@@ -41,12 +41,12 @@ CollectSpriteSheets(const std::span<const SpriteSheetDef> defs,
     for(const SpriteSheetDef& sheetDef : defs)
     {
         const FilePath& atlasPath = sheetDef.Path;
-        const RectDef& sheetRectDef = sheetDef.SheetRect;
-        const Dimension2Def& spriteDimsDef = sheetDef.SpriteDims;
+        const Rect& sheetRectDef = sheetDef.SheetRect;
+        const Dimension2d& spriteDimsDef = sheetDef.SpriteDims;
         const SpriteSheet::NameType& name = sheetDef.Name;
 
         GG_CHECKB(!atlasPath.empty(), "Sprite sheet path cannot be empty");
-        GG_CHECKB(spriteDimsDef.Width > 0 && spriteDimsDef.Height > 0,
+        GG_CHECKB(spriteDimsDef.w > 0 && spriteDimsDef.h > 0,
             "Sprite dimensions cannot be empty");
         GG_CHECKB(!name.empty(), "Sprite sheet name cannot be empty");
 
@@ -70,19 +70,7 @@ CollectSpriteSheets(const std::span<const SpriteSheetDef> defs,
 
         GG_CHECK(atlasFound, "Atlas not found: {}", atlasPath);
 
-        const SDL_FRect sheetRect //
-            {
-                .x = scast<float>(sheetRectDef.X),
-                .y = scast<float>(sheetRectDef.Y),
-                .w = scast<float>(sheetRectDef.Width),
-                .h = scast<float>(sheetRectDef.Height),
-            };
-
-        const SpriteSheet sheet(name,
-            scast<uint32_t>(atlasIndex),
-            sheetRect,
-            spriteDimsDef.Width,
-            spriteDimsDef.Height);
+        const SpriteSheet sheet(name, scast<uint32_t>(atlasIndex), sheetRectDef, spriteDimsDef);
 
         GG_CHECKB(sheets.push_back(sheet));
     }
@@ -197,15 +185,15 @@ SpriteLibLoader::Take()
 Result<>
 SpriteLibLoader::FixupSpriteSheets(const wgpu::Texture texture)
 {
-    const float texWidth = scast<float>(texture.GetWidth());
-    const float texHeight = scast<float>(texture.GetHeight());
+    const uint32_t texWidth = texture.GetWidth();
+    const uint32_t texHeight = texture.GetHeight();
     const uint32_t layerCount = texture.GetDepthOrArrayLayers();
 
     // Validate sprite sheets
     for(SpriteSheet& sheet : m_SpriteSheets)
     {
         const SpriteSheet::NameType& name = sheet.GetName();
-        const SDL_FRect& sheetRect = sheet.m_SheetRect;
+        const Rect& sheetRect = sheet.m_SheetRect;
 
         GG_CHECKB(!name.empty(), "Sprite sheet name cannot be empty");
 
@@ -229,14 +217,10 @@ SpriteLibLoader::FixupSpriteSheets(const wgpu::Texture texture)
         if(0 == sheetRect.w)
         {
             // Use the full texture dimensions for the sheet rect.
-            const SDL_FRect newRect{ .x = 0, .y = 0, .w = texWidth, .h = texHeight };
+            const Rect newRect{ .x = 0, .y = 0, .w = texWidth, .h = texHeight };
 
             // Call the ctor again so rows/cols are recalculated based on the new sheet rect.
-            sheet = SpriteSheet(sheet.GetName(),
-                sheet.m_AtlasIndex,
-                newRect,
-                sheet.m_FrameWidth,
-                sheet.m_FrameHeight);
+            sheet = SpriteSheet(sheet.GetName(), sheet.m_AtlasIndex, newRect, sheet.m_SpriteDims);
         }
 
         // Verify the sheet rect is within the texture bounds.
@@ -248,23 +232,23 @@ SpriteLibLoader::FixupSpriteSheets(const wgpu::Texture texture)
             sheetRect.y,
             sheetRect.w,
             sheetRect.h,
-            scast<unsigned>(texWidth),
-            scast<unsigned>(texHeight));
+            texWidth,
+            texHeight);
 
         // Verify the sprite dimensions are positive.
-        GG_CHECKB(sheet.m_FrameWidth > 0 && sheet.m_FrameHeight > 0,
+        GG_CHECKB(sheet.m_SpriteDims.w > 0 && sheet.m_SpriteDims.h > 0,
             "Invalid sprite dimensions in sheet: {} - {}x{}",
             name,
-            sheet.m_FrameWidth,
-            sheet.m_FrameHeight);
+            sheet.m_SpriteDims.w,
+            sheet.m_SpriteDims.h);
 
         // Verify the sprite dimensions fit within the sheet rect.
-        GG_CHECKB(scast<float>(sheet.m_FrameWidth) <= sheet.m_SheetRect.w
-                && scast<float>(sheet.m_FrameHeight) <= sheet.m_SheetRect.h,
+        GG_CHECKB(sheet.m_SpriteDims.w <= sheet.m_SheetRect.w
+                && sheet.m_SpriteDims.h <= sheet.m_SheetRect.h,
             "Sprite dimensions exceed sheet rect: {} - {}x{} - {}x{}",
             name,
-            sheet.m_FrameWidth,
-            sheet.m_FrameHeight,
+            sheet.m_SpriteDims.w,
+            sheet.m_SpriteDims.h,
             sheet.m_SheetRect.w,
             sheet.m_SheetRect.h);
     }

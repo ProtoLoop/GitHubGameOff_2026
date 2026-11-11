@@ -1,36 +1,28 @@
 #include "SpriteSheet.h"
 
-#include <SDL3/SDL_render.h>
-
 SpriteSheet::SpriteSheet(const NameType& name,
     const uint32_t atlasIndex,
-    const SDL_FRect& rect,
-    const uint32_t frameWidth,
-    const uint32_t frameHeight)
+    const Rect& rect,
+    const Dimension2d& spriteDims)
     : m_Name(name),
       m_AtlasIndex(atlasIndex),
       m_SheetRect(rect),
-      m_FrameWidth(frameWidth),
-      m_FrameHeight(frameHeight),
-      m_RowCount(m_FrameHeight
-              ? static_cast<uint32_t>(m_SheetRect.h / static_cast<float>(m_FrameHeight))
-              : 0),
-      m_ColCount(m_FrameWidth
-              ? static_cast<uint32_t>(m_SheetRect.w / static_cast<float>(m_FrameWidth))
-              : 0)
+      m_SpriteDims(spriteDims),
+      m_RowCount(m_SpriteDims.h ? m_SheetRect.h / m_SpriteDims.h : 0),
+      m_ColCount(m_SpriteDims.w ? m_SheetRect.w / m_SpriteDims.w : 0)
 {
 }
 
-Result<SDL_FRect>
+Result<Rect>
 SpriteSheet::GetFrameRect(const uint32_t row, const uint32_t col) const
 {
     GG_CHECKB(row < m_RowCount, "Row index out of bounds");
     GG_CHECKB(col < m_ColCount, "Column index out of bounds");
 
-    SDL_FRect rect{};
-    rect.x = m_SheetRect.x + static_cast<float>(col * m_FrameWidth);
-    rect.y = m_SheetRect.y + static_cast<float>(row * m_FrameHeight);
-    rect.w = static_cast<float>(m_FrameWidth);
-    rect.h = static_cast<float>(m_FrameHeight);
+    Rect rect{};
+    rect.x = m_SheetRect.x + (col * m_SpriteDims.w);
+    rect.y = m_SheetRect.y + (row * m_SpriteDims.h);
+    rect.w = m_SpriteDims.w;
+    rect.h = m_SpriteDims.h;
     return rect;
 }

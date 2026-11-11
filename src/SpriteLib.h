@@ -8,20 +8,6 @@
 
 class WebGpu;
 
-struct RectDef
-{
-    uint32_t X;
-    uint32_t Y;
-    uint32_t Width;
-    uint32_t Height;
-};
-
-struct Dimension2Def
-{
-    uint32_t Width;
-    uint32_t Height;
-};
-
 struct SpriteSheetDef
 {
     FilePath Path;
@@ -29,8 +15,16 @@ struct SpriteSheetDef
     /// The rectangle enclosing the sprite sheet.
     /// Could be a subrectangle of the full atlas texture.
     /// If width/height are zero, the full texture dimensions will be used.
-    RectDef SheetRect{};
-    Dimension2Def SpriteDims{};
+    Rect SheetRect{};
+    Dimension2d SpriteDims{};
+};
+
+struct SpriteAnimDef
+{
+    SpriteSheet::NameType Name;
+    Rect SheetRect{};
+    Dimension2d SpriteDims{};
+    std::vector<FilePath> Directions;
 };
 
 class SpriteLib

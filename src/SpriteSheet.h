@@ -3,8 +3,21 @@
 #include "InlineString.h"
 #include "Result.h"
 
-#include <SDL3/SDL_rect.h>
 #include <webgpu/webgpu_cpp.h>
+
+struct Rect
+{
+    uint32_t x;
+    uint32_t y;
+    uint32_t w;
+    uint32_t h;
+};
+
+struct Dimension2d
+{
+    uint32_t w;
+    uint32_t h;
+};
 
 class SpriteSheet
 {
@@ -17,9 +30,8 @@ public:
 
     SpriteSheet(const NameType& name,
         const uint32_t atlasIndex,
-        const SDL_FRect& rect,
-        const uint32_t frameWidth,
-        const uint32_t frameHeight);
+        const Rect& rect,
+        const Dimension2d& spriteDims);
 
     const NameType& GetName() const { return m_Name; }
 
@@ -27,7 +39,7 @@ public:
 
     uint32_t GetColCount() const { return m_ColCount; }
 
-    Result<SDL_FRect> GetFrameRect(const uint32_t row, const uint32_t col) const;
+    Result<Rect> GetFrameRect(const uint32_t row, const uint32_t col) const;
 
 private:
     friend class SpriteLibLoader;
@@ -36,9 +48,8 @@ private:
     // Index into the webgpu texture array - passed to the shader.
     // Used by the sampler.
     uint32_t m_AtlasIndex;
-    SDL_FRect m_SheetRect;
-    uint32_t m_FrameWidth;
-    uint32_t m_FrameHeight;
+    Rect m_SheetRect;
+    Dimension2d m_SpriteDims;
     uint32_t m_RowCount;
     uint32_t m_ColCount;
 };

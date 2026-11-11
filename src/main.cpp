@@ -28,14 +28,41 @@ const SpriteSheetDef kSpriteSheetDefs[] //
             .SpriteDims{ .Width = 128, .Height = 128 },
         },*/
         {
-            .Path{ "/assets/lost_soul_walk_8directions_64.png" },
-            .Name{ "lost_soul1" },
-            .SpriteDims{ .Width = 64, .Height = 64 },
+            .Path{ "/assets/run/Run_Body_180.png" },
+            .Name{ "lost_soul" },
+            .SpriteDims{ .w = 180, .h = 180 },
         },
         {
-            .Path{ "/assets/lost_soul_walk_8directions_64.png" },
-            .Name{ "lost_soul2" },
-            .SpriteDims{ .Width = 64, .Height = 64 },
+            .Path{ "/assets/run/Run_Body_180.png" },
+            .Name{ "run_body" },
+            .SpriteDims{ .w = 180, .h = 180 },
+        },
+    };
+
+const SpriteAnimDef kSpriteAnimDefs[] //
+    {                                 //
+        {
+            .Name{ "run_body" },
+            .SpriteDims{ .w = 180, .h = 180 },
+            .Directions //
+            {
+                "/assets/run/Run_Body_000.png",
+                "/assets/run/Run_Body_022.png",
+                "/assets/run/Run_Body_045.png",
+                "/assets/run/Run_Body_067.png",
+                "/assets/run/Run_Body_090.png",
+                "/assets/run/Run_Body_112.png",
+                "/assets/run/Run_Body_135.png",
+                "/assets/run/Run_Body_157.png",
+                "/assets/run/Run_Body_180.png",
+                "/assets/run/Run_Body_202.png",
+                "/assets/run/Run_Body_225.png",
+                "/assets/run/Run_Body_247.png",
+                "/assets/run/Run_Body_270.png",
+                "/assets/run/Run_Body_292.png",
+                "/assets/run/Run_Body_315.png",
+                "/assets/run/Run_Body_337.png",
+            },
         },
     };
 
@@ -362,7 +389,7 @@ SDL_AppIterate(void* appstate)
     state.PlayerLoc.y = std::min(std::max(state.PlayerLoc.y, halfSquareSize),
         AppState::kWindowHeight - halfSquareSize);
 
-    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("lost_soul1");
+    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("run_body");
     GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
 
     const SpriteSheet* spriteSheet = *spriteSheetResult;

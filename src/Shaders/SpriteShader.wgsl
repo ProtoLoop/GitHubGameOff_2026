@@ -24,9 +24,9 @@ override sheetGridSize: u32 = 1;            // Number of tiles along each axis i
 override cellMapGridSize: u32 = 128;        // Number of cells along each axis in the map
 
 // Number of rows and columns in each tile sheet.
-const sheetRowCount: u32 = 8u;
-const sheetColCount: u32 = 8u;
-const sheetRowsCols = vec2<f32>(f32(sheetRowCount), f32(sheetColCount));
+const sheetRowCount: u32 = 4u;
+const sheetColCount: u32 = 6u;
+const sheetColsRows = vec2<f32>(f32(sheetColCount), f32(sheetRowCount));
 
 const vsout = array<VSOut, 6>
 (
@@ -43,7 +43,7 @@ const vsout = array<VSOut, 6>
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: u32) -> VSOut
 {
     let texDims = vec2<f32>(textureDimensions(animSheets, 0).xy);
-    let spriteSize = texDims / sheetRowsCols;
+    let spriteSize = texDims / sheetColsRows;
     var v = vsout[vid];
 
     let state = spriteStates[spriteId];
@@ -54,7 +54,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let frame = f32(state.frame % sheetColCount);
     let dir = f32(state.dir % sheetRowCount);
 
-    v.uv = (v.uv + vec2<f32>(frame, dir)) / sheetRowsCols;
+    v.uv = (v.uv + vec2<f32>(frame, dir)) / sheetColsRows;
 
     v.sheet = state.sheet;
 
