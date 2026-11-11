@@ -118,6 +118,7 @@ struct Game
     FileFetcher FileFetcher;
     Result<SpriteLibLoader> SpriteLibLoader;
     Result<LevelLoader> LevelLoader;
+    Result<TextureLoader> CellMapTextureLoader;
     Result<SpriteLib> SpriteLib;
     Result<CellMap> CellMap;
 
@@ -176,19 +177,30 @@ Game::Update()
             }
             break;
         case Stage::WebGpuReady:
+        {
             SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, FileFetcher, WebGpu);
             GG_CHECKB(SpriteLibLoader, "Failed to start loading sprite lib loader");
 
             LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
             GG_CHECKB(LevelLoader, "Failed to start loading level");
 
+            const FilePath paths[] //
+                {                  //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+                    "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+                    "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
+                };
+
+            CellMapTextureLoader = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
+            GG_CHECKB(CellMapTextureLoader, "Failed to start texture load");
+
             m_Stage = Stage::Loading;
+        }
             break;
         case Stage::Loading:
             GG_CHECK(SpriteLibLoader->Update(), "Failed to update sprite lib loader");
             GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
 
-            if(!SpriteLibLoader->IsPending() && !LevelLoader->IsPending())
+            if(!SpriteLibLoader->IsPending() && !LevelLoader->IsPending() && !CellMapTextureLoader->IsPending())
             {
                 m_Stage = Stage::Loaded;
             }
@@ -207,21 +219,10 @@ Game::Update()
                 GG_CHECKB(lostSouls.push_back(LostSoul{}), "Failed to add lost soul");
             }
 
-            const FilePath paths[] //
-                {                  //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-                    "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-                    "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
-                };
-
-            auto texLoadResult = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
-            GG_CHECKB(texLoadResult, "Failed to start texture load");
-
-            while(texLoadResult->IsPending())
-            {
-            }
-
-            auto texResult = texLoadResult->Take();
+            auto texResult = CellMapTextureLoader->Take();
             GG_CHECKB(texResult, "Failed to load texture");
+
+            CellMapTextureLoader = {};
 
             CellMap = CellMap::Create(*texResult, kCellMapGridCount);
             GG_CHECK(CellMap, "Failed to create cell map");
