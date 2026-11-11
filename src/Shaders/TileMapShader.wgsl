@@ -37,6 +37,9 @@ const vsout = array<VSOut, 6>
     VSOut(vec4f(-1.0, -1.0, 0.0, 1.0), vec2f(0.0, 1.0), vec2f(0.0, 1.0), vec2f(0.0, 0.0), 0, 0u)
 );
 
+// Isometric transformation matrix.
+const iso = mat2x2f(vec2f(0.5, 0.25), vec2f(-0.5, 0.25));
+
 // lowbias32 hash function for generating pseudo-random numbers from a 32-bit integer input.
 fn hash(value: u32) -> u32
 {
@@ -47,9 +50,9 @@ fn hash(value: u32) -> u32
 }
 
 @vertex
-fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) worldCellIndex: u32) -> VSOut
+fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCellIndex: u32) -> VSOut
 {
-    let logicalTargetSize = vec2f(800, 600);
+    let logicalTargetSize = vec2f(logicalTargetWidth, logicalTargetHeight);
 
     let cellOccupied = (cellOccupancy[worldCellIndex / 32u] & (1u << (worldCellIndex % 32u))) != 0u;
 
@@ -61,23 +64,14 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) worldCellI
     let worldCellRow = cell / cellMapGridSize;
     let worldCellCol = cell % cellMapGridSize;
 
-    // World space center of the cell in pixel coordinates.
-    var centerPx = (vec2f(f32(worldCellCol), f32(worldCellRow)) + vec2f(0.5)) * f32(cellPixelSize);
+    var v = vsout[vidx];
 
-    //Camera space center of the cell in pixel coordinates.
-    centerPx -= vec2f(cellMapParams.viewCol, cellMapParams.viewRow) * f32(cellPixelSize);
+    let world = v.origUV + vec2f(f32(worldCellCol), f32(worldCellRow));
+    let cam = world - vec2f(cellMapParams.viewCol, cellMapParams.viewRow);
+    let ndc = (iso * cam * f32(cellPixelSize) / logicalTargetSize) * vec2f(2.0, -2.0) + vec2f(-1.0, 1.0);
+    //let ndc = (cam * f32(cellPixelSize) / logicalTargetSize) * vec2f(2.0, -2.0);
 
-    // Center of the cell in normalized device coordinates.
-    let centerNDC = (centerPx / (logicalTargetSize / vec2f(2.0, -2.0)))+ vec2f(-1.0, 1.0);
-
-    // Half size of the cell in normalized device coordinates.  No division by 2 because each cell
-    // spans from -1 to 1 (2 units) in local space NDC.
-    let cellHalfSizeNDC = vec2f(f32(cellPixelSize)) / logicalTargetSize;
-
-    var v = vsout[vid];
-
-    // Scale and translate the vertex position to the correct cell in NDC.
-    v.pos = vec4f(centerNDC + v.pos.xy * cellHalfSizeNDC, v.pos.z, v.pos.w);
+    v.pos.xy = ndc;
 
     let sheetPixelSize = textureDimensions(tileSheets).x;
     // Number of pixels along each axis of a terrain tile.
@@ -95,9 +89,11 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) worldCellI
     let hashVal = hash(worldTerrainIndex);
     let tileIndex = hashVal % (sheetGridSize * sheetGridSize);
 
+    // Offset of the cell within its terrain tile.
     let cellWithinTile = vec2f(f32(worldCellCol % tileCellSize), f32(worldCellRow % tileCellSize));
     var terrainUV = (cellWithinTile + v.uv) / f32(tileCellSize);
 
+    // Offset of the terrain tile within the tile sheet.
     let tileCol = tileIndex % sheetGridSize;
     let tileRow = tileIndex / sheetGridSize;
     var tileUV = vec2f(f32(tileCol), f32(tileRow));
