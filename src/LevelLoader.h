@@ -8,7 +8,7 @@ class LevelLoader
 public:
     static Result<LevelLoader> Load(const FilePath& path, FileFetcher& fetcher);
 
-    void Update();
+    Result<> Update();
 
     bool IsPending() const;
 

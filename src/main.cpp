@@ -2,6 +2,7 @@
 
 #include "Angle.h"
 #include "CellMap.h"
+#include "Defer.h"
 #include "Input.h"
 #include "LevelLoader.h"
 #include "Scene.h"
@@ -40,7 +41,8 @@ const SpriteSheetDef kSpriteSheetDefs[] //
     };
 
 const SpriteAnimDef kSpriteAnimDefs[] //
-    {                                 //
+    {
+        //
         {
             .Name{ "run_body" },
             .SpriteDims{ .w = 180, .h = 180 },
@@ -97,9 +99,18 @@ struct AppState
     {
         None,
         InitializingWebGpu,
+        WebGpuReady,
         Loading,
+        Loaded,
         Running,
+        Stopped
     };
+
+    Result<> Update();
+
+    bool IsStopped() const { return m_Stage == Stage::Stopped; }
+
+    Result<> RunGame();
 
     SDL_Window* Window = nullptr;
     WebGpu WebGpu;
@@ -130,6 +141,199 @@ TurnsToRadians(uint32_t turns)
         * std::numbers::pi_v<float>
         * static_cast<float>(turns)
         / static_cast<float>(std::numeric_limits<uint32_t>::max());
+}
+
+Result<>
+AppState::Update()
+{
+    // If we exit due to error then set the stage to Stopped.
+    auto stopRunning = GG_DEFER
+    {
+        m_Stage = Stage::Stopped;
+    };
+
+    Input.Update();
+
+    float value{};
+    if(Input.IsTriggered(Input::ActionId::Quit, value))
+    {
+        m_Stage = Stage::Stopped;
+    }
+
+    // Call every frame to catch device lost.
+    GG_CHECK(WebGpu.Update());
+
+    switch(m_Stage)
+    {
+        case Stage::None:
+            break;
+        case Stage::InitializingWebGpu:
+            GG_CHECK(WebGpu.Update(), "Failed to update WebGpu");
+
+            if(WebGpu.IsReady())
+            {
+                m_Stage = Stage::WebGpuReady;
+            }
+            break;
+        case Stage::WebGpuReady:
+            SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, FileFetcher, WebGpu);
+            GG_CHECKB(SpriteLibLoader, "Failed to start loading sprite lib loader");
+
+            LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
+            GG_CHECKB(LevelLoader, "Failed to start loading level");
+
+            m_Stage = Stage::Loading;
+            break;
+        case Stage::Loading:
+            GG_CHECK(SpriteLibLoader->Update(), "Failed to update sprite lib loader");
+            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
+
+            if(!SpriteLibLoader->IsPending() && !LevelLoader->IsPending())
+            {
+                m_Stage = Stage::Loaded;
+            }
+            break;
+        case Stage::Loaded:
+        {
+            auto spriteLibResult = SpriteLibLoader->Take();
+            GG_CHECKB(spriteLibResult, "Failed to load sprite lib");
+
+            SpriteLib = std::move(*spriteLibResult);
+            SpriteLibLoader = {};
+
+            BoundedVector<LostSoul> lostSouls(8); // NOLINT
+            for(size_t i = 0; i < lostSouls.capacity(); ++i)
+            {
+                GG_CHECKB(lostSouls.push_back(LostSoul{}), "Failed to add lost soul");
+            }
+
+            const FilePath paths[] //
+                {                  //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+                    "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+                    "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
+                };
+
+            auto texLoadResult = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
+            GG_CHECKB(texLoadResult, "Failed to start texture load");
+
+            while(texLoadResult->IsPending())
+            {
+            }
+
+            auto texResult = texLoadResult->Take();
+            GG_CHECKB(texResult, "Failed to load texture");
+
+            CellMap = CellMap::Create(*texResult, AppState::kCellMapGridCount);
+            GG_CHECK(CellMap, "Failed to create cell map");
+
+            Scene = Scene::Create(AppState::kLogicalDisplayWidth,
+                AppState::kLogicalDisplayHeight,
+                WebGpu,
+                *SpriteLib,
+                *CellMap,
+                std::move(lostSouls));
+            GG_CHECKB(Scene, "Failed to create scene");
+
+            m_Stage = AppState::Stage::Running;
+        }
+        break;
+        case Stage::Running:
+            GG_CHECK(RunGame(), "Failed to run game");
+            break;
+
+        case Stage::Stopped:
+            break;
+    }
+
+    stopRunning.cancel();
+
+    return Result<>::Success();
+}
+
+Result<>
+AppState::RunGame()
+{
+    static constexpr float kTurnsPerSec = 1;
+
+    constexpr uint64_t kAnimFps = 10;
+    constexpr uint64_t kmspf = 1000 / kAnimFps;
+    static uint32_t frame = 0;
+    static uint64_t ms = SDL_GetTicks();
+    static uint64_t elapsedMs = 0;
+
+    const uint64_t curMs = SDL_GetTicks();
+    const uint64_t deltaMs = curMs - ms;
+    elapsedMs += deltaMs;
+    ms = curMs;
+
+    while(elapsedMs > kmspf)
+    {
+        frame = frame + 1;
+        elapsedMs -= kmspf;
+    }
+
+    float value{};
+    if(Input.IsTriggered(Input::ActionId::MoveLeft, value))
+    {
+        ViewCol -= value * 0.1f; // NOLINT
+
+        PlayerLoc.x -= static_cast<int>(value);
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveRight, value))
+    {
+        ViewCol += value * 0.1f; // NOLINT
+
+        PlayerLoc.x += static_cast<int>(value);
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveForward, value))
+    {
+        ViewRow -= value * 0.1f; // NOLINT
+
+        PlayerLoc.y -= static_cast<int>(value);
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
+    {
+        ViewRow += value * 0.1f; // NOLINT
+
+        PlayerLoc.y += static_cast<int>(value);
+    }
+    if(Input.IsTriggered(Input::ActionId::RotateLeft, value))
+    {
+        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
+        PlayerRot -= Angle(turns);
+    }
+    if(Input.IsTriggered(Input::ActionId::RotateRight, value))
+    {
+        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
+        PlayerRot += Angle(turns);
+    }
+
+    Input.Reset();
+
+    constexpr int halfSquareSize = SquareSize / 2;
+
+    PlayerLoc.x =
+        std::min(std::max(PlayerLoc.x, halfSquareSize), AppState::kWindowWidth - halfSquareSize);
+    PlayerLoc.y =
+        std::min(std::max(PlayerLoc.y, halfSquareSize), AppState::kWindowHeight - halfSquareSize);
+
+    const auto spriteSheetResult = SpriteLib->GetSpriteSheet("run_body");
+    GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
+
+    const SpriteSheet* spriteSheet = *spriteSheetResult;
+    const uint32_t dirIndex = PlayerRot.GetDirection(spriteSheet->GetRowCount());
+    const uint32_t animFrame = frame % spriteSheet->GetColCount();
+    const auto srcRectResult = spriteSheet->GetFrameRect(dirIndex, animFrame);
+    GG_ASSERT(srcRectResult);
+
+    Scene->SetFrameAndDir(0, animFrame, dirIndex);
+    Scene->SetView(ViewRow, ViewCol);
+
+    GG_CHECKB(Scene->Render(), "Failed to render scene");
+
+    GG_CHECKB(WebGpu.Present(), "Failed to present");
+
+    return Result<>::Success();
 }
 
 } // namespace
@@ -199,216 +403,14 @@ SDL_AppIterate(void* appstate)
 {
     AppState& state = *static_cast<AppState*>(appstate);
 
-    state.Input.Update();
+    if(!state.Update())
+    {
+        return SDL_APP_FAILURE;
+    }
 
-    float value{};
-    if(state.Input.IsTriggered(Input::ActionId::Quit, value))
+    if(state.IsStopped())
     {
         return SDL_APP_SUCCESS;
-    }
-
-    // Call every frame to catch device lost.
-    if(!state.WebGpu.Update())
-    {
-        return SDL_APP_FAILURE;
-    }
-
-    switch(state.m_Stage)
-    {
-        case AppState::Stage::None:
-            break;
-        case AppState::Stage::InitializingWebGpu:
-        {
-            if(!state.WebGpu.IsReady())
-            {
-                return SDL_APP_CONTINUE;
-            }
-
-            state.SpriteLibLoader =
-                SpriteLibLoader::Load(kSpriteSheetDefs, state.FileFetcher, state.WebGpu);
-
-            if(!state.SpriteLibLoader)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", state.FileFetcher);
-            if(!state.LevelLoader)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.m_Stage = AppState::Stage::Loading;
-            return SDL_APP_CONTINUE;
-        }
-        case AppState::Stage::Loading:
-        {
-            if(state.SpriteLibLoader->IsPending())
-            {
-                if(!state.SpriteLibLoader->Update())
-                {
-                    return SDL_APP_FAILURE;
-                }
-
-                return SDL_APP_CONTINUE;
-            }
-
-            if(state.LevelLoader->IsPending())
-            {
-                state.LevelLoader->Update();
-                return SDL_APP_CONTINUE;
-            }
-
-            auto spriteLibResult = state.SpriteLibLoader->Take();
-            if(!GG_VERIFYB(spriteLibResult, "Failed to load sprite lib"))
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.SpriteLib = std::move(*spriteLibResult);
-            state.SpriteLibLoader = {};
-
-            BoundedVector<LostSoul> lostSouls(8); // NOLINT
-            for(size_t i = 0; i < lostSouls.capacity(); ++i)
-            {
-                if(!GG_VERIFYB(lostSouls.push_back(LostSoul{})))
-                {
-                    return SDL_APP_FAILURE;
-                }
-            }
-
-            const FilePath paths[]//
-            {
-                //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-                "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-                "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
-            };
-
-            auto texLoadResult =
-                TextureLoader::Load(paths, state.FileFetcher, state.WebGpu, "Test");
-            if(!texLoadResult)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            while(texLoadResult->IsPending())
-            {
-            }
-
-            auto texResult = texLoadResult->Take();
-            if(!texResult)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.CellMap =
-                CellMap::Create(*texResult, AppState::kCellMapGridCount);
-            if(!state.CellMap)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.Scene = Scene::Create(AppState::kLogicalDisplayWidth,
-                AppState::kLogicalDisplayHeight,
-                state.WebGpu,
-                *state.SpriteLib,
-                *state.CellMap,
-                std::move(lostSouls));
-            if(!state.Scene)
-            {
-                return SDL_APP_FAILURE;
-            }
-
-            state.m_Stage = AppState::Stage::Running;
-        }
-        break;
-        case AppState::Stage::Running:
-            break;
-    }
-
-    static constexpr float kTurnsPerSec = 1;
-
-    constexpr uint64_t kAnimFps = 10;
-    constexpr uint64_t kmspf = 1000 / kAnimFps;
-    static uint32_t frame = 0;
-    static uint64_t ms = SDL_GetTicks();
-    static uint64_t elapsedMs = 0;
-
-    const uint64_t curMs = SDL_GetTicks();
-    const uint64_t deltaMs = curMs - ms;
-    elapsedMs += deltaMs;
-    ms = curMs;
-
-    while(elapsedMs > kmspf)
-    {
-        frame = frame + 1;
-        elapsedMs -= kmspf;
-    }
-
-    if(state.Input.IsTriggered(Input::ActionId::MoveLeft, value))
-    {
-        state.ViewCol -= value * 0.1f;//NOLINT
-
-        state.PlayerLoc.x -= static_cast<int>(value);
-    }
-    if(state.Input.IsTriggered(Input::ActionId::MoveRight, value))
-    {
-        state.ViewCol += value * 0.1f;//NOLINT
-
-        state.PlayerLoc.x += static_cast<int>(value);
-    }
-    if(state.Input.IsTriggered(Input::ActionId::MoveForward, value))
-    {
-        state.ViewRow -= value * 0.1f;//NOLINT
-
-        state.PlayerLoc.y -= static_cast<int>(value);
-    }
-    if(state.Input.IsTriggered(Input::ActionId::MoveBackward, value))
-    {
-        state.ViewRow += value * 0.1f;//NOLINT
-
-        state.PlayerLoc.y += static_cast<int>(value);
-    }
-    if(state.Input.IsTriggered(Input::ActionId::RotateLeft, value))
-    {
-        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        state.PlayerRot -= Angle(turns);
-    }
-    if(state.Input.IsTriggered(Input::ActionId::RotateRight, value))
-    {
-        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        state.PlayerRot += Angle(turns);
-    }
-
-    state.Input.Reset();
-
-    constexpr int halfSquareSize = SquareSize / 2;
-
-    state.PlayerLoc.x = std::min(std::max(state.PlayerLoc.x, halfSquareSize),
-        AppState::kWindowWidth - halfSquareSize);
-    state.PlayerLoc.y = std::min(std::max(state.PlayerLoc.y, halfSquareSize),
-        AppState::kWindowHeight - halfSquareSize);
-
-    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("run_body");
-    GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
-
-    const SpriteSheet* spriteSheet = *spriteSheetResult;
-    const uint32_t dirIndex = state.PlayerRot.GetDirection(spriteSheet->GetRowCount());
-    const uint32_t animFrame = frame % spriteSheet->GetColCount();
-    const auto srcRectResult = spriteSheet->GetFrameRect(dirIndex, animFrame);
-    GG_ASSERT(srcRectResult);
-
-    state.Scene->SetFrameAndDir(0, animFrame, dirIndex);
-    state.Scene->SetView(state.ViewRow, state.ViewCol);
-
-    if(!GG_VERIFYB(state.Scene->Render(), "Failed to render scene"))
-    {
-        return SDL_APP_FAILURE;
-    }
-
-    if(!GG_VERIFYB(state.WebGpu.Present(), "Failed to present swapchain texture"))
-    {
-        return SDL_APP_FAILURE;
     }
 
     return SDL_APP_CONTINUE;

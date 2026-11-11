@@ -20,7 +20,8 @@ public:
     Layer& operator=(Layer&&) = default;
 
     Layer(uint32_t sheetIndex, BoundedVector<uint32_t>&& cells)
-        : m_SheetIndex(sheetIndex), m_Cells(std::move(cells))
+        : m_SheetIndex(sheetIndex),
+          m_Cells(std::move(cells))
     {
     }
 
@@ -213,7 +214,7 @@ LevelLoader::Load(const FilePath& path, FileFetcher& fetcher)
     return LevelLoader(std::move(*fetchResult));
 }
 
-void
+Result<>
 LevelLoader::Update()
 {
     switch(m_Status)
@@ -226,26 +227,24 @@ LevelLoader::Update()
 
             break;
         case Status::LoadingLevel:
+        {
             m_Status = Status::Failed;
 
-            if(auto dataResult = m_FetchRequest->TakeData(); !dataResult)
-            {
-                GG_ERROR("Failed to get data from fetch request");
-            }
-            else if(const auto parseResult = Parse(std::move(*dataResult)); !parseResult)
-            {
-                GG_ERROR("Failed to parse level data");
-            }
-            else
-            {
-                m_Status = Status::Loaded;
-            }
-            break;
+            auto dataResult = m_FetchRequest->TakeData();
+            GG_CHECK(dataResult, "Failed to get data from fetch request");
+
+            const auto parseResult = Parse(std::move(*dataResult));
+            GG_CHECK(parseResult, "Failed to parse level data");
+            
+            m_Status = Status::Loaded;
+        }
+        break;
         case Status::Loaded:
         case Status::Failed:
         case Status::Taken:
             break;
     }
+    return Result<>::Success();
 }
 
 bool

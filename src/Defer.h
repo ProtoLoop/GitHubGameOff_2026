@@ -42,6 +42,7 @@ public:
     }
 
     void release() noexcept { m_Active = false; }
+    void cancel() noexcept { m_Active = false; }
 
 private:
     StoredF m_Fn;

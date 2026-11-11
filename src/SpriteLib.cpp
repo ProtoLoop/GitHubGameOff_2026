@@ -46,8 +46,7 @@ CollectSpriteSheets(const std::span<const SpriteSheetDef> defs,
         const SpriteSheet::NameType& name = sheetDef.Name;
 
         GG_CHECKB(!atlasPath.empty(), "Sprite sheet path cannot be empty");
-        GG_CHECKB(spriteDimsDef.w > 0 && spriteDimsDef.h > 0,
-            "Sprite dimensions cannot be empty");
+        GG_CHECKB(spriteDimsDef.w > 0 && spriteDimsDef.h > 0, "Sprite dimensions cannot be empty");
         GG_CHECKB(!name.empty(), "Sprite sheet name cannot be empty");
 
         for(const auto& sheet : sheets)
@@ -129,34 +128,37 @@ SpriteLibLoader::SpriteLibLoader(BoundedVector<SpriteSheet>&& spriteSheets,
 Result<>
 SpriteLibLoader::Update()
 {
-    GG_CHECKB(Status::None != m_Status, "SpriteLib has not been loaded");
-
-    if(m_Status != Status::Loading)
+    switch(m_Status)
     {
-        return Result<>::Success();
+        case Status::None:
+            GG_CHECKB(false, "SpriteLib has not been loaded");
+            break;
+        case Status::Loading:
+            if(!m_TextureLoader.IsPending())
+            {
+                m_Status = Status::Failed;
+
+                auto cleanup = GG_DEFER
+                {
+                    // Free resources.
+                    auto byeLoades = std::move(m_TextureLoader);
+                };
+
+                auto texResult = m_TextureLoader.Take();
+                GG_CHECKB(texResult, "Failed to create texture array");
+
+                GG_CHECK(FixupSpriteSheets(*texResult), "Failed to validate sprite sheets");
+
+                m_Texture = std::move(*texResult);
+
+                m_Status = Status::Loaded;
+            }
+            break;
+        case Status::Loaded:
+        case Status::Failed:
+        case Status::Taken:
+            break;
     }
-
-    if(m_TextureLoader.IsPending())
-    {
-        return Result<>::Success();
-    }
-
-    m_Status = Status::Failed;
-
-    auto cleanup = GG_DEFER
-    {
-        // Free resources.
-        auto byeLoades = std::move(m_TextureLoader);
-    };
-
-    auto texResult = m_TextureLoader.Take();
-    GG_CHECKB(texResult, "Failed to create texture array");
-
-    GG_CHECK(FixupSpriteSheets(*texResult), "Failed to validate sprite sheets");
-
-    m_Texture = std::move(*texResult);
-
-    m_Status = Status::Loaded;
 
     return Result<>::Success();
 }
