@@ -52,7 +52,7 @@ export async function loadProject(folder: string)
         if(!response.ok && response.status !== 404) { throw new Error(`Could not load level.json (HTTP ${response.status})`); }
         const project = response.status === 404 ? createDocument(tiles, masks)
             : await readProject(await response.blob(), decoded);
-        return { project, tiles, masks, saved: response.status !== 404 };
+        return { project, saved: response.status !== 404 };
     }
     catch(error)
     {

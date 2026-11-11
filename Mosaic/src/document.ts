@@ -1,3 +1,5 @@
+import { kGridSize, kCellSize, kCellCount, kMaskAtlasGridSize, kMaskAtlasPixelSize, kMaskPixelCount } from "./grid.ts";
+
 export interface ImageAsset
 {
     readonly id: string;
@@ -16,12 +18,12 @@ export interface TilePlacement
 {
     readonly cell: number;
     readonly tile: number;
-    readonly hflip: boolean;
-    readonly vflip: boolean;
 }
 
 export interface MaskPlacement extends TilePlacement
 {
+    readonly hflip: boolean;
+    readonly vflip: boolean;
     readonly sheet: number;
     readonly rotation: Rotation;
 }
@@ -32,13 +34,11 @@ export interface Layer
     /// Dense occupancy in memory, sparse painted-cell records in the file.
     readonly painted: boolean[];
     sheet: ImageAsset;
-    atlasGrid: number;
-    tileSize: number;
 }
 
 export interface ProjectDocument
 {
-    readonly gridSize: 64;
+    readonly gridSize: typeof kGridSize;
     layers: Layer[];
     tileSheets: readonly ImageAsset[];
     masks: readonly ImageAsset[];
@@ -49,10 +49,16 @@ export interface ProjectDocument
     view: { zoom: number; scrollLeft: number; scrollTop: number; showGrid: boolean };
 }
 
-export function atlasGrid(dimension: number, tileSize: number): number
+/// Number of terrain tiles along each atlas axis, or zero for invalid dimensions.
+export function atlasGridSize(dimension: number, tileSize: number): number
 {
+    if(!Number.isSafeInteger(dimension) || dimension < kCellSize || dimension > 4096
+        || !Number.isSafeInteger(tileSize) || tileSize < kCellSize || tileSize % kCellSize !== 0)
+    {
+        return 0;
+    }
     const count = dimension / tileSize;
-    return Number.isInteger(count) && count >= 2 && count % 2 === 0 ? count : 0;
+    return Number.isInteger(count) && count >= 1 ? count : 0;
 }
 
 export function createDocument(tiles: readonly ImageAsset[], masks: readonly ImageAsset[]): ProjectDocument
@@ -63,12 +69,11 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     }
     const sheets = [tiles[0], tiles[Math.min(1, tiles.length - 1)]];
     const project: ProjectDocument = {
-        gridSize: 64, tileSize: 64, nextLayerId: 2, activeLayerId: 1,
+        gridSize: kGridSize, tileSize: tiles[0].dimension, nextLayerId: 2, activeLayerId: 1,
         tileSheets: [...tiles], masks: [...masks], maskMode: "random",
         view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true },
         layers: sheets.map((sheet, id) => ({
-            id, sheet, painted: Array(4096).fill(id === 0),
-            atlasGrid: atlasGrid(sheet.dimension, 64), tileSize: 64
+            id, sheet, painted: Array(kCellCount).fill(id === 0)
         }))
     };
     validateDocument(project);
@@ -111,18 +116,30 @@ export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
 
 export function documentAssets(project: ProjectDocument): ImageAsset[]
 {
-    return [...new Set([...project.tileSheets, ...project.layers.map((layer) => layer.sheet), ...project.masks])];
+    return [...new Set([...project.tileSheets, ...project.masks])];
 }
 
 export function validateDocument(project: ProjectDocument): void
 {
     const fail = (message: string): never => { throw new Error(`Invalid project: ${message}`); };
-    if(project.gridSize !== 64 || !Number.isSafeInteger(project.tileSize) || project.tileSize < 1
+    if(project.gridSize !== kGridSize || !Number.isSafeInteger(project.tileSize) || project.tileSize < kCellSize || project.tileSize % kCellSize !== 0
         || project.tileSheets.length < 1 || project.tileSheets.length > 256
         || project.layers.length < 1 || project.layers.length > 256 || project.masks.length < 1
         || project.masks.length > 64)
     {
         fail("unsupported map dimensions, tile size, or layer/mask count");
+    }
+    const dimension = project.tileSheets[0].dimension;
+    for(const sheet of project.tileSheets)
+    {
+        if(sheet.kind !== "tile" || sheet.dimension !== dimension)
+        {
+            fail(`${sheet.label}: terrain atlases must all be ${dimension}×${dimension} pixels`);
+        }
+        if(atlasGridSize(sheet.dimension, project.tileSize) === 0)
+        {
+            fail(`${sheet.label}: atlas dimensions must be at most 4096 and divide exactly into terrain tiles of ${project.tileSize} pixels`);
+        }
     }
     const ids = new Set<number>();
     for(const [index, layer] of project.layers.entries())
@@ -132,13 +149,11 @@ export function validateDocument(project: ProjectDocument): void
             fail("layer IDs must be unique nonnegative integers");
         }
         ids.add(layer.id);
-        const grid = atlasGrid(layer.sheet.dimension, project.tileSize);
-        if(layer.sheet.kind !== "tile" || !project.tileSheets.includes(layer.sheet) || grid === 0 || layer.atlasGrid !== grid
-            || layer.tileSize !== project.tileSize)
+        if(!project.tileSheets.includes(layer.sheet))
         {
             fail(`${layer.sheet.label} is incompatible with the tile size`);
         }
-        if(layer.painted.length !== 4096 || layer.painted.some((value) => typeof value !== "boolean"))
+        if(layer.painted.length !== kCellCount || layer.painted.some((value) => typeof value !== "boolean"))
         {
             fail("invalid painted-cell grid");
         }
@@ -152,7 +167,7 @@ export function validateDocument(project: ProjectDocument): void
     {
         fail("invalid next or selected layer ID");
     }
-    if(project.tileSheets.some((sheet) => sheet.kind !== "tile") || project.masks.some((mask) => mask.kind !== "mask" || mask.dimension !== 256)
+    if(project.masks.some((mask) => mask.kind !== "mask" || mask.dimension !== kMaskAtlasPixelSize)
         || (project.maskMode !== "random" && (!Number.isInteger(project.maskMode)
             || project.maskMode < 0 || project.maskMode >= project.masks.length)))
     {
@@ -187,26 +202,28 @@ export async function decodeAsset(blob: Blob, label: string, id: string, kind: "
     {
         const dimension = bitmap.width;
         if(dimension !== bitmap.height || dimension < 1 || dimension > 4096
-            || (kind === "mask" && dimension !== 256))
+            || (kind === "mask" && dimension !== kMaskAtlasPixelSize)
+            || (kind === "tile" && dimension % kCellSize !== 0))
         {
-            throw new Error(`${label}: ${kind === "mask" ? "masks must be 256×256" : "tile sheets must be square and at most 4096×4096"}`);
+            throw new Error(`${label}: ${kind === "mask" ? "masks must be 256×256" : "terrain atlases must be square, at most 4096×4096, and a multiple of 64 pixels"}`);
         }
         const canvas = new OffscreenCanvas(dimension, dimension);
         const context = canvas.getContext("2d");
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
         const pixels = context.getImageData(0, 0, dimension, dimension).data;
-        const coverage = new Uint8Array(kind === "mask" ? 65536 : 0);
+        const coverage = new Uint8Array(kind === "mask" ? kMaskAtlasPixelSize * kMaskAtlasPixelSize : 0);
         if(kind === "mask")
         {
-            for(let pattern = 0; pattern < 16; pattern++)
+            for(let pattern = 0; pattern < kMaskAtlasGridSize * kMaskAtlasGridSize; pattern++)
             {
-                for(let y = 0; y < 64; y++)
+                for(let y = 0; y < kCellSize; y++)
                 {
-                    for(let x = 0; x < 64; x++)
+                    for(let x = 0; x < kCellSize; x++)
                     {
-                        coverage[pattern * 4096 + y * 64 + x] = pixels[
-                            ((Math.floor(pattern / 4) * 64 + y) * 256 + pattern % 4 * 64 + x) * 4];
+                        coverage[pattern * kMaskPixelCount + y * kCellSize + x] = pixels[
+                            ((Math.floor(pattern / kMaskAtlasGridSize) * kCellSize + y) * kMaskAtlasPixelSize
+                                + pattern % kMaskAtlasGridSize * kCellSize + x) * 4];
                     }
                 }
             }

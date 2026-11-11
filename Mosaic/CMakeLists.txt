@@ -11,6 +11,7 @@ file(MAKE_DIRECTORY "${MOSAIC_OUTPUT}")
 configure_file(index.html "${MOSAIC_OUTPUT}/index.html" COPYONLY)
 
 set(MOSAIC_SOURCES
+    src/grid.ts src/renderer.ts
     src/main.ts src/placement.ts src/document.ts src/history.ts src/project-file.ts src/project-session.ts src/project-http.ts
 )
 

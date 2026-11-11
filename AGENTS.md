@@ -79,6 +79,14 @@ Never create a commit or push to a remote repository without separate, explicit
 user approval for that specific commit or push. Approval to edit files does not
 authorize committing or pushing.
 
+## Environment changes
+
+Do not install, upgrade, or remove tools, packages, libraries, browsers, or system
+dependencies without explicit user approval. This includes temporary installations
+used only for testing. Approval to implement changes or run tests does not
+authorize environment changes. If required tooling is unavailable, report the
+limitation and request approval before installing it.
+
 ## Architecture stewardship
 
 When reviewing or proposing work:

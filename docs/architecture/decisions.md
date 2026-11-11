@@ -118,7 +118,7 @@ selection, mask placement, or orientation algorithms. Occupancy alone is not
 sufficient because junction masks also cover portions of empty cells.
 
 Version 2 of `level.json` separates `runtime` data from `editor` state. Every
-runtime cell stores its resolved material index and flips. Overlay cells also
+runtime cell stores its resolved material index. Overlay cells also
 store four resolved junction mask descriptors. Stable IDs, occupancy, selection,
 and view settings belong to the editor section. Both Mosaic previews consume the
 runtime representation after placement has been resolved. Saving uses the same
@@ -149,7 +149,7 @@ hard to read.
 Version 3 uses one shared layer list. Each layer has sparse terrain placements
 on the 64×64 cell grid and sparse mask placements on the 65×65 junction grid.
 Top-level `tileSheets` and `maskSheets` catalogs supply stable sheet indices.
-Tile and mask properties have names. Flips are booleans and clockwise rotations
+Tile and mask properties have names. Mask flips are booleans and clockwise rotations
 are the strings `"0"`, `"90"`, `"180"`, and `"270"`, applied after source-axis
 flips. Only view, selection, and placement settings remain under `editor`.
 
@@ -176,7 +176,7 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md).
 
 ## Mosaic painted occupancy and procedural rendering
 
-Date: 2026-11-06. Status: Accepted. Layer identity and versioning are amended by
+Date: 2026-11-06. Status: Accepted for version 4. Layer identity and versioning are amended by
 [Mosaic layer order as rendering identity](#mosaic-layer-order-as-rendering-identity).
 
 Version 3 treated unpainted cells as absent material. Junction masks extend into
@@ -187,7 +187,7 @@ Version 4 restores continuous material under mask-controlled visibility. Terrain
 textures remain on the cell grid and masks remain offset by half a cell. Layers
 save sparse painted-cell records rather than resolved terrain or mask placements.
 The first layer is implicitly full and unmasked. Its serialized cell list is empty.
-Both editor and runtime deterministically select terrain tiles and flips, junction
+Both editor and runtime deterministically select terrain tiles, junction
 mask patterns, mask sheets, and orientations from occupancy, coordinates, stable
 layer IDs, and rendering settings. Mask selection is top-level runtime data.
 No separate editor occupancy or runtime placement lists are needed.
@@ -214,7 +214,7 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md) and
 
 ## Mosaic layer order as rendering identity
 
-Date: 2026-11-06. Status: Accepted.
+Date: 2026-11-06. Status: Accepted for version 4.
 
 Layer objects serialize only their material-sheet index and numeric painted-cell
 array. Persistent layer IDs are unnecessary when layer order already identifies
@@ -234,3 +234,42 @@ This amends the identity and versioning portions of
 At the user's explicit direction, these layout and interpretation changes revise
 version 4 in place. The current sample is converted. Earlier version-4 layouts
 are not supported. See [File formats](../../Mosaic/docs/FILE_FORMATS.md).
+
+
+## Mosaic terrain tiles and cell coverage
+
+Date: 2026-11-11. Status: Accepted.
+
+Terrain material detail and terrain boundaries need independent spatial scales.
+A level uses 64×64-pixel cells for occupancy and 64×64-pixel junction masks for
+coverage. Terrain tiles cover one or more cells along each axis, at one source
+pixel per world pixel. The terrain grid starts at the map origin.
+
+Every terrain atlas in a level has the same square pixel dimensions. One
+level-wide terrain tile size divides those dimensions into an N×N atlas grid,
+including 1×1. The tile size is a multiple of 64 pixels. A 4096-pixel terrain tile
+covers 64×64 cells. Layer-specific sizes and scaling each texture into one cell
+are outside this model. The global dimensions give every layer the same terrain
+grid and make atlas compatibility explicit.
+
+Terrain tile selection uses the world terrain tile's row-major index and the
+shader's `lowbias32` hash with unsigned 32-bit arithmetic. The hash selects
+the atlas tile by remainder. Terrain selection is independent of occupancy and layer identity.
+The layer selects its material sheet. Mask selection uses junction occupancy,
+coordinates, layer order, and mask settings.
+
+Material exists beneath masks in every cell, including unpainted cells. This
+allows soft coverage across cell boundaries. Large terrain tiles preserve
+continuous material detail within their footprint. Adjacent terrain tiles
+require compatible artwork at their edges.
+
+Version 6 specifies the selection and sampling algorithms as part of the format
+contract. Mosaic and the game must agree on unsigned hash arithmetic, map-width
+indexing and source coordinates. The document stores occupancy and
+level-wide rendering settings, while rendering derives placements without
+mutating the document. This follows
+[clear responsibility](principles.md#make-it-clear-who-is-responsible).
+
+The authoritative algorithms and reference values are in
+[File formats](../../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection).
+See [Coverage masks](../COVERAGE_MASKS.md) for the relationship between the grids.

@@ -5,13 +5,24 @@ Create a project folder under `Mosaic/projects/`:
 ```text
 my-project/
   assets/
-    tiles/       # square tile sheets
+    tiles/       # equally sized square terrain atlases
     masks/       # 256×256 alpha-mask sheets
   level.json     # created when you save
 ```
 
-Put PNG, JPEG, or WebP images directly in the appropriate folders. Tile sheets
-must divide into an even grid of at least 2×2 tiles (initial tile size: 64 pixels).
+Put PNG, JPEG, or WebP images directly in the appropriate folders. All terrain
+atlases in a level must be square, have identical pixel dimensions, and be at
+most 4096×4096 pixels. Terrain tile size is shared by every layer. Choose a
+multiple of 64 that divides the atlas dimension exactly, producing an N×N grid
+of terrain tiles, including 1×1. A new level starts with one terrain tile per
+atlas.
+
+One texture pixel covers one map pixel. A 64×64 terrain tile covers one cell,
+a 128×128 tile covers 2×2 cells, and a 4096×4096 tile covers 64×64 cells. Change
+**Terrain tile size** under **Map settings** to set this coverage for the whole
+level. Layer details show the atlas layout and cell coverage. Changing the size
+preserves painted cells and can be undone. Terrain tiles are selected
+deterministically. Adjacent terrain tiles need artwork with compatible edges.
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The included
 `sample` project provides assets. Copy a project folder to make another project.
 

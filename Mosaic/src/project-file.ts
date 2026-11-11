@@ -1,11 +1,12 @@
-import { atlasGrid, validateDocument, type ImageAsset, type ProjectDocument } from "./document.ts";
+import { kGridSize, kCellSize, kCellCount } from "./grid.ts";
+import { validateDocument, type ImageAsset, type ProjectDocument } from "./document.ts";
 
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
 export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 4,
+        format: "mosaic", version: 6,
         gridSize: project.gridSize, tileSize: project.tileSize,
         tileSheets: project.tileSheets.map((sheet) => sheet.id),
         maskSheets: project.masks.map((sheet) => sheet.id),
@@ -58,7 +59,7 @@ function list(value: unknown, min: number, max: number): unknown[]
 export async function readProject(blob: Blob, available: readonly ImageAsset[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 4)
+    if(data.format !== "mosaic" || data.version !== 6)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -69,12 +70,12 @@ export async function readProject(blob: Blob, available: readonly ImageAsset[]):
         if(!asset) { throw new Error(`Missing image: ${id}`); }
         return asset;
     };
-    const tileSize = integer(data.tileSize, 1, 4096);
+    const tileSize = integer(data.tileSize, kCellSize, 4096);
     const tileSheets = list(data.tileSheets, 1, 256).map(lookup);
     const masks = list(data.maskSheets, 1, 64).map(lookup);
     const layers = list(data.layers, 1, 256);
     const project: ProjectDocument = {
-        gridSize: integer(data.gridSize, 64, 64) as 64,
+        gridSize: integer(data.gridSize, kGridSize, kGridSize) as typeof kGridSize,
         tileSize, nextLayerId: layers.length,
         activeLayerId: integer(editor.activeLayer, 0, layers.length - 1),
         maskMode: data.maskMode === "random" ? "random" : integer(data.maskMode, 0, masks.length - 1),
@@ -82,17 +83,15 @@ export async function readProject(blob: Blob, available: readonly ImageAsset[]):
         layers: layers.map((item, index) => {
             const layer = object(item);
             const sheet = tileSheets[integer(layer.sheet, 0, tileSheets.length - 1)];
-            const grid = atlasGrid(sheet.dimension, tileSize);
-            const painted: boolean[] = Array(4096).fill(index === 0);
-            for(const value of list(layer.cells, 0, index === 0 ? 0 : 4096))
+            const painted: boolean[] = Array(kCellCount).fill(index === 0);
+            for(const value of list(layer.cells, 0, index === 0 ? 0 : kCellCount))
             {
-                const cell = integer(value, 0, 4095);
+                const cell = integer(value, 0, kCellCount - 1);
                 if(painted[cell]) { throw new Error("Duplicate painted cell"); }
                 painted[cell] = true;
             }
             return {
-                id: index, sheet, painted,
-                atlasGrid: grid, tileSize
+                id: index, sheet, painted
             };
         })
     };

@@ -265,8 +265,8 @@
                         <label>Mask set
                             <select id="active-mask" title="Choose the mask sheet used for overlay junctions. Changing this regenerates overlay masks."><option value="random">Random per junction</option></select>
                         </label>
-                        <label>Tile size (source pixels)
-                            <input id="map-tile-size" title="Source tile size in pixels, shared by every layer. Each sheet must divide into an even grid." type="number" min="1" step="1" value="64">
+                        <label>Terrain tile size (pixels)
+                            <select id="map-tile-size" title="Shared by every layer. Choose a terrain tile size that divides the atlas dimension. One texture pixel covers one map pixel."></select>
                         </label>
                         <button id="reset" title="Replace the current layers with the sample layout. This edit autosaves and can be undone." type="button">Load sample</button>
                     </div>
@@ -276,7 +276,7 @@
                     <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
                     <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
                     <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
-                    <p class="hint">Layers composite from bottom to top. Each square tile sheet must divide into an even grid at the shared tile size. Atlas tiles and junction masks are chosen automatically when painting.</p>
+                    <p class="hint">Layers composite from bottom to top. Terrain atlases must be square and have identical dimensions. The shared terrain tile size divides each atlas into an N×N grid, including 1×1. A 4096-pixel terrain tile covers 64×64 cells. Masks always cover 64×64 pixels. Terrain tiles are chosen automatically from world terrain tile coordinates.</p>
                     <h2>Mask sheets</h2>
                     <p id="mask-links" class="hint"></p>
                 </details>

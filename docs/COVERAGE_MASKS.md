@@ -1,9 +1,15 @@
 # Coverage masks
 
-Coverage masks are centered on the junctions where four terrain cells meet.
+Coverage masks are centered on the junctions where four cells meet.
 Each mask covers a 64×64-pixel square, offset by half a cell in both axes from
-the terrain tile grid. Its four quadrants overlap the four adjoining cells.
-The material texture remains aligned to the terrain tile grid.
+the cell grid. Its four quadrants overlap the four adjoining cells.
+
+Terrain tiles use a separate grid anchored at the map origin. The level-wide
+terrain tile size is a multiple of 64 pixels. A 64×64 terrain tile covers one
+cell, while a 4096×4096 terrain tile covers 64×64 cells. One source pixel covers
+one world pixel. Mask dimensions and placement do not depend on terrain tile size.
+All terrain atlases share one square pixel dimension and one N×N tile layout.
+Mask atlases have their own fixed 256×256 dimensions.
 
 ## Pattern bits
 
@@ -69,8 +75,8 @@ base can show through multiple masks.
 Every layer supplies a deterministic terrain texture in every cell, including
 unpainted cells. Masks alone determine overlay visibility. Pattern 0 supplies
 zero coverage. Both previews follow the same rules. The base is an unmasked,
-continuous fill. This restores the behavior before version 3 clipped material
-at unpainted-cell boundaries and introduced hard edges through soft masks.
+continuous fill. Material is sampled across cell boundaries within a terrain
+tile, while each pixel independently samples the adjoining junction mask.
 
 ## Variants and transformations
 
@@ -79,7 +85,7 @@ coordinates and layer array index modulo the number of sheets, or uses the sheet
 in the interface. New levels order sheets by path. Saved levels preserve catalog
 order and append newly discovered sheets. Adding sheets changes random selection
 throughout the level. Fixed selection is unaffected. Reordering layers changes
-procedural choices for layers whose array indices change. Removing or renaming a
+mask choices for layers whose array indices change. Removing or renaming a
 referenced sheet causes a load error. Use Reload Project after changing
 `assets/masks/`.
 
@@ -88,8 +94,13 @@ pattern. Candidates are the eight unique square symmetries: rotations in
 90-degree steps and reflections, including rotation/reflection combinations.
 A candidate is eligible only if it preserves all four pattern bits. Identity
 is always eligible. Returning to the same pattern restores the same automatic
-orientation. Terrain flips are independently chosen from cell coordinates and
-layer array index for every terrain cell, regardless of whether it is painted.
+orientation.
+
+Terrain selection uses the `lowbias32` hash of the world terrain tile's row-major
+index. The hash result selects the atlas tile. All cells it covers share the
+same selection. Terrain choices do not depend on occupancy or layer identity. The exact
+algorithm and reference values are in the
+[terrain rendering contract](../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection).
 
 Only painted cells and rendering settings are saved. Terrain indices, mask
 patterns, sheet choices, and orientations are derived by both editor and runtime.

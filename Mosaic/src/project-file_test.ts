@@ -26,7 +26,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 4,'));
+    assert(text.includes('\n  "version": 6,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSize", "tileSheets", "maskSheets", "maskMode", "layers", "editor"]);
@@ -86,6 +86,7 @@ Deno.test("invalid sparse records and missing assets fail before installation", 
         (data) => { data.maskSheets = [tile.id]; },
         (data) => { data.gridSize = 32; },
         (data) => { data.version = 3; },
+        (data) => { data.version = 4; },
         (data) => { data.version = 5; },
         (data) => { data.layers[0].cells = [0]; },
         (data) => { data.layers[1].sheet = 1; },
@@ -140,4 +141,27 @@ Deno.test("session IDs are omitted and reordered layers retain rendering and sel
         }
     }
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
+});
+
+Deno.test("global terrain sizes round-trip and incompatible discovered atlases fail", async () => {
+    const large = { ...tile, dimension: 4096 };
+    for(const size of [64, 128, 4096])
+    {
+        const project = createDocument([large], [mask]);
+        project.tileSize = size;
+        project.layers[1].painted[65] = true;
+        const blob = await writeProject(project);
+        const loaded = await readProject(blob, [large, mask]);
+        assert.equal(loaded.tileSize, size);
+        assert.deepEqual(loaded.layers, project.layers);
+        assert.deepEqual(automaticTile(loaded, loaded.layers[1], 4095), automaticTile(project, project.layers[1], 4095));
+        const extra = { ...tile, id: "assets/tiles/small.png", label: "small.png" };
+        await assert.rejects(() => readProject(blob, [large, mask, extra]), /small.png.*4096×4096/);
+        const data = JSON.parse(await blob.text());
+        for(const invalid of [0, 32, 65, 192, 8192])
+        {
+            data.tileSize = invalid;
+            await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [large, mask]));
+        }
+    }
 });

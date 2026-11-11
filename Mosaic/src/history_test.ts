@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { createDocument, type ImageAsset } from "./document.ts";
-import { cellMasks } from "./placement.ts";
+import { automaticTile, cellMasks, terrainSourceOffset } from "./placement.ts";
 import { History } from "./history.ts";
 
 function fixture()
@@ -63,4 +63,28 @@ Deno.test("history preserves redo for no-ops, drops it for edits, and retains im
     project.layers[1].painted[10] = true;
     tiny.commit(project);
     assert.equal(tiny.undoLabel, null);
+});
+
+Deno.test("undo and redo restore the global terrain size and sampling without changing occupancy", () => {
+    let project = fixture();
+    project.tileSize = 64;
+    project.layers[1].painted[65] = true;
+    const history = new History(100, 64 * 1024 * 1024);
+    const sample = () => terrainSourceOffset(project, project.layers[1], automaticTile(project, project.layers[1], 65), 17, 29);
+    const original = sample();
+    const masks = cellMasks(project, project.layers[1], 65);
+    history.begin(project, "Change terrain tile size");
+    project.tileSize = 128;
+    assert(history.commit(project));
+    const changed = sample();
+    assert.notEqual(changed, original);
+    project = history.undo(project)!;
+    assert.equal(project.tileSize, 64);
+    assert.equal(sample(), original);
+    assert(project.layers[1].painted[65]);
+    project = history.redo(project)!;
+    assert.equal(project.tileSize, 128);
+    assert.equal(sample(), changed);
+    assert(project.layers[1].painted[65]);
+    assert.deepEqual(cellMasks(project, project.layers[1], 65), masks);
 });

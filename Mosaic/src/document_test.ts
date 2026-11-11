@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { cellMasks } from "./placement.ts";
-import { atlasGrid, cloneDocument, createDocument, sameContent, validateDocument, type ImageAsset } from "./document.ts";
+import { atlasGridSize, cloneDocument, createDocument, sameContent, validateDocument, type ImageAsset } from "./document.ts";
 
 function asset(kind: "tile" | "mask"): ImageAsset
 {
@@ -43,8 +43,8 @@ Deno.test("document validation rejects invalid IDs, cells, masks, and view setti
         corrupt(project);
         assert.throws(() => validateDocument(project));
     }
-    assert.equal(atlasGrid(256, 64), 4);
-    assert.equal(atlasGrid(192, 64), 0);
+    assert.equal(atlasGridSize(256, 64), 4);
+    assert.equal(atlasGridSize(192, 64), 3);
     validateDocument(original);
 });
 
@@ -65,4 +65,27 @@ Deno.test("snapshots preserve occupancy and reproduce mask choices", () => {
     copy.layers[1].painted[65] = false;
     assert.equal(sameContent(project, copy), false);
     assert(project.layers[1].painted[65]);
+});
+
+Deno.test("terrain atlases share dimensions and support any integral square grid including 1×1", () => {
+    for(const [dimension, size, expected] of [[64, 64, 1], [128, 64, 2], [192, 64, 3],
+        [4096, 4096, 1], [4096, 128, 32], [4096, 64, 64]])
+    {
+        const sheet = { ...asset("tile"), dimension };
+        const project = createDocument([sheet], [asset("mask")]);
+        assert.equal(project.tileSize, dimension);
+        project.tileSize = size;
+        assert.equal(atlasGridSize(dimension, size), expected);
+        validateDocument(project);
+    }
+    for(const [dimension, size] of [[4096, 192], [256, 32], [256, 0], [256, 512],
+        [256, 65], [8192, 64], [255, 64], [256, NaN], [NaN, 64]])
+    {
+        assert.equal(atlasGridSize(dimension, size), 0);
+    }
+    const other = { ...asset("tile"), id: "assets/tiles/other.png", label: "other.png", dimension: 512 };
+    assert.throws(() => createDocument([asset("tile"), other], [asset("mask")]), /other.png.*256×256/);
+    const project = createDocument([asset("tile")], [asset("mask")]);
+    project.tileSheets = [...project.tileSheets, other];
+    assert.throws(() => validateDocument(project), /other.png.*256×256/);
 });

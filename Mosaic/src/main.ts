@@ -1,21 +1,17 @@
 import { listDirectory, loadProject } from "./project-http.ts";
-import { atlasGrid, documentAssets,
+import { atlasGridSize, documentAssets,
     validateDocument, type ProjectDocument, type Layer, type ImageAsset as TileAtlas } from "./document.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
-import { automaticTile, cellMasks, sampleMask } from "./placement.ts";
+import { drawTerrainRegion, drawCoverageRegion } from "./renderer.ts";
+import { kGridSize, kCellSize, kCellCount } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
 
-const kGridSize = 64;
-const kCellSize = 64;
-const kHalfCellSize = kCellSize / 2;
-let projectMasks: readonly TileAtlas[] = [];
 let project: ProjectDocument;
 let ready = false;
 let fileBusy = false;
 const assets = new Set<TileAtlas>();
 const editHistory = new History(100, 64 * 1024 * 1024);
-let tileAtlases: readonly TileAtlas[] = [];
 let paintPointerId: number | null = null;
 let lastPaintCell = -1;
 let panPointerId: number | null = null;
@@ -34,7 +30,7 @@ interface Controls
     readonly addLayer: HTMLButtonElement;
     readonly activeMask: HTMLSelectElement;
     readonly showGrid: HTMLInputElement;
-    readonly mapTileSize: HTMLInputElement;
+    readonly mapTileSize: HTMLSelectElement;
 }
 
 function required<T extends Element>(id: string, type: { new(): T }): T
@@ -58,7 +54,7 @@ const controls: Controls = {
     addLayer : required("add-layer", HTMLButtonElement),
     activeMask : required("active-mask", HTMLSelectElement),
     showGrid : required("show-grid", HTMLInputElement),
-    mapTileSize : required("map-tile-size", HTMLInputElement)
+    mapTileSize : required("map-tile-size", HTMLSelectElement)
 };
 
 function getLayer(id: number): Layer
@@ -71,189 +67,11 @@ function getLayer(id: number): Layer
     return layer;
 }
 
-function gridSize(layer: Layer, tileSize: number): number
-{
-    if(layer.sheet === null || tileSize < 1 || layer.sheet.dimension % tileSize !== 0)
-    {
-        return 0;
-    }
-    const count = layer.sheet.dimension / tileSize;
-    return count >= 2 && count % 2 === 0 ? count : 0;
-}
-
-function sheetFitsMap(layer: Layer, tileSize: number): boolean
-{
-    return gridSize(layer, tileSize) > 0;
-}
-
-function setLayerTileSize(layer: Layer, tileSize: number): void
-{
-    layer.tileSize = tileSize;
-    layer.atlasGrid = gridSize(layer, tileSize);
-}
-
-function tileColor(atlas: TileAtlas | null,
-    layer: Layer,
-    tile: number,
-    x: number,
-    y: number): readonly [number, number, number]
-{
-    if(atlas === null || layer.atlasGrid === 0 || tile < 0 || tile >= layer.atlasGrid * layer.atlasGrid)
-    {
-        return [70, 70, 70];
-    }
-    const tileX = (tile % layer.atlasGrid) * project.tileSize;
-    const tileY = Math.floor(tile / layer.atlasGrid) * project.tileSize;
-    const sampleX = Math.min(project.tileSize - 1, Math.floor(x * project.tileSize / kCellSize));
-    const sampleY = Math.min(project.tileSize - 1, Math.floor(y * project.tileSize / kCellSize));
-    const offset = ((tileY + sampleY) * atlas.dimension + tileX + sampleX) * 4;
-    return [atlas.pixels[offset], atlas.pixels[offset + 1], atlas.pixels[offset + 2]];
-}
-
-/// Render a rectangle of whole cells. Painting includes the one-cell border
-/// touched by the four junction masks whose patterns may have changed.
-/// Other pixels remain untouched.
-function drawTerrainRegion(startX: number, startY: number, endX: number, endY: number): void
-{
-    const size = kGridSize * kCellSize;
-    const canvas = controls.map;
-    if(canvas.width !== size || canvas.height !== size)
-    {
-        canvas.width = size;
-        canvas.height = size;
-    }
-    const context = canvas.getContext("2d");
-    if(context === null)
-    {
-        throw new Error("Canvas 2D is unavailable");
-    }
-    const width = (endX - startX) * kCellSize;
-    const height = (endY - startY) * kCellSize;
-    const image = context.createImageData(width, height);
-    const overlays = project.layers.slice(1);
-    // Resample each material tile and flip combination once per redraw.
-    const textures = new Map<Layer, Map<number, Uint8ClampedArray>>();
-    const texture = (layer: Layer, tile: number, hflip: boolean, vflip: boolean): Uint8ClampedArray => {
-        let tiles = textures.get(layer);
-        if(tiles === undefined)
-        {
-            tiles = new Map();
-            textures.set(layer, tiles);
-        }
-        const key = tile * 4 + Number(hflip) + 2 * Number(vflip);
-        let pixels = tiles.get(key);
-        if(pixels === undefined)
-        {
-            pixels = new Uint8ClampedArray(kCellSize * kCellSize * 3);
-            for(let y = 0; y < kCellSize; y++)
-            {
-                for(let x = 0; x < kCellSize; x++)
-                {
-                    const sourceX = hflip ? kCellSize - 1 - x : x;
-                    const sourceY = vflip ? kCellSize - 1 - y : y;
-                    pixels.set(tileColor(layer.sheet, layer, tile, sourceX, sourceY), (y * kCellSize + x) * 3);
-                }
-            }
-            tiles.set(key, pixels);
-        }
-        return pixels;
-    };
-    for(let tileY = startY; tileY < endY; tileY++)
-    {
-        for(let tileX = startX; tileX < endX; tileX++)
-        {
-            const cell = tileY * kGridSize + tileX;
-            const baseTile = automaticTile(project, project.layers[0], cell);
-            const base = texture(project.layers[0], baseTile.tile, baseTile.hflip, baseTile.vflip);
-            const layers = overlays.map((layer) => {
-                const tile = automaticTile(project, layer, cell);
-                return {
-                    pixels: texture(layer, tile.tile, tile.hflip, tile.vflip), masks: cellMasks(project, layer, cell)
-                };
-            });
-            for(let y = 0; y < kCellSize; y++)
-            {
-                for(let x = 0; x < kCellSize; x++)
-                {
-                    const source = (y * kCellSize + x) * 3;
-                    const offset = (((tileY - startY) * kCellSize + y) * width
-                        + (tileX - startX) * kCellSize + x) * 4;
-                    image.data[offset] = base[source];
-                    image.data[offset + 1] = base[source + 1];
-                    image.data[offset + 2] = base[source + 2];
-                    image.data[offset + 3] = 255;
-                    const quadrant = (y >= kHalfCellSize ? 2 : 0) + (x >= kHalfCellSize ? 1 : 0);
-                    const maskX = (x + kHalfCellSize) % kCellSize;
-                    const maskY = (y + kHalfCellSize) % kCellSize;
-                    for(const layer of layers)
-                    {
-                        const alpha = sampleMask(layer.masks[quadrant], project.masks, maskX, maskY);
-                        for(let channel = 0; channel < 3; channel++)
-                        {
-                            image.data[offset + channel] = Math.round((image.data[offset + channel] * (255 - alpha)
-                                + layer.pixels[source + channel] * alpha) / 255);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    const originX = startX * kCellSize;
-    const originY = startY * kCellSize;
-    context.putImageData(image, originX, originY);
-}
-
-/// Draw only the selected layer's alpha, retaining full mask resolution.
-function drawCoverageRegion(startX: number, startY: number, endX: number, endY: number): void
-{
-    const size = kGridSize * kCellSize;
-    const canvas = controls.coverage;
-    if(canvas.width !== size || canvas.height !== size)
-    {
-        canvas.width = size;
-        canvas.height = size;
-    }
-    const context = canvas.getContext("2d");
-    if(context === null)
-    {
-        throw new Error("Canvas 2D is unavailable");
-    }
-    const width = (endX - startX) * kCellSize;
-    const height = (endY - startY) * kCellSize;
-    const coverage = context.createImageData(width, height);
-    coverage.data.fill(255);
-    const selected = project.layers.findIndex((layer) => layer.id === project.activeLayerId);
-    if(selected !== 0)
-    {
-        for(let tileY = startY; tileY < endY; tileY++)
-        {
-            for(let tileX = startX; tileX < endX; tileX++)
-            {
-                const cell = tileY * kGridSize + tileX;
-                const layer = project.layers[selected];
-                const masks = cellMasks(project, layer, cell);
-                for(let y = 0; y < kCellSize; y++)
-                {
-                    for(let x = 0; x < kCellSize; x++)
-                    {
-                        const offset = (((tileY - startY) * kCellSize + y) * width
-                            + (tileX - startX) * kCellSize + x) * 4;
-                        const quadrant = (y >= kHalfCellSize ? 2 : 0) + (x >= kHalfCellSize ? 1 : 0);
-                        const maskX = (x + kHalfCellSize) % kCellSize;
-                        const maskY = (y + kHalfCellSize) % kCellSize;
-                        coverage.data[offset + 3] = sampleMask(masks[quadrant], project.masks, maskX, maskY);
-                    }
-                }
-            }
-        }
-    }
-    context.putImageData(coverage, startX * kCellSize, startY * kCellSize);
-}
 
 function drawRegion(startX: number, startY: number, endX: number, endY: number): void
 {
-    drawTerrainRegion(startX, startY, endX, endY);
-    drawCoverageRegion(startX, startY, endX, endY);
+    drawTerrainRegion(project, controls.map, startX, startY, endX, endY);
+    drawCoverageRegion(project, controls.coverage, startX, startY, endX, endY);
 }
 
 function draw(): void
@@ -306,11 +124,6 @@ function paintCell(cell: number, erase: boolean): void
     if(erase && layer === project.layers[0])
     {
         controls.status.value = "The base cannot be cleared. Left-click to reveal it.";
-        return;
-    }
-    if(!erase && layer !== project.layers[0] && !sheetFitsMap(layer, project.tileSize))
-    {
-        controls.status.value = "Choose a compatible sheet and shared tile size before painting.";
         return;
     }
     if(erase)
@@ -533,11 +346,9 @@ function renderPalette(): void
         const swatch = document.createElement("span");
         swatch.className = "material-preview";
         swatch.setAttribute("aria-hidden", "true");
-        if(layer.sheet !== null && sheetFitsMap(layer, project.tileSize))
-        {
-            swatch.style.backgroundImage = `url(${JSON.stringify(layer.sheet.url)})`;
-            swatch.style.backgroundSize = `${layer.atlasGrid * 100}% ${layer.atlasGrid * 100}%`;
-        }
+        swatch.style.backgroundImage = `url(${JSON.stringify(layer.sheet.url)})`;
+        const grid = layer.sheet.dimension / project.tileSize;
+        swatch.style.backgroundSize = `${grid * 100}% ${grid * 100}%`;
         const filename = layer.sheet.label;
         button.title = layer.sheet.id.split("/").slice(-2).join("/");
         button.setAttribute("aria-label", filename);
@@ -559,42 +370,31 @@ function setActiveLayer(id: number): void
     controls.status.value = getLayer(id) === project.layers[0]
         ? "Base selected. Left-click or drag to clear overlays and reveal the background."
         : `${getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`;
-    drawCoverageRegion(0, 0, kGridSize, kGridSize);
+    drawCoverageRegion(project, controls.coverage, 0, 0, kGridSize, kGridSize);
 }
 
 function addSheetInfo(layer: Layer, card: HTMLDivElement): void
 {
     const info = document.createElement("span");
     info.className = "hint sheet-info";
-    if(layer.sheet === null)
-    {
-        info.textContent = "No sheet loaded";
-    }
-    else if(sheetFitsMap(layer, project.tileSize))
-    {
-        info.textContent = `${layer.sheet.label} · ${layer.sheet.dimension}×${layer.sheet.dimension} px · ${layer.atlasGrid}×${layer.atlasGrid} tiles of ${project.tileSize} px`;
-    }
-    else
-    {
-        info.textContent = `${layer.sheet.label} · ${layer.sheet.dimension}×${layer.sheet.dimension} px · incompatible with B = ${project.tileSize}`;
-    }
+    const grid = layer.sheet.dimension / project.tileSize;
+    const cells = project.tileSize / kCellSize;
+    info.textContent = `${layer.sheet.label} · ${layer.sheet.dimension}×${layer.sheet.dimension} px atlas · ${grid}×${grid} terrain tiles of ${project.tileSize} px · each covers ${cells}×${cells} cells`;
     card.append(info);
 }
 
 function updateMapTileSize(): void
 {
     const requestedSize = Number(controls.mapTileSize.value);
-    const valid = Number.isInteger(requestedSize) && requestedSize > 0
-        && project.layers.every((layer) => sheetFitsMap(layer, requestedSize));
+    const valid = atlasGridSize(project.tileSheets[0].dimension, requestedSize) > 0;
     if(!valid)
     {
         controls.mapTileSize.value = String(project.tileSize);
-        controls.status.value = "Choose B so every layer's square sheet divides into an even A×A grid.";
+        controls.status.value = "Choose a multiple of 64 that divides the shared atlas dimension exactly.";
         return;
     }
     edit("Change tile size", () => {
         project.tileSize = requestedSize;
-        for(const layer of project.layers) { setLayerTileSize(layer, requestedSize); }
     });
 }
 
@@ -613,12 +413,7 @@ function renderLayers(): void
         materialSelect.title = "Choose the tile sheet for this layer.";
         materialSelect.addEventListener("change", () => edit("Change material", () => {
             const sheet = choices[Number(materialSelect.value)];
-            if(atlasGrid(sheet.dimension, project.tileSize) === 0)
-            {
-                throw new Error(`${sheet.label} is incompatible with tile size ${project.tileSize}`);
-            }
             layer.sheet = sheet;
-            setLayerTileSize(layer, project.tileSize);
         }));
         materialLabel.append(materialSelect);
         card.append(heading, materialLabel);
@@ -671,11 +466,11 @@ function addOverlay(): void
 {
     edit("Add overlay", () => {
         if(project.layers.length >= 256) { throw new Error("Projects support at most 256 layers"); }
-        const choices = availableTiles().filter((asset) => atlasGrid(asset.dimension, project.tileSize) > 0);
+        const choices = availableTiles();
         const sheet = choices[Math.min(2, choices.length - 1)];
         const layer: Layer = {
-            id: project.nextLayerId++, painted: Array(4096).fill(false),
-            sheet, atlasGrid: atlasGrid(sheet.dimension, project.tileSize), tileSize: project.tileSize
+            id: project.nextLayerId++, painted: Array(kCellCount).fill(false),
+            sheet
         };
         project.layers.push(layer);
         project.activeLayerId = layer.id;
@@ -685,13 +480,12 @@ function addOverlay(): void
 function resetSample(): void
 {
     edit("Load sample", () => {
-        const choices = availableTiles().filter((asset) => atlasGrid(asset.dimension, project.tileSize) > 0);
+        const choices = availableTiles();
         const makeLayer = (index: number): Layer => {
             const sheet = choices[Math.min(index, choices.length - 1)];
             const id = project.nextLayerId++;
-            return { id, sheet, tileSize: project.tileSize,
-                atlasGrid: atlasGrid(sheet.dimension, project.tileSize),
-                painted: Array(4096).fill(index === 0) };
+            return { id, sheet,
+                painted: Array(kCellCount).fill(index === 0) };
         };
         project.layers = [makeLayer(0), makeLayer(1), makeLayer(2)];
         const full = project.layers[1];
@@ -780,13 +574,17 @@ const session = new ProjectSession(() => editHistory.committedState(project), wr
 
 function availableTiles(): TileAtlas[]
 {
-    return [...new Set([...tileAtlases, ...(ready ? project.layers.map((layer) => layer.sheet) : [])])];
+    // Preserve directory-listing order in material controls without storing another catalog.
+    return project.tileSheets.toSorted((a, b) => {
+        const aPath = a.id.split("/").map(encodeURIComponent).join("/");
+        const bPath = b.id.split("/").map(encodeURIComponent).join("/");
+        return aPath < bPath ? -1 : aPath > bPath ? 1 : 0;
+    });
 }
 
 function collectAssets(): void
 {
-    const retained = new Set([...tileAtlases, ...projectMasks,
-        ...(ready ? documentAssets(project) : []), ...editHistory.retainedStates().flatMap(documentAssets)]);
+    const retained = new Set([...(ready ? documentAssets(project) : []), ...editHistory.retainedStates().flatMap(documentAssets)]);
     for(const asset of assets)
     {
         if(!retained.has(asset))
@@ -799,6 +597,16 @@ function collectAssets(): void
 
 function refreshDocument(): void
 {
+    const tileSizes: HTMLOptionElement[] = [];
+    const dimension = project.tileSheets[0].dimension;
+    for(let size = kCellSize; size <= dimension; size += kCellSize)
+    {
+        if(atlasGridSize(dimension, size) > 0)
+        {
+            tileSizes.push(new Option(String(size), String(size)));
+        }
+    }
+    controls.mapTileSize.replaceChildren(...tileSizes);
     controls.mapTileSize.value = String(project.tileSize);
     controls.showGrid.checked = project.view.showGrid;
     const size = kGridSize * kCellSize * project.view.zoom;
@@ -987,9 +795,6 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
         if(action === "open") { required("project-message", HTMLOutputElement).value = "Opening project…"; }
         if(ready) { await session.flush(); }
         const next = await loadProject(folder);
-        tileAtlases = next.tiles;
-        projectMasks = next.masks;
-        for(const asset of [...next.tiles, ...next.masks]) { assets.add(asset); }
         installDocument(next.project);
         currentFolder = folder;
         session.attach(new URL("level.json", folder).href, next.saved);
