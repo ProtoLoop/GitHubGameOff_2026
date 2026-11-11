@@ -68,7 +68,7 @@ const SpriteAnimDef kSpriteAnimDefs[] //
         },
     };
 
-struct AppState
+struct Game
 {
     static constexpr const char* const kWindowTitle = "GraveyardShift";
     static constexpr int kWindowWidth = 800;
@@ -77,13 +77,13 @@ struct AppState
     static constexpr uint32_t kLogicalDisplayWidth = 800;
     static constexpr uint32_t kLogicalDisplayHeight = 600;
 
-    AppState() = default;
-    AppState(const AppState&) = delete;
-    AppState& operator=(const AppState&) = delete;
-    AppState(AppState&&) = delete;
-    AppState& operator=(AppState&&) = delete;
+    Game() = default;
+    Game(const Game&) = delete;
+    Game& operator=(const Game&) = delete;
+    Game(Game&&) = delete;
+    Game& operator=(Game&&) = delete;
 
-    ~AppState()
+    ~Game()
     {
         // Release sprite resources.
         SpriteLibLoader = {};
@@ -110,7 +110,7 @@ struct AppState
 
     bool IsStopped() const { return m_Stage == Stage::Stopped; }
 
-    Result<> RunGame();
+    Result<> Run();
 
     SDL_Window* Window = nullptr;
     WebGpu WebGpu;
@@ -132,7 +132,7 @@ struct AppState
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::optional<AppState> g_AppState;
+std::optional<Game> g_Game;
 
 [[maybe_unused]] float
 TurnsToRadians(uint32_t turns)
@@ -144,7 +144,7 @@ TurnsToRadians(uint32_t turns)
 }
 
 Result<>
-AppState::Update()
+Game::Update()
 {
     // If we exit due to error then set the stage to Stopped.
     auto stopRunning = GG_DEFER
@@ -223,22 +223,22 @@ AppState::Update()
             auto texResult = texLoadResult->Take();
             GG_CHECKB(texResult, "Failed to load texture");
 
-            CellMap = CellMap::Create(*texResult, AppState::kCellMapGridCount);
+            CellMap = CellMap::Create(*texResult, kCellMapGridCount);
             GG_CHECK(CellMap, "Failed to create cell map");
 
-            Scene = Scene::Create(AppState::kLogicalDisplayWidth,
-                AppState::kLogicalDisplayHeight,
+            Scene = Scene::Create(kLogicalDisplayWidth,
+                kLogicalDisplayHeight,
                 WebGpu,
                 *SpriteLib,
                 *CellMap,
                 std::move(lostSouls));
             GG_CHECKB(Scene, "Failed to create scene");
 
-            m_Stage = AppState::Stage::Running;
+            m_Stage = Stage::Running;
         }
         break;
         case Stage::Running:
-            GG_CHECK(RunGame(), "Failed to run game");
+            GG_CHECK(Run(), "Failed to run game");
             break;
 
         case Stage::Stopped:
@@ -251,7 +251,7 @@ AppState::Update()
 }
 
 Result<>
-AppState::RunGame()
+Game::Run()
 {
     static constexpr float kTurnsPerSec = 1;
 
@@ -313,9 +313,9 @@ AppState::RunGame()
     constexpr int halfSquareSize = SquareSize / 2;
 
     PlayerLoc.x =
-        std::min(std::max(PlayerLoc.x, halfSquareSize), AppState::kWindowWidth - halfSquareSize);
+        std::min(std::max(PlayerLoc.x, halfSquareSize), kWindowWidth - halfSquareSize);
     PlayerLoc.y =
-        std::min(std::max(PlayerLoc.y, halfSquareSize), AppState::kWindowHeight - halfSquareSize);
+        std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
 
     const auto spriteSheetResult = SpriteLib->GetSpriteSheet("run_body");
     GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
@@ -350,46 +350,46 @@ SDL_AppInit(void** appstate, int, char**)
         return SDL_APP_FAILURE;
     }
 
-    g_AppState.emplace();
+    g_Game.emplace();
 
-    AppState& state = *g_AppState;
+    Game& game = *g_Game;
 
-    state.Window = SDL_CreateWindow(AppState::kWindowTitle,
-        AppState::kWindowWidth,
-        AppState::kWindowHeight,
+    game.Window = SDL_CreateWindow(Game::kWindowTitle,
+        Game::kWindowWidth,
+        Game::kWindowHeight,
         SDL_WINDOW_RESIZABLE);
 
-    if(!GG_VERIFYB(state.Window))
+    if(!GG_VERIFYB(game.Window))
     {
         GG_ERROR("Window creation failed: {}", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    if(!state.WebGpu.Start(state.Window))
+    if(!game.WebGpu.Start(game.Window))
     {
         return SDL_APP_FAILURE;
     }
 
-    state.m_Stage = AppState::Stage::InitializingWebGpu;
+    game.m_Stage = Game::Stage::InitializingWebGpu;
 
-    *appstate = &state;
+    *appstate = &game;
     return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult
 SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-    AppState& state = *static_cast<AppState*>(appstate);
+    Game& game = *static_cast<Game*>(appstate);
     switch(event->type)
     {
         case SDL_EVENT_QUIT:
-            state.Input.TriggerAction(Input::ActionId::Quit, 1);
+            game.Input.TriggerAction(Input::ActionId::Quit, 1);
             break;
         case SDL_EVENT_KEY_DOWN:
-            state.Input.TriggerKey(event->key.scancode, Input::Trigger::Pressed);
+            game.Input.TriggerKey(event->key.scancode, Input::Trigger::Pressed);
             break;
         case SDL_EVENT_KEY_UP:
-            state.Input.TriggerKey(event->key.scancode, Input::Trigger::Released);
+            game.Input.TriggerKey(event->key.scancode, Input::Trigger::Released);
             break;
         default:
             break;
@@ -401,14 +401,14 @@ SDL_AppEvent(void* appstate, SDL_Event* event)
 SDL_AppResult
 SDL_AppIterate(void* appstate)
 {
-    AppState& state = *static_cast<AppState*>(appstate);
+    Game& game = *static_cast<Game*>(appstate);
 
-    if(!state.Update())
+    if(!game.Update())
     {
         return SDL_APP_FAILURE;
     }
 
-    if(state.IsStopped())
+    if(game.IsStopped())
     {
         return SDL_APP_SUCCESS;
     }
@@ -420,6 +420,6 @@ void
 SDL_AppQuit(void* /*appstate*/, SDL_AppResult)
 {
     // Destroy the renderer and window before shutting down SDL, including on failure.
-    g_AppState.reset();
+    g_Game.reset();
     // SDL calls SDL_Quit after this callback returns.
 }
