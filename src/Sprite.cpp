@@ -1,5 +1,7 @@
 #include "Sprite.h"
 
+#include "Defer.h"
+
 /// Sprite
 
 Sprite::Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer)
@@ -9,64 +11,134 @@ Sprite::Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer)
 {
 }
 
-/// SpriteCollection
+/// SpriteAnim
 
-SpriteCollection::SpriteCollection(const size_t spriteCount)
-    : m_Sprites(spriteCount)
+Result<SpriteAnim>
+SpriteAnim::Create(const SpriteAnimDef& animDef, FileFetcher& fileFetcher, WebGpu& webGpu)
 {
+    GG_CHECKB(!animDef.Textures.empty(), "Animation textures must not be empty");
+    GG_CHECKB(animDef.Dim.w > 0 && animDef.Dim.h > 0,
+        "Invalid animation dimensions: {}x{}",
+        animDef.Dim.w,
+        animDef.Dim.h);
+
+    auto texLoadResult = TextureLoader::Load(animDef.Textures, fileFetcher, webGpu, "Anim");
+    GG_CHECKB(texLoadResult, "Failed to start anim texture load");
+
+    return SpriteAnim(std::move(*texLoadResult), animDef.Dim);
+}
+
+bool
+SpriteAnim::IsPending() const
+{
+    return std::holds_alternative<LoadingState>(m_State);
 }
 
 Result<>
-SpriteCollection::AddSprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer)
+SpriteAnim::Update()
 {
-    GG_CHECKB(rect.w > 0 && rect.h > 0, "Invalid sprite dimensions: {}x{}", rect.w, rect.h);
+    if(std::holds_alternative<LoadingState>(m_State))
+    {
+        const LoadingState& loading = std::get<LoadingState>(m_State);
 
-    const uint32_t texW = texture.GetWidth(), texH = texture.GetHeight();
+        auto onFailed = GG_DEFER
+        {
+            m_State = std::monostate{};
+        };
 
-    GG_CHECKB(rect.x + rect.w <= texW && rect.y + rect.h <= texH,
-        "Sprite rect out of texture bounds: rect({},{},{},{}) tex({},{})",
-        rect.x,
-        rect.y,
-        rect.w,
-        rect.h,
-        texW,
-        texH);
+        if(!loading.m_TextureLoader.IsPending())
+        {
+            auto buildResult = BuildSprites();
+            GG_CHECKB(buildResult, "Failed to build sprites");
+            m_State = std::move(*buildResult);
+        }
 
-    GG_CHECKB(m_Sprites.push_back(Sprite(std::move(texture), rect, layer)));
+        onFailed.cancel();
+    }
 
     return Result<>::Success();
 }
 
-/// SpriteAnim
-
-Result<SpriteAnim>
-SpriteAnim::Create(const SpriteCollection& sprites, const Descriptor& desc)
-{
-    GG_CHECKB(desc.StatesPerDirection > 0 && desc.DirectionCount > 0,
-        "Invalid sprite animation descriptor: state count and direction count must be greater than 0");
-    GG_CHECKB(sprites.size() != 0, "Sprite collection must not be empty");
-    GG_CHECKB(sprites.size() / desc.StatesPerDirection >= desc.DirectionCount,
-        "Sprite collection does not contain enough sprites for the animation descriptor");
-
-    return SpriteAnim(sprites, desc);
-}
-
-SpriteAnim::SpriteAnim(const SpriteCollection& sprites, const Descriptor& desc)
-    : m_Sprites(&sprites),
-      m_StatesPerDirection(desc.StatesPerDirection),
-      m_DirectionCount(desc.DirectionCount)
+SpriteAnim::SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim)
+    : m_State(LoadingState //
+          {
+              .m_TextureLoader = std::move(textureLoader),
+              .m_Dim = dim,
+          })
 {
 }
 
 Result<const Sprite*>
 SpriteAnim::GetFrame(const uint32_t state, const uint32_t direction) const
 {
-    GG_CHECKB(state < m_StatesPerDirection, "Invalid animation state: {}", state);
-    GG_CHECKB(direction < m_DirectionCount, "Invalid animation direction: {}", direction);
-    
-    const size_t index = (direction * m_StatesPerDirection) + state;
-    const Sprite* sprite = m_Sprites->TryGetSprite(index);
+    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
+
+    const LoadedState& loaded = std::get<LoadedState>(m_State);
+    GG_CHECKB(state < loaded.m_StatesPerDirection, "Invalid animation state: {}", state);
+    GG_CHECKB(direction < loaded.m_DirectionCount, "Invalid animation direction: {}", direction);
+
+    const size_t index = (direction * loaded.m_StatesPerDirection) + state;
+    const Sprite* sprite = loaded.m_Sprites.TryGet(index);
     GG_CHECKB(sprite, "Invalid sprite index: {}", index);
 
     return sprite;
+}
+
+// private:
+
+Result<SpriteAnim::LoadedState>
+SpriteAnim::BuildSprites()
+{
+    GG_CHECKB(std::holds_alternative<LoadingState>(m_State),
+        "Sprite animation is not in loading state");
+    LoadingState& state = std::get<LoadingState>(m_State);
+
+    auto texResult = state.m_TextureLoader.Take();
+    GG_CHECKB(texResult, "Failed to load anim texture");
+
+    const wgpu::Texture& texture = *texResult;
+    const uint32_t texW = texture.GetWidth();
+    const uint32_t texH = texture.GetHeight();
+    const Dimension2d spriteDim = state.m_Dim;
+
+    GG_CHECKB(texW % spriteDim.w == 0 && texH % spriteDim.h == 0,
+        "Texture dimensions must be divisible by sprite dimensions: tex({},{}) sprite({},{})",
+        texW,
+        texH,
+        spriteDim.w,
+        spriteDim.h);
+
+    const uint32_t spriteRows = texH / spriteDim.h;
+    const uint32_t spriteCols = texW / spriteDim.w;
+    const uint32_t stateCount = spriteRows * spriteCols;
+    const uint32_t directionCount = texResult->GetDepthOrArrayLayers();
+    const uint32_t spriteCount = directionCount * stateCount;
+
+    BoundedVector<Sprite> sprites(spriteCount);
+
+    for(uint32_t layer = 0; layer < directionCount; ++layer)
+    {
+        for(uint32_t row = 0; row < spriteRows; ++row)
+        {
+            for(uint32_t col = 0; col < spriteCols; ++col)
+            {
+                const Rect rect //
+                    {
+                        .x = col * spriteDim.w,
+                        .y = row * spriteDim.h,
+                        .w = spriteDim.w,
+                        .h = spriteDim.h,
+                    };
+
+                GG_CHECKB(sprites.push_back(Sprite(texture, rect, layer)), "Failed to add sprite");
+            }
+        }
+    }
+
+    return LoadedState //
+        {
+            .m_Sprites = std::move(sprites),
+            .m_StatesPerDirection = stateCount,
+            .m_DirectionCount = directionCount,
+        };
 }

@@ -366,10 +366,10 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite&
 {
     SpriteState& spriteState = m_SpriteStates[0];
     const Rect& rect = sprite.GetRect();
-    spriteState.rectX = rect.x;
-    spriteState.rectY = rect.y;
-    spriteState.rectW = rect.w;
-    spriteState.rectH = rect.h;
+    spriteState.srcRectX = rect.x;
+    spriteState.srcRectY = rect.y;
+    spriteState.srcRectW = rect.w;
+    spriteState.srcRectH = rect.h;
     spriteState.layer = sprite.GetLayer();
 
     // Update the sprite state buffer with the current sprite states

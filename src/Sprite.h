@@ -1,8 +1,13 @@
 #pragma once
 
 #include "BoundedVector.h"
+#include "TextureLoader.h"
 
+#include <variant>
 #include <webgpu/webgpu_cpp.h>
+#include <vector>
+
+class WebGpu;
 
 struct Rect
 {
@@ -18,11 +23,21 @@ struct Dimension2d
     uint32_t h;
 };
 
+struct SpriteAnimDef
+{
+    Dimension2d Dim{};
+    std::vector<FilePath> Textures;
+    uint32_t DirectionCount() const { return static_cast<uint32_t>(Textures.size()); }
+};
+
 class Sprite
 {
 public:
     Sprite() = delete;
 
+    /// Constructs a sprite with the given texture, rectangle, and layer.
+    /// The texture could be multi-layered and layer specifies which layer of the texture to use.
+    /// rect specifies the portion of the texture to use for the sprite.
     Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer);
 
     /// Returns the texture atlas containing the sprite.
@@ -41,41 +56,25 @@ private:
     uint32_t m_Layer; // Layer in the texture array.
 };
 
-class SpriteCollection
-{
-public:
-    SpriteCollection() = delete;
-
-    explicit SpriteCollection(const size_t spriteCount);
-
-    Result<> AddSprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer);
-
-    size_t size() const { return m_Sprites.size(); }
-
-    const Sprite* TryGetSprite(size_t index) const { return m_Sprites.TryGet(index); }
-
-private:
-    BoundedVector<Sprite> m_Sprites;
-};
-
 class SpriteAnim
 {
 public:
-    struct Descriptor
-    {
-        uint32_t StatesPerDirection;
-        uint32_t DirectionCount;
-    };
-
     SpriteAnim() = delete;
 
-    static Result<SpriteAnim> Create(const SpriteCollection& sprites, const Descriptor& desc);
+    static Result<SpriteAnim> Create(const SpriteAnimDef& animDef, FileFetcher& fileFetcher, WebGpu& webGpu);
+
+    bool IsPending() const;
+
+    Result<> Update();
 
     /// Returns the number of animation states per direction.
-    uint32_t GetStatesPerDirection() const { return m_StatesPerDirection; }
+    uint32_t GetStatesPerDirection() const
+    {
+        return std::get<LoadedState>(m_State).m_StatesPerDirection;
+    }
 
     /// Returns the number of directions in the animation.
-    uint32_t GetDirectionCount() const { return m_DirectionCount; }
+    uint32_t GetDirectionCount() const { return std::get<LoadedState>(m_State).m_DirectionCount; }
 
     /// Returns the sprite for the given animation state and direction.
     /// The state should be in the range [0, StatesPerDirection) and the direction should be in the
@@ -83,9 +82,24 @@ public:
     Result<const Sprite*> GetFrame(const uint32_t state, const uint32_t direction) const;
 
 private:
-    SpriteAnim(const SpriteCollection& sprites, const Descriptor& desc);
 
-    const SpriteCollection* m_Sprites;
-    uint32_t m_StatesPerDirection;
-    uint32_t m_DirectionCount;
+    struct LoadingState
+    {
+        TextureLoader m_TextureLoader;
+        Dimension2d m_Dim;
+    };
+
+    struct LoadedState
+    {
+        BoundedVector<Sprite> m_Sprites;
+        uint32_t m_StatesPerDirection{ 0 };
+        uint32_t m_DirectionCount{ 0 };
+    };
+
+    explicit SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim);
+
+    Result<LoadedState> BuildSprites();
+
+    std::variant<std::monostate,LoadingState, LoadedState> m_State;
+
 };

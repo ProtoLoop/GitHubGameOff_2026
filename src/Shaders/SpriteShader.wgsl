@@ -10,10 +10,10 @@ struct SpriteState
 {
     locX: f32,
     locY: f32,
-    rectX: u32,
-    rectY: u32,
-    rectW: u32,
-    rectH: u32,
+    srcRectX: u32,
+    srcRectY: u32,
+    srcRectW: u32,
+    srcRectH: u32,
     layer: u32,
 };
 
@@ -22,16 +22,11 @@ struct SpriteState
 @group(1) @binding(0) var texture : texture_2d_array<f32>;
 @group(1) @binding(1) var smp : sampler;
 
-override logicalTargetWidth: f32 = 800;     // Logical width of the render target in pixels
-override logicalTargetHeight: f32 = 600;    // Logical height of the render target in pixels
-override cellPixelSize: u32 = 64;           // Number of pixels along each axis of a cell
-override sheetGridSize: u32 = 1;            // Number of tiles along each axis in the tile sheet
-override cellMapGridSize: u32 = 128;        // Number of cells along each axis in the map
-
-// Number of rows and columns in each tile sheet.
-const sheetRowCount: u32 = 4u;
-const sheetColCount: u32 = 6u;
-const sheetColsRows = vec2<f32>(f32(sheetColCount), f32(sheetRowCount));
+override logicalTargetWidth: f32;   // Logical width of the render target in pixels
+override logicalTargetHeight: f32;  // Logical height of the render target in pixels
+override cellPixelSize: u32;        // Number of pixels along each axis of a cell
+override sheetGridSize: u32;        // Number of tiles along each axis in the tile sheet
+override cellMapGridSize: u32;      // Number of cells along each axis in the map
 
 const vsout = array<VSOut, 6>
 (
@@ -50,14 +45,15 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let state = spriteStates[spriteId];
 
     let texDims = vec2f(textureDimensions(texture, 0).xy);
-    let spriteSize = texDims / sheetColsRows;
     var v = vsout[vid];
 
-    let logicalTargetSize = vec2f(logicalTargetWidth, logicalTargetHeight);
-    v.pos = vec4f(v.pos.xy * (spriteSize / logicalTargetSize), v.pos.zw);
+    let spriteDims = vec2f(f32(state.srcRectW), f32(state.srcRectH));
 
-    let rectXY = vec2f(f32(state.rectX), f32(state.rectY)) / texDims;
-    let rectWH = vec2f(f32(state.rectW), f32(state.rectH)) / texDims;
+    let logicalTargetSize = vec2f(logicalTargetWidth, logicalTargetHeight);
+    v.pos = vec4f(v.pos.xy * (spriteDims / logicalTargetSize), v.pos.zw);
+
+    let rectXY = vec2f(f32(state.srcRectX), f32(state.srcRectY)) / texDims;
+    let rectWH = vec2f(f32(state.srcRectW), f32(state.srcRectH)) / texDims;
 
     v.uv = rectXY + (v.uv * rectWH);
 

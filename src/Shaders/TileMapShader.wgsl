@@ -20,11 +20,11 @@ struct CellMapParams
 @group(0) @binding(2) var<uniform> cellMapParams : CellMapParams;
 @group(0) @binding(3) var<storage, read> cellOccupancy : array<u32>;
 
-override logicalTargetWidth: f32 = 800;     // Logical width of the render target in pixels
-override logicalTargetHeight: f32 = 600;    // Logical height of the render target in pixels
-override cellPixelSize: u32 = 64;           // Number of pixels along each axis of a cell
-override sheetGridSize: u32 = 1;            // Number of tiles along each axis in the tile sheet
-override cellMapGridSize: u32 = 128;        // Number of cells along each axis in the map
+override logicalTargetWidth: f32;   // Logical width of the render target in pixels
+override logicalTargetHeight: f32;  // Logical height of the render target in pixels
+override cellPixelSize: u32;        // Number of pixels along each axis of a cell
+override sheetGridSize: u32;        // Number of tiles along each axis in the tile sheet
+override cellMapGridSize: u32;      // Number of cells along each axis in the map
     
 const vsout = array<VSOut, 6>
 (

@@ -38,13 +38,18 @@ public:
 
 private:
     struct SpriteState
-    {
-        float locX{ 0 }, locY{ 0 };
-        uint32_t rectX{ 0 };
-        uint32_t rectY{ 0 };
-        uint32_t rectW{ 0 };
-        uint32_t rectH{ 0 };
-        uint32_t layer{ 0 };
+    {        
+        float locX{ 0 }, locY{ 0 }; // Location of the sprite in world space.
+
+        /// Rectangle defining the portion of the texture to use for the sprite.
+        /// The rectangle is specified by its top-left corner and its width and
+        /// height.
+        uint32_t srcRectX{ 0 };
+        uint32_t srcRectY{ 0 };
+        uint32_t srcRectW{ 0 };
+        uint32_t srcRectH{ 0 };
+
+        uint32_t layer{ 0 }; // Layer of the texture array containing the sprite.
     };
 
     Renderer(const uint32_t logicalDisplayWidth,

@@ -23,51 +23,53 @@ namespace
 {
 constexpr int SquareSize = 64;
 
-constexpr FilePath kHeroIdleAnimTextures[] //
+const SpriteAnimDef kHeroIdleAnimDef //
     {
-        "/assets/HeroAnims/Idle/Idle_Body_000.png",
-        "/assets/HeroAnims/Idle/Idle_Body_022.png",
-        "/assets/HeroAnims/Idle/Idle_Body_045.png",
-        "/assets/HeroAnims/Idle/Idle_Body_067.png",
-        "/assets/HeroAnims/Idle/Idle_Body_090.png",
-        "/assets/HeroAnims/Idle/Idle_Body_112.png",
-        "/assets/HeroAnims/Idle/Idle_Body_135.png",
-        "/assets/HeroAnims/Idle/Idle_Body_157.png",
-        "/assets/HeroAnims/Idle/Idle_Body_180.png",
-        "/assets/HeroAnims/Idle/Idle_Body_202.png",
-        "/assets/HeroAnims/Idle/Idle_Body_225.png",
-        "/assets/HeroAnims/Idle/Idle_Body_247.png",
-        "/assets/HeroAnims/Idle/Idle_Body_270.png",
-        "/assets/HeroAnims/Idle/Idle_Body_292.png",
-        "/assets/HeroAnims/Idle/Idle_Body_315.png",
-        "/assets/HeroAnims/Idle/Idle_Body_337.png",
+        .Dim{ .w = 180, .h = 180 },
+        .Textures //
+        {
+            "/assets/HeroAnims/Idle/Idle_Body_000.png",
+            "/assets/HeroAnims/Idle/Idle_Body_022.png",
+            "/assets/HeroAnims/Idle/Idle_Body_045.png",
+            "/assets/HeroAnims/Idle/Idle_Body_067.png",
+            "/assets/HeroAnims/Idle/Idle_Body_090.png",
+            "/assets/HeroAnims/Idle/Idle_Body_112.png",
+            "/assets/HeroAnims/Idle/Idle_Body_135.png",
+            "/assets/HeroAnims/Idle/Idle_Body_157.png",
+            "/assets/HeroAnims/Idle/Idle_Body_180.png",
+            "/assets/HeroAnims/Idle/Idle_Body_202.png",
+            "/assets/HeroAnims/Idle/Idle_Body_225.png",
+            "/assets/HeroAnims/Idle/Idle_Body_247.png",
+            "/assets/HeroAnims/Idle/Idle_Body_270.png",
+            "/assets/HeroAnims/Idle/Idle_Body_292.png",
+            "/assets/HeroAnims/Idle/Idle_Body_315.png",
+            "/assets/HeroAnims/Idle/Idle_Body_337.png",
+        },
     };
 
-constexpr FilePath kHeroRunAnimTextures[] //
+const SpriteAnimDef kHeroRunAnimDef //
     {
-        "/assets/HeroAnims/Run/Run_Body_000.png",
-        "/assets/HeroAnims/Run/Run_Body_022.png",
-        "/assets/HeroAnims/Run/Run_Body_045.png",
-        "/assets/HeroAnims/Run/Run_Body_067.png",
-        "/assets/HeroAnims/Run/Run_Body_090.png",
-        "/assets/HeroAnims/Run/Run_Body_112.png",
-        "/assets/HeroAnims/Run/Run_Body_135.png",
-        "/assets/HeroAnims/Run/Run_Body_157.png",
-        "/assets/HeroAnims/Run/Run_Body_180.png",
-        "/assets/HeroAnims/Run/Run_Body_202.png",
-        "/assets/HeroAnims/Run/Run_Body_225.png",
-        "/assets/HeroAnims/Run/Run_Body_247.png",
-        "/assets/HeroAnims/Run/Run_Body_270.png",
-        "/assets/HeroAnims/Run/Run_Body_292.png",
-        "/assets/HeroAnims/Run/Run_Body_315.png",
-        "/assets/HeroAnims/Run/Run_Body_337.png",
+        .Dim{ .w = 180, .h = 180 },
+        .Textures //
+        {
+            "/assets/HeroAnims/Run/Run_Body_000.png",
+            "/assets/HeroAnims/Run/Run_Body_022.png",
+            "/assets/HeroAnims/Run/Run_Body_045.png",
+            "/assets/HeroAnims/Run/Run_Body_067.png",
+            "/assets/HeroAnims/Run/Run_Body_090.png",
+            "/assets/HeroAnims/Run/Run_Body_112.png",
+            "/assets/HeroAnims/Run/Run_Body_135.png",
+            "/assets/HeroAnims/Run/Run_Body_157.png",
+            "/assets/HeroAnims/Run/Run_Body_180.png",
+            "/assets/HeroAnims/Run/Run_Body_202.png",
+            "/assets/HeroAnims/Run/Run_Body_225.png",
+            "/assets/HeroAnims/Run/Run_Body_247.png",
+            "/assets/HeroAnims/Run/Run_Body_270.png",
+            "/assets/HeroAnims/Run/Run_Body_292.png",
+            "/assets/HeroAnims/Run/Run_Body_315.png",
+            "/assets/HeroAnims/Run/Run_Body_337.png",
+        },
     };
-
-constexpr Rect kDefaultSpriteDims{ .x = 0, .y = 0, .w = 180, .h = 180 };
-constexpr uint32_t kSpriteCols = 6;
-constexpr uint32_t kSpriteRows = 4;
-constexpr uint32_t kStateCount = kSpriteCols * kSpriteRows;
-constexpr uint32_t kDirectionCount = std::size(kHeroRunAnimTextures);
 
 constexpr const FilePath kCellMapTextures[] //
     {                                       //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
@@ -127,16 +129,14 @@ struct Game
     {
         Result<LevelLoader> LevelLoader;
         Result<TextureLoader> CellMapTextureLoader;
-        Result<TextureLoader> HeroIdleAnimTextureLoader;
-        Result<TextureLoader> HeroRunAnimTextureLoader;
+        Result<SpriteAnim> HeroIdleSpriteAnim;
+        Result<SpriteAnim> HeroRunSpriteAnim;
     };
 
     struct RunState
     {
         std::unique_ptr<CellMap> CellMap;
         std::unique_ptr<Renderer> Renderer;
-        std::unique_ptr<SpriteCollection> HeroIdleSprites;
-        std::unique_ptr<SpriteCollection> HeroRunSprites;
         SpriteAnim HeroIdleSpriteAnim;
         SpriteAnim HeroRunSpriteAnim;
     };
@@ -206,13 +206,13 @@ Game::Update()
                 TextureLoader::Load(kCellMapTextures, FileFetcher, WebGpu, "Test");
             GG_CHECKB(state.CellMapTextureLoader, "Failed to start texture load");
 
-            state.HeroIdleAnimTextureLoader =
-                TextureLoader::Load(kHeroIdleAnimTextures, FileFetcher, WebGpu, "Anim");
-            GG_CHECKB(state.HeroIdleAnimTextureLoader, "Failed to start anim texture load");
+            state.HeroIdleSpriteAnim =
+                SpriteAnim::Create(kHeroIdleAnimDef, FileFetcher, WebGpu);
+            GG_CHECKB(state.HeroIdleSpriteAnim, "Failed to start hero idle sprite anim load");
 
-            state.HeroRunAnimTextureLoader =
-                TextureLoader::Load(kHeroRunAnimTextures, FileFetcher, WebGpu, "Anim");
-            GG_CHECKB(state.HeroRunAnimTextureLoader, "Failed to start anim texture load");
+            state.HeroRunSpriteAnim =
+                SpriteAnim::Create(kHeroRunAnimDef, FileFetcher, WebGpu);
+            GG_CHECKB(state.HeroRunSpriteAnim, "Failed to start hero run sprite anim load");
 
             m_Stage = Stage::Loading;
         }
@@ -222,11 +222,13 @@ Game::Update()
             auto& state = std::get<LoadingState>(m_State);
 
             GG_CHECK(state.LevelLoader->Update(), "Failed to update level loader");
+            GG_CHECK(state.HeroIdleSpriteAnim->Update(), "Failed to update hero idle sprite anim");
+            GG_CHECK(state.HeroRunSpriteAnim->Update(), "Failed to update hero run sprite anim");
 
             if(!state.LevelLoader->IsPending()
                 && !state.CellMapTextureLoader->IsPending()
-                && !state.HeroIdleAnimTextureLoader->IsPending()
-                && !state.HeroRunAnimTextureLoader->IsPending())
+                && !state.HeroIdleSpriteAnim->IsPending()
+                && !state.HeroRunSpriteAnim->IsPending())
             {
                 m_Stage = Stage::Loaded;
             }
@@ -238,12 +240,6 @@ Game::Update()
 
             auto cellmapTexResult = state.CellMapTextureLoader->Take();
             GG_CHECKB(cellmapTexResult, "Failed to load cellmap texture");
-
-            auto heroIdleAnimTexResult = state.HeroIdleAnimTextureLoader->Take();
-            GG_CHECKB(heroIdleAnimTexResult, "Failed to load anim texture");
-
-            auto heroRunAnimTexResult = state.HeroRunAnimTextureLoader->Take();
-            GG_CHECKB(heroRunAnimTexResult, "Failed to load anim texture");
 
             auto cellmapResult = CellMap::Create(*cellmapTexResult, kCellMapGridCount);
             GG_CHECK(cellmapResult, "Failed to create cell map");
@@ -263,72 +259,12 @@ Game::Update()
                 std::move(lostSouls));
             GG_CHECKB(rendererResult, "Failed to create renderer");
 
-            const size_t heroIdleSpriteCount = std::size(kHeroIdleAnimTextures) * kSpriteCols * kSpriteRows;
-            std::unique_ptr<SpriteCollection> heroIdleSprites =
-                std::make_unique<SpriteCollection>(heroIdleSpriteCount);
-
-            for(uint32_t layer = 0; layer < std::size(kHeroIdleAnimTextures); ++layer)
-            {
-                for(uint32_t row = 0; row < kSpriteRows; ++row)
-                {
-                    for(uint32_t col = 0; col < kSpriteCols; ++col)
-                    {
-                        const Rect rect //
-                            {
-                                .x = col * kDefaultSpriteDims.w,
-                                .y = row * kDefaultSpriteDims.h,
-                                .w = kDefaultSpriteDims.w,
-                                .h = kDefaultSpriteDims.h,
-                            };
-
-                        GG_CHECKB(heroIdleSprites->AddSprite(*heroIdleAnimTexResult, rect, layer),
-                            "Failed to add sprite");
-                    }
-                }
-            }
-
-            const size_t heroRunSpriteCount = std::size(kHeroRunAnimTextures) * kSpriteCols * kSpriteRows;
-            std::unique_ptr<SpriteCollection> heroRunSprites =
-                std::make_unique<SpriteCollection>(heroRunSpriteCount);
-
-            for(uint32_t layer = 0; layer < std::size(kHeroRunAnimTextures); ++layer)
-            {
-                for(uint32_t row = 0; row < kSpriteRows; ++row)
-                {
-                    for(uint32_t col = 0; col < kSpriteCols; ++col)
-                    {
-                        const Rect rect //
-                            {
-                                .x = col * kDefaultSpriteDims.w,
-                                .y = row * kDefaultSpriteDims.h,
-                                .w = kDefaultSpriteDims.w,
-                                .h = kDefaultSpriteDims.h,
-                            };
-
-                        GG_CHECKB(heroRunSprites->AddSprite(*heroRunAnimTexResult, rect, layer),
-                            "Failed to add sprite");
-                    }
-                }
-            }
-
-            auto heroIdleSpriteAnimResult = SpriteAnim::Create(*heroIdleSprites,
-                SpriteAnim::Descriptor{ .StatesPerDirection = kStateCount,
-                    .DirectionCount = kDirectionCount });
-            GG_CHECKB(heroIdleSpriteAnimResult, "Failed to create sprite animation");
-
-            auto heroRunSpriteAnimResult = SpriteAnim::Create(*heroRunSprites,
-                SpriteAnim::Descriptor{ .StatesPerDirection = kStateCount,
-                    .DirectionCount = kDirectionCount });
-            GG_CHECKB(heroRunSpriteAnimResult, "Failed to create sprite animation");
-
             m_State = RunState //
                 {
                     .CellMap = std::move(cellmap),
                     .Renderer = std::move(*rendererResult),
-                    .HeroIdleSprites = std::move(heroIdleSprites),
-                    .HeroRunSprites = std::move(heroRunSprites),
-                    .HeroIdleSpriteAnim = std::move(*heroIdleSpriteAnimResult),
-                    .HeroRunSpriteAnim = std::move(*heroRunSpriteAnimResult),
+                    .HeroIdleSpriteAnim = std::move(*state.HeroIdleSpriteAnim),
+                    .HeroRunSpriteAnim = std::move(*state.HeroRunSpriteAnim),
                 };
 
             m_Stage = Stage::Running;
@@ -414,7 +350,7 @@ Game::Run()
     PlayerLoc.x = std::min(std::max(PlayerLoc.x, halfSquareSize), kWindowWidth - halfSquareSize);
     PlayerLoc.y = std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
 
-    //const SpriteAnim& spriteAnim = state.HeroRunSpriteAnim;
+    // const SpriteAnim& spriteAnim = state.HeroRunSpriteAnim;
     const SpriteAnim& spriteAnim = state.HeroIdleSpriteAnim;
 
     const uint32_t dirIndex = PlayerRot.GetDirection(spriteAnim.GetDirectionCount());
