@@ -235,7 +235,7 @@ CreateSampler(const wgpu::Device& gpuDevice)
 {
     const wgpu::SamplerDescriptor desc //
         {
-            .label = "Scene::Sampler",
+            .label = "DefaultSampler",
             .addressModeU = wgpu::AddressMode::ClampToEdge,
             .addressModeV = wgpu::AddressMode::ClampToEdge,
             .addressModeW = wgpu::AddressMode::ClampToEdge,

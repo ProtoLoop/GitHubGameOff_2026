@@ -78,14 +78,12 @@ set(GAMEOFF_SOURCES
     src/LevelLoader.h
     src/LevelLoader.cpp
     src/main.cpp
+    src/Renderer.h
+    src/Renderer.cpp
     src/Result.h
-    src/Scene.h
-    src/Scene.cpp
     src/Shortcuts.h
-    src/SpriteLib.h
-    src/SpriteLib.cpp
-    src/SpriteSheet.h
-    src/SpriteSheet.cpp
+    src/Sprite.h
+    src/Sprite.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
     src/stb_image.cpp

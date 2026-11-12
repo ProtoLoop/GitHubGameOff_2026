@@ -1,9 +1,9 @@
 #include "CellMap.h"
 
-Result<CellMap>
+Result<std::unique_ptr<CellMap>>
 CellMap::Create(const wgpu::Texture tileSets, const uint32_t gridSize)
 {
-    return CellMap(tileSets, gridSize);
+    return std::unique_ptr<CellMap>(new CellMap(tileSets, gridSize));
 }
 
 CellMap::CellMap(const wgpu::Texture tileSets, const uint32_t gridSize)

@@ -1,3 +1,4 @@
+#include <webgpu/webgpu_cpp.h>
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include "Angle.h"
@@ -5,8 +6,8 @@
 #include "Defer.h"
 #include "Input.h"
 #include "LevelLoader.h"
-#include "Scene.h"
-#include "SpriteLib.h"
+#include "Renderer.h"
+#include "Sprite.h"
 #include "TextureLoader.h"
 #include "WebGpu.h"
 
@@ -14,59 +15,64 @@
 #include <cstdint>
 #include <numbers>
 #include <optional>
-#include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_timer.h>
 #include <variant>
 
 namespace
 {
 constexpr int SquareSize = 64;
 
-const SpriteSheetDef kSpriteSheetDefs[] //
+constexpr FilePath kHeroIdleAnimTextures[] //
     {
-        /*{
-            .Path{ "/assets/male_hero-walk.png" },
-            .Name{ "male_hero-walk" },
-            .SpriteDims{ .Width = 128, .Height = 128 },
-        },*/
-        {
-            .Path{ "/assets/run/Run_Body_180.png" },
-            .Name{ "lost_soul" },
-            .SpriteDims{ .w = 180, .h = 180 },
-        },
-        {
-            .Path{ "/assets/run/Run_Body_180.png" },
-            .Name{ "run_body" },
-            .SpriteDims{ .w = 180, .h = 180 },
-        },
+        "/assets/HeroAnims/Idle/Idle_Body_000.png",
+        "/assets/HeroAnims/Idle/Idle_Body_022.png",
+        "/assets/HeroAnims/Idle/Idle_Body_045.png",
+        "/assets/HeroAnims/Idle/Idle_Body_067.png",
+        "/assets/HeroAnims/Idle/Idle_Body_090.png",
+        "/assets/HeroAnims/Idle/Idle_Body_112.png",
+        "/assets/HeroAnims/Idle/Idle_Body_135.png",
+        "/assets/HeroAnims/Idle/Idle_Body_157.png",
+        "/assets/HeroAnims/Idle/Idle_Body_180.png",
+        "/assets/HeroAnims/Idle/Idle_Body_202.png",
+        "/assets/HeroAnims/Idle/Idle_Body_225.png",
+        "/assets/HeroAnims/Idle/Idle_Body_247.png",
+        "/assets/HeroAnims/Idle/Idle_Body_270.png",
+        "/assets/HeroAnims/Idle/Idle_Body_292.png",
+        "/assets/HeroAnims/Idle/Idle_Body_315.png",
+        "/assets/HeroAnims/Idle/Idle_Body_337.png",
     };
 
-const SpriteAnimDef kSpriteAnimDefs[] //
+constexpr FilePath kHeroRunAnimTextures[] //
     {
-        //
-        {
-            .Name{ "run_body" },
-            .SpriteDims{ .w = 180, .h = 180 },
-            .Directions //
-            {
-                "/assets/run/Run_Body_000.png",
-                "/assets/run/Run_Body_022.png",
-                "/assets/run/Run_Body_045.png",
-                "/assets/run/Run_Body_067.png",
-                "/assets/run/Run_Body_090.png",
-                "/assets/run/Run_Body_112.png",
-                "/assets/run/Run_Body_135.png",
-                "/assets/run/Run_Body_157.png",
-                "/assets/run/Run_Body_180.png",
-                "/assets/run/Run_Body_202.png",
-                "/assets/run/Run_Body_225.png",
-                "/assets/run/Run_Body_247.png",
-                "/assets/run/Run_Body_270.png",
-                "/assets/run/Run_Body_292.png",
-                "/assets/run/Run_Body_315.png",
-                "/assets/run/Run_Body_337.png",
-            },
-        },
+        "/assets/HeroAnims/Run/Run_Body_000.png",
+        "/assets/HeroAnims/Run/Run_Body_022.png",
+        "/assets/HeroAnims/Run/Run_Body_045.png",
+        "/assets/HeroAnims/Run/Run_Body_067.png",
+        "/assets/HeroAnims/Run/Run_Body_090.png",
+        "/assets/HeroAnims/Run/Run_Body_112.png",
+        "/assets/HeroAnims/Run/Run_Body_135.png",
+        "/assets/HeroAnims/Run/Run_Body_157.png",
+        "/assets/HeroAnims/Run/Run_Body_180.png",
+        "/assets/HeroAnims/Run/Run_Body_202.png",
+        "/assets/HeroAnims/Run/Run_Body_225.png",
+        "/assets/HeroAnims/Run/Run_Body_247.png",
+        "/assets/HeroAnims/Run/Run_Body_270.png",
+        "/assets/HeroAnims/Run/Run_Body_292.png",
+        "/assets/HeroAnims/Run/Run_Body_315.png",
+        "/assets/HeroAnims/Run/Run_Body_337.png",
+    };
+
+constexpr Rect kDefaultSpriteDims{ .x = 0, .y = 0, .w = 180, .h = 180 };
+constexpr uint32_t kSpriteCols = 6;
+constexpr uint32_t kSpriteRows = 4;
+constexpr uint32_t kStateCount = kSpriteCols * kSpriteRows;
+constexpr uint32_t kDirectionCount = std::size(kHeroRunAnimTextures);
+
+constexpr const FilePath kCellMapTextures[] //
+    {                                       //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+        "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+        "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
     };
 
 struct Game
@@ -119,16 +125,20 @@ struct Game
 
     struct LoadingState
     {
-        Result<SpriteLibLoader> SpriteLibLoader;
         Result<LevelLoader> LevelLoader;
         Result<TextureLoader> CellMapTextureLoader;
+        Result<TextureLoader> HeroIdleAnimTextureLoader;
+        Result<TextureLoader> HeroRunAnimTextureLoader;
     };
 
     struct RunState
     {
-        Result<SpriteLib> SpriteLib;
-        Result<CellMap> CellMap;
-        Result<Scene> Scene;
+        std::unique_ptr<CellMap> CellMap;
+        std::unique_ptr<Renderer> Renderer;
+        std::unique_ptr<SpriteCollection> HeroIdleSprites;
+        std::unique_ptr<SpriteCollection> HeroRunSprites;
+        SpriteAnim HeroIdleSpriteAnim;
+        SpriteAnim HeroRunSpriteAnim;
     };
 
     std::variant<std::monostate, LoadingState, RunState> m_State = LoadingState{};
@@ -189,58 +199,54 @@ Game::Update()
         {
             auto& state = std::get<LoadingState>(m_State);
 
-            state.SpriteLibLoader = SpriteLibLoader::Load(kSpriteSheetDefs, FileFetcher, WebGpu);
-            GG_CHECKB(state.SpriteLibLoader, "Failed to start loading sprite lib loader");
-
             state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
             GG_CHECKB(state.LevelLoader, "Failed to start loading level");
 
-            const FilePath paths[] //
-                {                  //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-                    "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-                    "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
-                };
-
-            state.CellMapTextureLoader = TextureLoader::Load(paths, FileFetcher, WebGpu, "Test");
+            state.CellMapTextureLoader =
+                TextureLoader::Load(kCellMapTextures, FileFetcher, WebGpu, "Test");
             GG_CHECKB(state.CellMapTextureLoader, "Failed to start texture load");
+
+            state.HeroIdleAnimTextureLoader =
+                TextureLoader::Load(kHeroIdleAnimTextures, FileFetcher, WebGpu, "Anim");
+            GG_CHECKB(state.HeroIdleAnimTextureLoader, "Failed to start anim texture load");
+
+            state.HeroRunAnimTextureLoader =
+                TextureLoader::Load(kHeroRunAnimTextures, FileFetcher, WebGpu, "Anim");
+            GG_CHECKB(state.HeroRunAnimTextureLoader, "Failed to start anim texture load");
 
             m_Stage = Stage::Loading;
         }
-            break;
+        break;
         case Stage::Loading:
         {
-                auto& state = std::get<LoadingState>(m_State);
-                
-                GG_CHECK(state.SpriteLibLoader->Update(), "Failed to update sprite lib loader");
-                GG_CHECK(state.LevelLoader->Update(), "Failed to update level loader");
+            auto& state = std::get<LoadingState>(m_State);
 
-                if(!state.SpriteLibLoader->IsPending() && !state.LevelLoader->IsPending() && !state.CellMapTextureLoader->IsPending())
-                {
-                    m_Stage = Stage::Loaded;
-                }
+            GG_CHECK(state.LevelLoader->Update(), "Failed to update level loader");
+
+            if(!state.LevelLoader->IsPending()
+                && !state.CellMapTextureLoader->IsPending()
+                && !state.HeroIdleAnimTextureLoader->IsPending()
+                && !state.HeroRunAnimTextureLoader->IsPending())
+            {
+                m_Stage = Stage::Loaded;
             }
-            break;
+        }
+        break;
         case Stage::Loaded:
         {
             auto& state = std::get<LoadingState>(m_State);
-                
-            auto spriteLibResult = state.SpriteLibLoader->Take();
-            GG_CHECKB(spriteLibResult, "Failed to load sprite lib");
 
-            auto texResult = state.CellMapTextureLoader->Take();
-            GG_CHECKB(texResult, "Failed to load texture");
+            auto cellmapTexResult = state.CellMapTextureLoader->Take();
+            GG_CHECKB(cellmapTexResult, "Failed to load cellmap texture");
 
-            auto cellmapResult = CellMap::Create(*texResult, kCellMapGridCount);
+            auto heroIdleAnimTexResult = state.HeroIdleAnimTextureLoader->Take();
+            GG_CHECKB(heroIdleAnimTexResult, "Failed to load anim texture");
+
+            auto heroRunAnimTexResult = state.HeroRunAnimTextureLoader->Take();
+            GG_CHECKB(heroRunAnimTexResult, "Failed to load anim texture");
+
+            auto cellmapResult = CellMap::Create(*cellmapTexResult, kCellMapGridCount);
             GG_CHECK(cellmapResult, "Failed to create cell map");
-
-            m_State = RunState
-            {
-                .SpriteLib = std::move(*spriteLibResult),
-                .CellMap = std::move(*cellmapResult),
-                .Scene = {}  
-            };
-
-            auto& runState = std::get<RunState>(m_State);
 
             BoundedVector<LostSoul> lostSouls(8); // NOLINT
             for(size_t i = 0; i < lostSouls.capacity(); ++i)
@@ -248,13 +254,82 @@ Game::Update()
                 GG_CHECKB(lostSouls.push_back(LostSoul{}), "Failed to add lost soul");
             }
 
-            runState.Scene = Scene::Create(kLogicalDisplayWidth,
+            auto cellmap = std::move(*cellmapResult);
+
+            auto rendererResult = Renderer::Create(kLogicalDisplayWidth,
                 kLogicalDisplayHeight,
                 WebGpu,
-                *runState.SpriteLib,
-                *runState.CellMap,
+                *cellmap,
                 std::move(lostSouls));
-            GG_CHECKB(runState.Scene, "Failed to create scene");
+            GG_CHECKB(rendererResult, "Failed to create renderer");
+
+            const size_t heroIdleSpriteCount = std::size(kHeroIdleAnimTextures) * kSpriteCols * kSpriteRows;
+            std::unique_ptr<SpriteCollection> heroIdleSprites =
+                std::make_unique<SpriteCollection>(heroIdleSpriteCount);
+
+            for(uint32_t layer = 0; layer < std::size(kHeroIdleAnimTextures); ++layer)
+            {
+                for(uint32_t row = 0; row < kSpriteRows; ++row)
+                {
+                    for(uint32_t col = 0; col < kSpriteCols; ++col)
+                    {
+                        const Rect rect //
+                            {
+                                .x = col * kDefaultSpriteDims.w,
+                                .y = row * kDefaultSpriteDims.h,
+                                .w = kDefaultSpriteDims.w,
+                                .h = kDefaultSpriteDims.h,
+                            };
+
+                        GG_CHECKB(heroIdleSprites->AddSprite(*heroIdleAnimTexResult, rect, layer),
+                            "Failed to add sprite");
+                    }
+                }
+            }
+
+            const size_t heroRunSpriteCount = std::size(kHeroRunAnimTextures) * kSpriteCols * kSpriteRows;
+            std::unique_ptr<SpriteCollection> heroRunSprites =
+                std::make_unique<SpriteCollection>(heroRunSpriteCount);
+
+            for(uint32_t layer = 0; layer < std::size(kHeroRunAnimTextures); ++layer)
+            {
+                for(uint32_t row = 0; row < kSpriteRows; ++row)
+                {
+                    for(uint32_t col = 0; col < kSpriteCols; ++col)
+                    {
+                        const Rect rect //
+                            {
+                                .x = col * kDefaultSpriteDims.w,
+                                .y = row * kDefaultSpriteDims.h,
+                                .w = kDefaultSpriteDims.w,
+                                .h = kDefaultSpriteDims.h,
+                            };
+
+                        GG_CHECKB(heroRunSprites->AddSprite(*heroRunAnimTexResult, rect, layer),
+                            "Failed to add sprite");
+                    }
+                }
+            }
+
+            auto heroIdleSpriteAnimResult = SpriteAnim::Create(*heroIdleSprites,
+                SpriteAnim::Descriptor{ .StatesPerDirection = kStateCount,
+                    .DirectionCount = kDirectionCount });
+            GG_CHECKB(heroIdleSpriteAnimResult, "Failed to create sprite animation");
+
+            auto heroRunSpriteAnimResult = SpriteAnim::Create(*heroRunSprites,
+                SpriteAnim::Descriptor{ .StatesPerDirection = kStateCount,
+                    .DirectionCount = kDirectionCount });
+            GG_CHECKB(heroRunSpriteAnimResult, "Failed to create sprite animation");
+
+            m_State = RunState //
+                {
+                    .CellMap = std::move(cellmap),
+                    .Renderer = std::move(*rendererResult),
+                    .HeroIdleSprites = std::move(heroIdleSprites),
+                    .HeroRunSprites = std::move(heroRunSprites),
+                    .HeroIdleSpriteAnim = std::move(*heroIdleSpriteAnimResult),
+                    .HeroRunSpriteAnim = std::move(*heroRunSpriteAnimResult),
+                };
 
             m_Stage = Stage::Running;
         }
@@ -277,7 +352,7 @@ Game::Run()
 {
     static constexpr float kTurnsPerSec = 1;
 
-    constexpr uint64_t kAnimFps = 10;
+    constexpr uint64_t kAnimFps = 20;
     constexpr uint64_t kmspf = 1000 / kAnimFps;
     static uint32_t frame = 0;
     static uint64_t ms = SDL_GetTicks();
@@ -299,25 +374,25 @@ Game::Run()
     float value{};
     if(Input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
-        ViewCol -= value * 0.1f; // NOLINT
+        // ViewCol -= value * 0.1f; // NOLINT
 
         PlayerLoc.x -= static_cast<int>(value);
     }
     if(Input.IsTriggered(Input::ActionId::MoveRight, value))
     {
-        ViewCol += value * 0.1f; // NOLINT
+        // ViewCol += value * 0.1f; // NOLINT
 
         PlayerLoc.x += static_cast<int>(value);
     }
     if(Input.IsTriggered(Input::ActionId::MoveForward, value))
     {
-        ViewRow -= value * 0.1f; // NOLINT
+        // ViewRow -= value * 0.1f; // NOLINT
 
         PlayerLoc.y -= static_cast<int>(value);
     }
     if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
-        ViewRow += value * 0.1f; // NOLINT
+        // ViewRow += value * 0.1f; // NOLINT
 
         PlayerLoc.y += static_cast<int>(value);
     }
@@ -336,24 +411,24 @@ Game::Run()
 
     constexpr int halfSquareSize = SquareSize / 2;
 
-    PlayerLoc.x =
-        std::min(std::max(PlayerLoc.x, halfSquareSize), kWindowWidth - halfSquareSize);
-    PlayerLoc.y =
-        std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
+    PlayerLoc.x = std::min(std::max(PlayerLoc.x, halfSquareSize), kWindowWidth - halfSquareSize);
+    PlayerLoc.y = std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
 
-    const auto spriteSheetResult = state.SpriteLib->GetSpriteSheet("run_body");
-    GG_ASSERT(spriteSheetResult, "Failed to get sprite sheet");
+    //const SpriteAnim& spriteAnim = state.HeroRunSpriteAnim;
+    const SpriteAnim& spriteAnim = state.HeroIdleSpriteAnim;
 
-    const SpriteSheet* spriteSheet = *spriteSheetResult;
-    const uint32_t dirIndex = PlayerRot.GetDirection(spriteSheet->GetRowCount());
-    const uint32_t animFrame = frame % spriteSheet->GetColCount();
-    const auto srcRectResult = spriteSheet->GetFrameRect(dirIndex, animFrame);
-    GG_ASSERT(srcRectResult);
+    const uint32_t dirIndex = PlayerRot.GetDirection(spriteAnim.GetDirectionCount());
+    const uint32_t animFrame = frame % spriteAnim.GetStatesPerDirection();
+    const auto frameResult = spriteAnim.GetFrame(animFrame, dirIndex);
+    GG_CHECKB(frameResult, "Failed to get sprite animation frame");
 
-    state.Scene->SetFrameAndDir(0, animFrame, dirIndex);
-    state.Scene->SetView(ViewRow, ViewCol);
+    const Sprite* sprite = *frameResult;
 
-    GG_CHECKB(state.Scene->Render(), "Failed to render scene");
+    state.Renderer->SetView(ViewRow, ViewCol);
+
+    GG_CHECKB(state.Renderer->BeginFrame(), "Failed to begin frame");
+    GG_CHECKB(state.Renderer->Render(*sprite), "Failed to render");
+    GG_CHECKB(state.Renderer->EndFrame(), "Failed to end frame");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 

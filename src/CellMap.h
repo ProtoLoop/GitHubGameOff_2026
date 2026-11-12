@@ -7,7 +7,7 @@
 class CellMap
 {
 public:
-    static Result<CellMap> Create(const wgpu::Texture tileSets, const uint32_t gridSize);
+    static Result<std::unique_ptr<CellMap>> Create(const wgpu::Texture tileSets, const uint32_t gridSize);
 
     uint32_t GetGridSize() const { return m_GridSize; }
     wgpu::Texture GetTileSetTexture() const { return m_TileSets; }
