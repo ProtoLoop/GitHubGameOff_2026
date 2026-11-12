@@ -10,8 +10,9 @@ namespace
 
 struct CellMapParams
 {
-    float viewRow{};              // Camera view row in world space
-    float viewCol{};              // Camera view column in world space
+    float viewXY[2]{}; // Camera view position in map space
+    uint32_t pad0{ 0 };
+    uint32_t pad1{ 0 };
 };
 
 struct ShaderInfo
@@ -151,8 +152,10 @@ CreateRenderPassEncoder(wgpu::CommandEncoder cmdEncoder, wgpu::Texture renderTar
 }
 
 wgpu::BindGroup
-CreateSpriteStateBindGroup(
-    wgpu::Device gpuDevice, wgpu::BindGroupLayout layout, wgpu::Buffer spriteStateBuffer)
+CreateSpriteShaderBindGroup0(wgpu::Device gpuDevice,
+    wgpu::BindGroupLayout layout,
+    wgpu::Buffer spriteStateBuffer,
+    wgpu::Buffer cellMapParamsBuffer)
 {
     const wgpu::BindGroupEntry entries[] //
         {
@@ -160,11 +163,15 @@ CreateSpriteStateBindGroup(
                 .binding = 0,
                 .buffer = spriteStateBuffer,
             },
+            {
+                .binding = 1,
+                .buffer = cellMapParamsBuffer,
+            }
         };
 
     const wgpu::BindGroupDescriptor desc //
         {
-            .label = "SpriteStateBindGroup",
+            .label = "SpriteShaderBindGroup0",
             .layout = layout,
             .entryCount = std::size(entries),
             .entries = &entries[0],
@@ -198,7 +205,7 @@ CreateSpriteTextureBindGroup(wgpu::Device gpuDevice,
 
     const wgpu::BindGroupDescriptor desc //
         {
-            .label = "SpriteShaderBindGroup",
+            .label = "SpriteShaderBindGroup1",
             .layout = layout,
             .entryCount = std::size(entries),
             .entries = &entries[0],
@@ -208,12 +215,11 @@ CreateSpriteTextureBindGroup(wgpu::Device gpuDevice,
 }
 
 wgpu::BindGroup
-CreateTileShaderBindGroup(wgpu::Device gpuDevice,
+CreateTileShaderBindGroup0(wgpu::Device gpuDevice,
     wgpu::BindGroupLayout layout,
     wgpu::Texture texture,
     wgpu::Sampler sampler,
-    wgpu::Buffer cellMapParamsBuffer,
-    wgpu::Buffer cellOccupancyBuffer)
+    wgpu::Buffer cellMapParamsBuffer)
 {
     const wgpu::TextureViewDescriptor viewDesc //
         {
@@ -234,15 +240,11 @@ CreateTileShaderBindGroup(wgpu::Device gpuDevice,
                 .binding = 2,
                 .buffer = cellMapParamsBuffer,
             },
-            {
-                .binding = 3,
-                .buffer = cellOccupancyBuffer,
-            },
         };
 
     const wgpu::BindGroupDescriptor desc //
         {
-            .label = "TileShaderBindGroup",
+            .label = "TileShaderBindGroup0",
             .layout = layout,
             .entryCount = std::size(entries),
             .entries = &entries[0],
@@ -293,7 +295,6 @@ Renderer::BeginFrame()
     GG_CHECK(EnsurePipelines(renderTarget), "Failed to ensure pipeline");
     GG_CHECK(EnsureSpriteStateBuffer(), "Failed to ensure sprite state buffer");
     GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
-    GG_CHECK(EnsureCellOccupancyBuffer(), "Failed to ensure cell occupancy buffer");
     GG_CHECK(EnsureBindGroups(), "Failed to ensure bind groups");
 
     m_CmdEncoder = m_WebGpu->GetDevice().CreateCommandEncoder();
@@ -318,10 +319,14 @@ Renderer::EndFrame()
 }
 
 void
-Renderer::SetView(const float viewRow, const float viewCol)
+Renderer::SetView(const float viewX, const float viewY)
 {
-    m_ViewRow = viewRow;
-    m_ViewCol = viewCol;
+    m_ViewX = viewX;
+    m_ViewY = viewY;
+
+    // The player is in sprite state zero.
+    m_SpriteStates[0].mapXY[0] = m_ViewX;
+    m_SpriteStates[0].mapXY[1] = m_ViewY;
 }
 
 Result<>
@@ -366,11 +371,11 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite&
 {
     SpriteState& spriteState = m_SpriteStates[0];
     const Rect& rect = sprite.GetRect();
-    spriteState.srcRectX = rect.x;
-    spriteState.srcRectY = rect.y;
-    spriteState.srcRectW = rect.w;
-    spriteState.srcRectH = rect.h;
     spriteState.layer = sprite.GetLayer();
+    spriteState.srcRect[0] = static_cast<float>(rect.x);
+    spriteState.srcRect[1] = static_cast<float>(rect.y);
+    spriteState.srcRect[2] = static_cast<float>(rect.w);
+    spriteState.srcRect[3] = static_cast<float>(rect.h);
 
     // Update the sprite state buffer with the current sprite states
     m_WebGpu->GetQueue().WriteBuffer(m_SpriteStateBuffer,
@@ -487,8 +492,7 @@ Renderer::EnsureCellMapParamsBuffer()
 
     const CellMapParams cellMapParams //
         {
-            .viewRow = m_ViewRow,
-            .viewCol = m_ViewCol,
+            .viewXY = { m_ViewX, m_ViewY },
         };
     m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
         0,
@@ -499,40 +503,25 @@ Renderer::EnsureCellMapParamsBuffer()
 }
 
 Result<>
-Renderer::EnsureCellOccupancyBuffer()
-{
-    if(!m_CellOccupancyBuffer)
-    {
-        const size_t cellCount =
-            static_cast<size_t>(m_CellMap->GetGridSize()) * m_CellMap->GetGridSize();
-        const size_t byteCount = (cellCount + 7) / 8;
-        m_CellOccupancyBuffer = m_WebGpu->CreateStorageBuffer(byteCount, "CellOccupancy");
-        GG_CHECK(m_CellOccupancyBuffer, "Failed to create cell occupancy buffer");
-    }
-
-    return Result<>::Success();
-}
-
-Result<>
 Renderer::EnsureBindGroups()
 {
     if(!m_SpriteStatesBindGroup)
     {
-        m_SpriteStatesBindGroup = CreateSpriteStateBindGroup(m_WebGpu->GetDevice(),
+        m_SpriteStatesBindGroup = CreateSpriteShaderBindGroup0(m_WebGpu->GetDevice(),
             m_SpritePipeline.GetBindGroupLayout(0),
-            m_SpriteStateBuffer);
+            m_SpriteStateBuffer,
+            m_CellMapParamsBuffer);
 
         GG_CHECK(m_SpriteStatesBindGroup, "Failed to create bind group");
     }
 
     if(!m_TileBindGroup)
     {
-        m_TileBindGroup = CreateTileShaderBindGroup(m_WebGpu->GetDevice(),
+        m_TileBindGroup = CreateTileShaderBindGroup0(m_WebGpu->GetDevice(),
             m_TilePipeline.GetBindGroupLayout(0),
             m_CellMap->GetTileSetTexture(),
             m_WebGpu->GetDefaultSampler(),
-            m_CellMapParamsBuffer,
-            m_CellOccupancyBuffer);
+            m_CellMapParamsBuffer);
 
         GG_CHECK(m_TileBindGroup, "Failed to create bind group");
     }

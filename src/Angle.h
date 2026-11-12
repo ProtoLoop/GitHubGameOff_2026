@@ -4,9 +4,13 @@
 // IWYU instructs clangd to keep <compare> for operator<=>, even though it thinks it is unused.
 #include <compare> // IWYU pragma: keep
 #include <cstdint>
+#include <numbers>
 
 class Angle
 {
+    static constexpr float kFullTurnRadians = 2.0f * std::numbers::pi_v<float>;
+    static constexpr float kFullTurnDegrees = 360.0f;
+
 public:
     Angle() = default;
 
@@ -17,10 +21,18 @@ public:
 
     float ToTurns() const { return static_cast<float>(m_Turns * kFullTurnScale); }
 
+    float ToRadians() const { return ToTurns() * kFullTurnRadians; }
+
+    float ToDegrees() const { return ToTurns() * kFullTurnDegrees; }
+
+    float Cos() const { return std::cos(ToRadians()); }
+    float Sin() const { return std::sin(ToRadians()); }
+
     /// Get the direction index based on the number of directions.
     uint32_t GetDirection(const uint32_t numDirs) const
     {
-        return static_cast<uint32_t>(m_Turns * kFullTurnScale * numDirs) % numDirs;
+        const float dir = ToTurns() * static_cast<float>(numDirs);
+        return static_cast<uint32_t>(std::lround(dir)) % numDirs;
     }
 
     Angle& operator+=(const Angle& other)

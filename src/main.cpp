@@ -11,7 +11,6 @@
 #include "TextureLoader.h"
 #include "WebGpu.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <numbers>
 #include <optional>
@@ -21,13 +20,12 @@
 
 namespace
 {
-constexpr int SquareSize = 64;
-
 const SpriteAnimDef kHeroIdleAnimDef //
     {
         .Dim{ .w = 180, .h = 180 },
         .Textures //
         {
+            "/assets/HeroAnims/Idle/Idle_Body_337.png",
             "/assets/HeroAnims/Idle/Idle_Body_000.png",
             "/assets/HeroAnims/Idle/Idle_Body_022.png",
             "/assets/HeroAnims/Idle/Idle_Body_045.png",
@@ -43,7 +41,6 @@ const SpriteAnimDef kHeroIdleAnimDef //
             "/assets/HeroAnims/Idle/Idle_Body_270.png",
             "/assets/HeroAnims/Idle/Idle_Body_292.png",
             "/assets/HeroAnims/Idle/Idle_Body_315.png",
-            "/assets/HeroAnims/Idle/Idle_Body_337.png",
         },
     };
 
@@ -143,10 +140,9 @@ struct Game
 
     std::variant<std::monostate, LoadingState, RunState> m_State = LoadingState{};
 
-    float ViewRow{ 0 };
-    float ViewCol{ 0 };
+    float PlayerX{ 0 };
+    float PlayerY{ 0 };
 
-    SDL_Point PlayerLoc{};
     Angle PlayerRot;
     Stage m_Stage = Stage::None;
 };
@@ -288,7 +284,7 @@ Game::Run()
 {
     static constexpr float kTurnsPerSec = 1;
 
-    constexpr uint64_t kAnimFps = 20;
+    constexpr uint64_t kAnimFps = 40;
     constexpr uint64_t kmspf = 1000 / kAnimFps;
     static uint32_t frame = 0;
     static uint64_t ms = SDL_GetTicks();
@@ -298,6 +294,7 @@ Game::Run()
 
     const uint64_t curMs = SDL_GetTicks();
     const uint64_t deltaMs = curMs - ms;
+    const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
     elapsedMs += deltaMs;
     ms = curMs;
 
@@ -308,59 +305,74 @@ Game::Run()
     }
 
     float value{};
-    if(Input.IsTriggered(Input::ActionId::MoveLeft, value))
-    {
-        // ViewCol -= value * 0.1f; // NOLINT
-
-        PlayerLoc.x -= static_cast<int>(value);
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveRight, value))
-    {
-        // ViewCol += value * 0.1f; // NOLINT
-
-        PlayerLoc.x += static_cast<int>(value);
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveForward, value))
-    {
-        // ViewRow -= value * 0.1f; // NOLINT
-
-        PlayerLoc.y -= static_cast<int>(value);
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
-    {
-        // ViewRow += value * 0.1f; // NOLINT
-
-        PlayerLoc.y += static_cast<int>(value);
-    }
     if(Input.IsTriggered(Input::ActionId::RotateLeft, value))
     {
-        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        PlayerRot -= Angle(turns);
+        const float dturns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
+        PlayerRot -= Angle(dturns);
     }
     if(Input.IsTriggered(Input::ActionId::RotateRight, value))
     {
-        const float turns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        PlayerRot += Angle(turns);
+        const float dturns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
+        PlayerRot += Angle(dturns);
     }
+
+    const SpriteAnim* spriteAnim = &state.HeroIdleSpriteAnim;
+
+    if(Input.IsTriggered(Input::ActionId::MoveLeft, value)
+        || Input.IsTriggered(Input::ActionId::MoveRight, value)
+        || Input.IsTriggered(Input::ActionId::MoveForward, value)
+        || Input.IsTriggered(Input::ActionId::MoveBackward, value))
+    {
+        spriteAnim = &state.HeroRunSpriteAnim;
+    }
+
+    // Snap heading to the nearest sprite direction.
+    const uint32_t dirIndex = PlayerRot.GetDirection(spriteAnim->GetDirectionCount());
+    const float heading = static_cast<float>(dirIndex) / static_cast<float>(spriteAnim->GetDirectionCount());
+
+    const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
+    const float forwardY = -std::cos(heading * 2.0f * std::numbers::pi_v<float>);
+    const float rightX = -forwardY;
+    const float rightY = forwardX;
+    
+    constexpr float kMoveSpeed = 2.0f;
+
+    float moveLR = 0.0f, moveFB = 0.0f;
+
+    if(Input.IsTriggered(Input::ActionId::MoveLeft, value))
+    {
+        moveLR -= value * kMoveSpeed * deltaSec;
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveRight, value))
+    {
+        moveLR += value * kMoveSpeed * deltaSec;
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveForward, value))
+    {
+        moveFB += value * kMoveSpeed * deltaSec;
+    }
+    if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
+    {
+        moveFB -= value * kMoveSpeed * deltaSec;
+    }    
+
+    PlayerX += (moveLR * rightX) + (moveFB * forwardX);
+    PlayerY += (moveLR * rightY) + (moveFB * forwardY);
 
     Input.Reset();
 
-    constexpr int halfSquareSize = SquareSize / 2;
+    // Offset to align the sprite with the isometric view.
+    static const Angle kAngleOffset(0.125f);
 
-    PlayerLoc.x = std::min(std::max(PlayerLoc.x, halfSquareSize), kWindowWidth - halfSquareSize);
-    PlayerLoc.y = std::min(std::max(PlayerLoc.y, halfSquareSize), kWindowHeight - halfSquareSize);
-
-    // const SpriteAnim& spriteAnim = state.HeroRunSpriteAnim;
-    const SpriteAnim& spriteAnim = state.HeroIdleSpriteAnim;
-
-    const uint32_t dirIndex = PlayerRot.GetDirection(spriteAnim.GetDirectionCount());
-    const uint32_t animFrame = frame % spriteAnim.GetStatesPerDirection();
-    const auto frameResult = spriteAnim.GetFrame(animFrame, dirIndex);
+    const Angle spriteAngle = PlayerRot + kAngleOffset;
+    const uint32_t spriteDir = spriteAngle.GetDirection(spriteAnim->GetDirectionCount());
+    const uint32_t animFrame = frame % spriteAnim->GetStatesPerDirection();
+    const auto frameResult = spriteAnim->GetFrame(animFrame, spriteDir);
     GG_CHECKB(frameResult, "Failed to get sprite animation frame");
 
     const Sprite* sprite = *frameResult;
 
-    state.Renderer->SetView(ViewRow, ViewCol);
+    state.Renderer->SetView(PlayerX, PlayerY);
 
     GG_CHECKB(state.Renderer->BeginFrame(), "Failed to begin frame");
     GG_CHECKB(state.Renderer->Render(*sprite), "Failed to render");

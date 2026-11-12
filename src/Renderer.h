@@ -32,24 +32,18 @@ public:
     Result<> BeginFrame();
     Result<> EndFrame();
 
-    void SetView(const float viewRow, const float viewCol);
+    void SetView(const float viewX, const float viewY);
 
     Result<> Render(const Sprite& sprite);
 
 private:
     struct SpriteState
     {        
-        float locX{ 0 }, locY{ 0 }; // Location of the sprite in world space.
+        float mapXY[2]{};       // Map space cell coordinates of the sprite.
+        uint32_t layer{ 0 };    // Layer of the texture array containing the sprite.
+        uint32_t pad0{ 0 };     // Padding to align the structure to 16 bytes.
+        float srcRect[4]{};     // Source rectangle in the texture (x, y, w, h)
 
-        /// Rectangle defining the portion of the texture to use for the sprite.
-        /// The rectangle is specified by its top-left corner and its width and
-        /// height.
-        uint32_t srcRectX{ 0 };
-        uint32_t srcRectY{ 0 };
-        uint32_t srcRectW{ 0 };
-        uint32_t srcRectH{ 0 };
-
-        uint32_t layer{ 0 }; // Layer of the texture array containing the sprite.
     };
 
     Renderer(const uint32_t logicalDisplayWidth,
@@ -66,15 +60,14 @@ private:
     Result<> EnsurePipelines(const wgpu::Texture& renderTarget);
     Result<> EnsureSpriteStateBuffer();
     Result<> EnsureCellMapParamsBuffer();
-    Result<> EnsureCellOccupancyBuffer();
     Result<> EnsureBindGroups();
 
     BoundedVector<LostSoul> m_LostSouls;
     std::vector<SpriteState> m_SpriteStates;
     std::vector<bool> m_Visibility;
 
-    float m_ViewRow{ 0 };
-    float m_ViewCol{ 0 };
+    float m_ViewY{ 0 };
+    float m_ViewX{ 0 };
 
     uint32_t m_LogicalDisplayWidth{ 0 };
     uint32_t m_LogicalDisplayHeight{ 0 };
@@ -83,7 +76,6 @@ private:
     wgpu::TextureFormat m_PipelineFormat{ wgpu::TextureFormat::Undefined };
     wgpu::Buffer m_SpriteStateBuffer;
     wgpu::Buffer m_CellMapParamsBuffer;
-    wgpu::Buffer m_CellOccupancyBuffer;
     wgpu::RenderPipeline m_SpritePipeline;
     wgpu::BindGroup m_SpriteStatesBindGroup;
     
