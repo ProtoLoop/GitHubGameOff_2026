@@ -255,29 +255,22 @@ CreateTileShaderBindGroup0(wgpu::Device gpuDevice,
 } // namespace
 
 Result<std::unique_ptr<Renderer>>
-Renderer::Create(const uint32_t logicalDisplayWidth,
-    const uint32_t logicalDisplayHeight,
+Renderer::Create(const Params& params,
     const WebGpu& webGpu,
     const CellMap& cellMap,
     BoundedVector<LostSoul>&& lostSouls)
 {
-    return std::unique_ptr<Renderer>(new Renderer{ logicalDisplayWidth,
-        logicalDisplayHeight,
-        webGpu,
-        cellMap,
-        std::move(lostSouls) });
+    return std::unique_ptr<Renderer>(new Renderer{ params, webGpu, cellMap, std::move(lostSouls) });
 }
 
-Renderer::Renderer(const uint32_t logicalDisplayWidth,
-    const uint32_t logicalDisplayHeight,
+Renderer::Renderer(const Params& params,
     const WebGpu& webGpu,
     const CellMap& cellMap,
     BoundedVector<LostSoul>&& lostSouls)
     : m_LostSouls(std::move(lostSouls)),
       m_SpriteStates(m_LostSouls.size()),
       m_Visibility(m_LostSouls.size()),
-      m_LogicalDisplayWidth(logicalDisplayWidth),
-      m_LogicalDisplayHeight(logicalDisplayHeight),
+      m_Params(params),
       m_WebGpu(&webGpu),
       m_CellMap(&cellMap)
 {
@@ -355,8 +348,22 @@ Renderer::RenderMap(const wgpu::RenderPassEncoder& renderPass)
     renderPass.SetBindGroup(0, m_TileBindGroup);
     renderPass.SetPipeline(m_TilePipeline);
 
-    const uint32_t instanceCount = m_CellMap->GetGridSize() * m_CellMap->GetGridSize();
+    /*// Number of rows/columns of cells visible in the current view.
+    // This calculation assumes an isometric projection where the width of the view is
+    // increased by twice the height.
+    // This also works non-iso but likely overestimates the number of visible cells.
+    const float viewWidth =
+        static_cast<float>(m_LogicalDisplayWidth) / static_cast<float>(kCellPixelSize);
+    const float viewHeight =
+        static_cast<float>(m_LogicalDisplayHeight) / static_cast<float>(kCellPixelSize);
+    const float cellsPerAxis = std::ceil(viewWidth + (2 * viewHeight)) + 1;
+    const uint32_t instanceCount = static_cast<uint32_t>(cellsPerAxis * cellsPerAxis);
 
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    renderPass.Draw(6, instanceCount, 0, 0);*/
+
+    // This version just sends all the cells.
+    const uint32_t instanceCount = m_CellMap->GetGridSize() * m_CellMap->GetGridSize();
     // NOLINTNEXTLINE(readability-magic-numbers)
     renderPass.Draw(6, instanceCount * 3 / 2, 0, 0);
 
@@ -409,8 +416,8 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite&
 Result<>
 Renderer::SetViewport(const wgpu::Texture& renderTarget, const wgpu::RenderPassEncoder& renderPass) const
 {
-    const float ldw = static_cast<float>(m_LogicalDisplayWidth);
-    const float ldh = static_cast<float>(m_LogicalDisplayHeight);
+    const float ldw = static_cast<float>(m_Params.LogicalDisplayWidth);
+    const float ldh = static_cast<float>(m_Params.LogicalDisplayHeight);
 
     const float rtW = static_cast<float>(renderTarget.GetWidth());
     const float rtH = static_cast<float>(renderTarget.GetHeight());
@@ -430,11 +437,11 @@ Renderer::EnsurePipelines(const wgpu::Texture& renderTarget)
 {
     const wgpu::ConstantEntry vsConstantEntries[] //
         {
-            { .key = "logicalTargetWidth", .value = static_cast<double>(m_LogicalDisplayWidth) },
-            { .key = "logicalTargetHeight", .value = static_cast<double>(m_LogicalDisplayHeight) },
-            { .key = "cellPixelSize", .value = 64.0 },
-            { .key = "sheetGridSize", .value = 1.0 },
-            { .key = "cellMapGridSize", .value = static_cast<double>(m_CellMap->GetGridSize()) },
+            { .key = "logicalTargetWidth", .value = static_cast<double>(m_Params.LogicalDisplayWidth) },
+            { .key = "logicalTargetHeight", .value = static_cast<double>(m_Params.LogicalDisplayHeight) },
+            { .key = "cellPixelsPerSide", .value = static_cast<double>(m_Params.CellPixelsPerSide) },
+            { .key = "sheetTilesPerSide", .value = static_cast<double>(m_Params.SheetTilesPerSide) },
+            { .key = "cellMapCellsPerSide", .value = static_cast<double>(m_CellMap->GetGridSize()) },
         };
 
     if(!m_SpritePipeline || m_PipelineFormat != renderTarget.GetFormat())

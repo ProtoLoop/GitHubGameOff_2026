@@ -69,9 +69,11 @@ const SpriteAnimDef kHeroRunAnimDef //
     };
 
 constexpr const FilePath kCellMapTextures[] //
-    {                                       //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-        "/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-        "/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png"
+    {
+        "/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+        "/assets/sample/assets/tiles/grass_tiles_4x4_256.png",
+        //"/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+        //"/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png",
     };
 
 struct Game
@@ -79,9 +81,21 @@ struct Game
     static constexpr const char* const kWindowTitle = "GraveyardShift";
     static constexpr int kWindowWidth = 800;
     static constexpr int kWindowHeight = 600;
-    static constexpr uint32_t kCellMapGridCount = 128;
+
+    /// Number of cells along each axis of the cell map.
+    static constexpr uint32_t kCellMapCellsPerSide = 128;
+
+    // Logical width of the display in pixels
     static constexpr uint32_t kLogicalDisplayWidth = 800;
+
+    // Logical height of the display in pixels
     static constexpr uint32_t kLogicalDisplayHeight = 600;
+
+    /// Number of pixels along each axis of a cell.
+    static constexpr uint32_t kCellPixelsPerSide = 64;
+
+    /// Number of tiles along each axis in of a tile sheet.
+    static constexpr uint32_t kSheetTilesPerSide = 1;
 
     Game() = default;
     Game(const Game&) = delete;
@@ -202,12 +216,10 @@ Game::Update()
                 TextureLoader::Load(kCellMapTextures, FileFetcher, WebGpu, "Test");
             GG_CHECKB(state.CellMapTextureLoader, "Failed to start texture load");
 
-            state.HeroIdleSpriteAnim =
-                SpriteAnim::Create(kHeroIdleAnimDef, FileFetcher, WebGpu);
+            state.HeroIdleSpriteAnim = SpriteAnim::Create(kHeroIdleAnimDef, FileFetcher, WebGpu);
             GG_CHECKB(state.HeroIdleSpriteAnim, "Failed to start hero idle sprite anim load");
 
-            state.HeroRunSpriteAnim =
-                SpriteAnim::Create(kHeroRunAnimDef, FileFetcher, WebGpu);
+            state.HeroRunSpriteAnim = SpriteAnim::Create(kHeroRunAnimDef, FileFetcher, WebGpu);
             GG_CHECKB(state.HeroRunSpriteAnim, "Failed to start hero run sprite anim load");
 
             m_Stage = Stage::Loading;
@@ -237,7 +249,7 @@ Game::Update()
             auto cellmapTexResult = state.CellMapTextureLoader->Take();
             GG_CHECKB(cellmapTexResult, "Failed to load cellmap texture");
 
-            auto cellmapResult = CellMap::Create(*cellmapTexResult, kCellMapGridCount);
+            auto cellmapResult = CellMap::Create(*cellmapTexResult, kCellMapCellsPerSide);
             GG_CHECK(cellmapResult, "Failed to create cell map");
 
             BoundedVector<LostSoul> lostSouls(8); // NOLINT
@@ -248,11 +260,16 @@ Game::Update()
 
             auto cellmap = std::move(*cellmapResult);
 
-            auto rendererResult = Renderer::Create(kLogicalDisplayWidth,
-                kLogicalDisplayHeight,
-                WebGpu,
-                *cellmap,
-                std::move(lostSouls));
+            const Renderer::Params rendererParams //
+                {
+                    .LogicalDisplayWidth = kLogicalDisplayWidth,
+                    .LogicalDisplayHeight = kLogicalDisplayHeight,
+                    .CellPixelsPerSide = kCellPixelsPerSide,
+                    .SheetTilesPerSide = kSheetTilesPerSide,
+                };
+
+            auto rendererResult =
+                Renderer::Create(rendererParams, WebGpu, *cellmap, std::move(lostSouls));
             GG_CHECKB(rendererResult, "Failed to create renderer");
 
             m_State = RunState //
@@ -325,10 +342,10 @@ Game::Run()
     GG_CHECKB(snapAngleResult, "Failed to snap angle");
     const float heading = snapAngleResult->ToTurns();
     const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
-    const float forwardY = -std::cos(heading * 2.0f * std::numbers::pi_v<float>);
-    const float rightX = -forwardY;
-    const float rightY = forwardX;
-    
+    const float forwardY = std::cos(heading * 2.0f * std::numbers::pi_v<float>);
+    const float rightX = forwardY;
+    const float rightY = -forwardX;
+
     constexpr float kMoveSpeed = 2.0f;
 
     float moveLR = 0.0f, moveFB = 0.0f;
@@ -348,7 +365,7 @@ Game::Run()
     if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
         moveFB -= value * kMoveSpeed * deltaSec;
-    }    
+    }
 
     PlayerX += (moveLR * rightX) + (moveFB * forwardX);
     PlayerY += (moveLR * rightY) + (moveFB * forwardY);

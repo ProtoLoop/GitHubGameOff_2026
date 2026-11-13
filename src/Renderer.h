@@ -17,8 +17,15 @@ struct LostSoul
 class Renderer
 {
 public:
-    static Result<std::unique_ptr<Renderer>> Create(const uint32_t logicalDisplayWidth,
-        const uint32_t logicalDisplayHeight,
+    struct Params
+    {
+        uint32_t LogicalDisplayWidth;   // Logical width of the display in pixels
+        uint32_t LogicalDisplayHeight;  // Logical height of the display in pixels
+        uint32_t CellPixelsPerSide;     // Number of pixels along each axis of a cell.
+        uint32_t SheetTilesPerSide;     // Number of tiles along each axis in of a tile sheet.
+    };
+
+    static Result<std::unique_ptr<Renderer>> Create(const Params& params,
         const WebGpu& webGpu,
         const CellMap& cellMap,
         BoundedVector<LostSoul>&& lostSouls);
@@ -46,8 +53,7 @@ private:
 
     };
 
-    Renderer(const uint32_t logicalDisplayWidth,
-        const uint32_t logicalDisplayHeight,
+    Renderer(const Params& params,
         const WebGpu& webGpu,
         const CellMap& cellMap,
         BoundedVector<LostSoul>&& lostSouls);
@@ -66,8 +72,7 @@ private:
     std::vector<SpriteState> m_SpriteStates;
     std::vector<bool> m_Visibility;
 
-    uint32_t m_LogicalDisplayWidth{ 0 };
-    uint32_t m_LogicalDisplayHeight{ 0 };
+    Params m_Params;
     const WebGpu* m_WebGpu{ nullptr };
     const CellMap* m_CellMap{ nullptr };
     wgpu::TextureFormat m_PipelineFormat{ wgpu::TextureFormat::Undefined };

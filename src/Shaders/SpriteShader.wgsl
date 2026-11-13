@@ -30,9 +30,9 @@ struct SpriteState
 
 override logicalTargetWidth: f32;   // Logical width of the render target in pixels
 override logicalTargetHeight: f32;  // Logical height of the render target in pixels
-override cellPixelSize: u32;        // Number of pixels along each axis of a cell
-override sheetGridSize: u32;        // Number of tiles along each axis in the tile sheet
-override cellMapGridSize: u32;      // Number of cells along each axis in the map
+override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cell
+override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
+override cellMapCellsPerSide: u32;  // Number of cells along each axis in the map
     
 const spriteVerts = array<vec2f, 6>(
     vec2f(-0.5, -0.5),
@@ -55,7 +55,7 @@ const spriteUV = array<vec2f, 6>(
 );
 
 // Isometric transformation matrix.
-const iso = mat2x2f(vec2f(0.5, 0.25), vec2f(-0.5, 0.25));
+const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
 
 @vertex
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: u32) -> VSOut
@@ -67,8 +67,8 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let spriteVtx = spriteVerts[vid];
 
     let camXY = state.mapXY - cellMapParams.viewXY;
-    //let screenVertXY = (camXY * f32(cellPixelSize)) + (spriteVtx * state.srcRect.zw);
-    let screenVertXY = (iso * camXY * f32(cellPixelSize)) + (spriteVtx * state.srcRect.zw);
+    //let screenVertXY = (camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
+    let screenVertXY = (iso * camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, -2.0);
 
     let texDims = vec2f(textureDimensions(texture, 0).xy);
