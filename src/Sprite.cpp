@@ -1,5 +1,6 @@
 #include "Sprite.h"
 
+#include "Angle.h"
 #include "Defer.h"
 
 /// Sprite
@@ -39,14 +40,14 @@ SpriteAnim::Update()
 {
     if(std::holds_alternative<LoadingState>(m_State))
     {
-        const LoadingState& loading = std::get<LoadingState>(m_State);
+        const LoadingState& state = std::get<LoadingState>(m_State);
 
         auto onFailed = GG_DEFER
         {
             m_State = std::monostate{};
         };
 
-        if(!loading.m_TextureLoader.IsPending())
+        if(!state.m_TextureLoader.IsPending())
         {
             auto buildResult = BuildSprites();
             GG_CHECKB(buildResult, "Failed to build sprites");
@@ -68,17 +69,34 @@ SpriteAnim::SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim)
 {
 }
 
-Result<const Sprite*>
-SpriteAnim::GetSprite(const uint32_t frame, const uint32_t direction) const
+Result<Angle>
+SpriteAnim::SnapAngle(const Angle& angle) const
 {
     GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
 
-    const LoadedState& loaded = std::get<LoadedState>(m_State);
-    GG_CHECKB(frame < loaded.m_FramesPerDirection, "Invalid animation frame: {}", frame);
-    GG_CHECKB(direction < loaded.m_DirectionCount, "Invalid animation direction: {}", direction);
+    const LoadedState& state = std::get<LoadedState>(m_State);
+    const float fdir = angle.ToTurns() * static_cast<float>(state.m_DirectionCount);
+    const uint32_t dir = static_cast<uint32_t>(std::round(fdir)) % state.m_DirectionCount;
+    return Angle(static_cast<float>(dir) / static_cast<float>(state.m_DirectionCount));
+}
 
-    const size_t index = (direction * loaded.m_FramesPerDirection) + frame;
-    const Sprite* sprite = loaded.m_Sprites.TryGet(index);
+Result<const Sprite*>
+SpriteAnim::GetSprite(const float phase, const Angle& angle) const
+{
+    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
+
+    const LoadedState& state = std::get<LoadedState>(m_State);
+
+    const float fdir = angle.ToTurns() * static_cast<float>(state.m_DirectionCount);
+    const uint32_t dir = static_cast<uint32_t>(std::round(fdir)) % state.m_DirectionCount;
+
+    const float normalizedPhase = phase - std::floor(phase);
+    const size_t frame =
+        static_cast<size_t>(normalizedPhase * static_cast<float>(state.m_FramesPerDirection));
+    const size_t normalizedFrame = frame % state.m_FramesPerDirection;
+
+    const size_t index = static_cast<size_t>(dir * state.m_FramesPerDirection) + normalizedFrame;
+    const Sprite* sprite = state.m_Sprites.TryGet(index);
     GG_CHECKB(sprite, "Invalid sprite index: {}", index);
 
     return sprite;

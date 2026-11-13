@@ -8,6 +8,7 @@
 #include <vector>
 
 class WebGpu;
+class Angle;
 
 struct Rect
 {
@@ -67,19 +68,13 @@ public:
 
     Result<> Update();
 
-    /// Returns the number of animation frames per direction.
-    uint32_t GetFramesPerDirection() const
-    {
-        return std::get<LoadedState>(m_State).m_FramesPerDirection;
-    }
+    /// Snaps the given angle to the nearest direction supported by the animation.
+    Result<Angle> SnapAngle(const Angle& angle) const;
 
-    /// Returns the number of directions in the animation.
-    uint32_t GetDirectionCount() const { return std::get<LoadedState>(m_State).m_DirectionCount; }
-
-    /// Returns the sprite for the given animation state and direction.
-    /// The frame should be in the range [0, FramesPerDirection) and the direction should be in the
-    /// range [0, DirectionCount).
-    Result<const Sprite*> GetSprite(const uint32_t frame, const uint32_t direction) const;
+    /// Returns the sprite corresponding to the given animation phase and angle.
+    /// phase is a value between 0 and 1 representing the animation progress.
+    /// angle is the direction for which to retrieve the sprite.
+    Result<const Sprite*> GetSprite(const float phase, const Angle& angle) const;
 
 private:
 

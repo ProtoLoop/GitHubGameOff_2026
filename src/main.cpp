@@ -284,25 +284,19 @@ Game::Run()
 {
     static constexpr float kTurnsPerSec = 1;
 
-    constexpr uint64_t kAnimFps = 40;
-    constexpr uint64_t kmspf = 1000 / kAnimFps;
-    static uint32_t frame = 0;
+    static float animPhase = 0;
+    static constexpr float kAnimPhaseScale = 1.5;
     static uint64_t ms = SDL_GetTicks();
-    static uint64_t elapsedMs = 0;
 
     auto& state = std::get<RunState>(m_State);
 
     const uint64_t curMs = SDL_GetTicks();
     const uint64_t deltaMs = curMs - ms;
-    const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
-    elapsedMs += deltaMs;
     ms = curMs;
+    const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
+    animPhase += deltaSec * kAnimPhaseScale;
 
-    while(elapsedMs > kmspf)
-    {
-        frame = frame + 1;
-        elapsedMs -= kmspf;
-    }
+    animPhase = std::fmod(animPhase, 1.0f);
 
     float value{};
     if(Input.IsTriggered(Input::ActionId::RotateLeft, value))
@@ -327,9 +321,9 @@ Game::Run()
     }
 
     // Snap heading to the nearest sprite direction.
-    const uint32_t dirIndex = PlayerRot.GetDirection(spriteAnim->GetDirectionCount());
-    const float heading = static_cast<float>(dirIndex) / static_cast<float>(spriteAnim->GetDirectionCount());
-
+    const auto snapAngleResult = spriteAnim->SnapAngle(PlayerRot);
+    GG_CHECKB(snapAngleResult, "Failed to snap angle");
+    const float heading = snapAngleResult->ToTurns();
     const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
     const float forwardY = -std::cos(heading * 2.0f * std::numbers::pi_v<float>);
     const float rightX = -forwardY;
@@ -365,9 +359,7 @@ Game::Run()
     static const Angle kAngleOffset(0.125f);
 
     const Angle spriteAngle = PlayerRot + kAngleOffset;
-    const uint32_t spriteDir = spriteAngle.GetDirection(spriteAnim->GetDirectionCount());
-    const uint32_t animFrame = frame % spriteAnim->GetFramesPerDirection();
-    const auto spriteResult = spriteAnim->GetSprite(animFrame, spriteDir);
+    const auto spriteResult = spriteAnim->GetSprite(animPhase, spriteAngle);
     GG_CHECKB(spriteResult, "Failed to get sprite animation frame");
 
     const Sprite* sprite = *spriteResult;
