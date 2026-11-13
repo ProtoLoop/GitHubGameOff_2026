@@ -163,6 +163,9 @@ public:
     const_iterator cbegin() const { return AsPointer(0); }
     const_iterator cend() const { return AsPointer(m_Size); }
 
+    T* data() { return AsPointer(0); }
+    const T* data() const { return AsPointer(0); }
+
 private:
     T* AsPointer(const size_t index)
     {

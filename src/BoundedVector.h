@@ -106,6 +106,9 @@ public:
     const_iterator cbegin() const { return AsPointer(0); }
     const_iterator cend() const { return AsPointer(size()); }
 
+    const T* data() const { return m_Storage; }
+    T* data() { return m_Storage; }
+
 private:
     using allocator_traits = std::allocator_traits<Allocator>;
 
