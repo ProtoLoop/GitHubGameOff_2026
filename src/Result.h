@@ -92,6 +92,7 @@ public:
 
     explicit operator bool() const { return m_Value.has_value(); }
     reference Value() { return m_Value.value(); }
+    const_reference Value() const { return m_Value.value(); }
 
     pointer operator->() { return &m_Value.value().get(); }
     const_pointer operator->() const { return &m_Value.value().get(); }
@@ -143,6 +144,7 @@ public:
 
     explicit operator bool() const { return m_Value.has_value(); }
     reference Value() { return m_Value.value(); }
+    const_reference Value() const { return m_Value.value(); }
 
     pointer operator->() { return &m_Value.value(); }
     const_pointer operator->() const { return &m_Value.value(); }

@@ -75,6 +75,8 @@ set(GAMEOFF_SOURCES
     src/jsmn.cpp
     src/JsonDocument.h
     src/JsonDocument.cpp
+    src/Level.h
+    src/Level.cpp
     src/LevelLoader.h
     src/LevelLoader.cpp
     src/main.cpp

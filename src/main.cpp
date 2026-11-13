@@ -1,11 +1,10 @@
-#include <memory>
-#include <webgpu/webgpu_cpp.h>
 #define SDL_MAIN_USE_CALLBACKS 1
 
 #include "Angle.h"
 #include "CellMap.h"
 #include "Defer.h"
 #include "Input.h"
+#include "Level.h"
 #include "LevelLoader.h"
 #include "Renderer.h"
 #include "Sprite.h"
@@ -13,6 +12,7 @@
 #include "WebGpu.h"
 
 #include <cstdint>
+#include <memory>
 #include <numbers>
 #include <optional>
 #include <SDL3/SDL_main.h>
@@ -21,8 +21,12 @@
 
 namespace
 {
+constexpr const ResourceName kHeroIdleAnim = "HeroIdle";
+constexpr const ResourceName kHeroRunAnim = "HeroRun";
+
 const SpriteAnimDef kHeroIdleAnimDef //
     {
+        .Name = kHeroIdleAnim,
         .Dim{ .w = 180, .h = 180 },
         .Textures //
         {
@@ -47,6 +51,7 @@ const SpriteAnimDef kHeroIdleAnimDef //
 
 const SpriteAnimDef kHeroRunAnimDef //
     {
+        .Name = kHeroRunAnim,
         .Dim{ .w = 180, .h = 180 },
         .Textures //
         {
@@ -69,12 +74,19 @@ const SpriteAnimDef kHeroRunAnimDef //
         },
     };
 
-constexpr const FilePath kCellMapTextures[] //
+/// Number of cells along each axis of the cell map.
+constexpr uint32_t kCellMapCellsPerSide = 128;
+
+const CellMapDef kCellMapDef //
     {
-        "/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-        "/assets/sample/assets/tiles/grass_tiles_4x4_256.png",
-        //"/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-        //"/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png",
+        .CellsPerSide = kCellMapCellsPerSide,
+        .TileSets //
+        {
+            "/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
+            "/assets/sample/assets/tiles/grass_tiles_4x4_256.png",
+            //"/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
+            //"/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png",
+        },
     };
 
 struct Game
@@ -82,9 +94,6 @@ struct Game
     static constexpr const char* const kWindowTitle = "GraveyardShift";
     static constexpr int kWindowWidth = 800;
     static constexpr int kWindowHeight = 600;
-
-    /// Number of cells along each axis of the cell map.
-    static constexpr uint32_t kCellMapCellsPerSide = 128;
 
     // Logical width of the display in pixels
     static constexpr uint32_t kLogicalDisplayWidth = 800;
@@ -141,35 +150,23 @@ struct Game
     {
         std::unique_ptr<Renderer> Renderer;
         Result<LevelLoader> LevelLoader;
-        CellMap CellMap;
-        SpriteAnim HeroIdleSpriteAnim;
-        SpriteAnim HeroRunSpriteAnim;
+        Level Level;
 
         Result<> Update()
         {
             GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
-            GG_CHECK(CellMap.Update(), "Failed to update cellmap");
-            GG_CHECK(HeroIdleSpriteAnim.Update(), "Failed to update hero idle sprite anim");
-            GG_CHECK(HeroRunSpriteAnim.Update(), "Failed to update hero run sprite anim");
+            GG_CHECK(Level.Update(), "Failed to update level");
 
-            return Result<>::Success();
+            return Result<>::Ok;
         }
 
-        bool IsPending() const
-        {
-            return LevelLoader->IsPending()
-                || CellMap.IsPending()
-                || HeroIdleSpriteAnim.IsPending()
-                || HeroRunSpriteAnim.IsPending();
-        }
+        bool IsPending() const { return LevelLoader->IsPending() || Level.IsPending(); }
     };
 
     struct RunState
     {
-        CellMap CellMap;
         std::unique_ptr<Renderer> Renderer;
-        SpriteAnim HeroIdleSpriteAnim;
-        SpriteAnim HeroRunSpriteAnim;
+        Level Level;
     };
 
     struct FailedState
@@ -251,27 +248,21 @@ Game::Update()
             auto levelLoaderResult = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
             GG_CHECKB(levelLoaderResult, "Failed to start loading level");
 
-            auto cellMapResult = CellMap::Load(kCellMapTextures,
-                kCellMapCellsPerSide,
-                *renderer,
-                FileFetcher,
-                WebGpu);
-            GG_CHECKB(cellMapResult, "Failed to start texture load");
+            const SpriteAnimDef spriteAnimDefs[]//
+            {
+                kHeroIdleAnimDef,
+                kHeroRunAnimDef
+            };
 
-            auto heroIdleSpriteAnimResult =
-                SpriteAnim::Load(kHeroIdleAnimDef, FileFetcher, *renderer, WebGpu);
-            GG_CHECKB(heroIdleSpriteAnimResult, "Failed to start hero idle sprite anim load");
-                
-            auto heroRunSpriteAnimResult = SpriteAnim::Load(kHeroRunAnimDef, FileFetcher, *renderer, WebGpu);
-            GG_CHECKB(heroRunSpriteAnimResult, "Failed to start hero run sprite anim load");
+            auto levelResult =
+                Level::Load(spriteAnimDefs, kCellMapDef, FileFetcher, *renderer, WebGpu);
+            GG_CHECKB(levelResult, "Failed to start loading level");
 
             m_State = LoadingState//
             {
                 .Renderer = std::move(renderer),
                 .LevelLoader = std::move(levelLoaderResult),
-                .CellMap = std::move(*cellMapResult),
-                .HeroIdleSpriteAnim = std::move(*heroIdleSpriteAnimResult),
-                .HeroRunSpriteAnim = std::move(*heroRunSpriteAnimResult),
+                .Level = std::move(*levelResult)
             };
 
             m_Stage = Stage::Loading;
@@ -294,10 +285,8 @@ Game::Update()
 
             m_State = RunState //
                 {
-                    .CellMap = std::move(state.CellMap),
                     .Renderer = std::move(state.Renderer),
-                    .HeroIdleSpriteAnim = std::move(state.HeroIdleSpriteAnim),
-                    .HeroRunSpriteAnim = std::move(state.HeroRunSpriteAnim),
+                    .Level = std::move(state.Level)
                 };
 
             m_Stage = Stage::Running;
@@ -313,7 +302,7 @@ Game::Update()
 
     stopRunning.cancel();
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -347,14 +336,18 @@ Game::Run()
         PlayerRot += Angle(dturns);
     }
 
-    const SpriteAnim* spriteAnim = &state.HeroIdleSpriteAnim;
+    auto spriteAnimResult = state.Level.GetSpriteAnim(kHeroIdleAnim);
+    GG_CHECKB(spriteAnimResult, "Failed to get sprite anim: {}", kHeroIdleAnim);
+    const SpriteAnim* spriteAnim = &spriteAnimResult.Value();
 
     if(Input.IsTriggered(Input::ActionId::MoveLeft, value)
         || Input.IsTriggered(Input::ActionId::MoveRight, value)
         || Input.IsTriggered(Input::ActionId::MoveForward, value)
         || Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
-        spriteAnim = &state.HeroRunSpriteAnim;
+        spriteAnimResult = state.Level.GetSpriteAnim(kHeroRunAnim);
+        GG_CHECKB(spriteAnimResult, "Failed to get sprite anim: {}", kHeroRunAnim);
+        spriteAnim = &spriteAnimResult.Value();
     }
 
     // Snap heading to the nearest sprite direction.
@@ -401,13 +394,16 @@ Game::Run()
 
     state.Renderer->SetView(PlayerX, PlayerY);
 
+    auto cellMapResult = state.Level.GetCellMap();
+    GG_CHECKB(cellMapResult, "Failed to get cell map");
+
     GG_CHECKB(state.Renderer->Begin(), "Failed to begin rendering");
-    GG_CHECKB(state.Renderer->Render(state.CellMap,*sprite), "Failed to render");
+    GG_CHECKB(state.Renderer->Render(*cellMapResult,*sprite), "Failed to render");
     GG_CHECKB(state.Renderer->End(), "Failed to end rendering");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 } // namespace

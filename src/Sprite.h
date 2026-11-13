@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BoundedVector.h"
+#include "InlineString.h"
 #include "TextureLoader.h"
 
 #include <variant>
@@ -10,6 +11,13 @@
 class WebGpu;
 class Renderer;
 class Angle;
+
+namespace detail
+{
+constexpr size_t kResourceNameSize = 64;
+}
+
+using ResourceName = InlineString<detail::kResourceNameSize>;
 
 struct Rect
 {
@@ -27,6 +35,7 @@ struct Dimension2d
 
 struct SpriteAnimDef
 {
+    ResourceName Name;
     Dimension2d Dim{};
     std::vector<FilePath> Textures;
     uint32_t DirectionCount() const { return static_cast<uint32_t>(Textures.size()); }
@@ -72,6 +81,9 @@ public:
 
     Result<> Update();
 
+    /// Returns the name of the sprite animation.
+    const ResourceName& GetName() const;
+
     /// Snaps the given angle to the nearest direction supported by the animation.
     Angle SnapAngle(const Angle& angle) const;
 
@@ -83,6 +95,7 @@ public:
 private:
     struct LoadingState
     {
+        ResourceName Name;
         TextureLoader m_TextureLoader;
         Dimension2d m_Dim;
         Renderer* m_Renderer;
@@ -90,6 +103,7 @@ private:
 
     struct LoadedState
     {
+        ResourceName Name;
         wgpu::Texture m_TileSetTexture;
         BoundedVector<Sprite> m_Sprites;
         uint32_t m_FramesPerDirection{ 0 };
