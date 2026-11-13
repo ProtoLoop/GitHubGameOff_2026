@@ -107,7 +107,7 @@ struct Game
     ~Game()
     {
         // Release resources.
-        m_State = std::monostate{};
+        m_State = EndState{};
 
         if(Window)
         {
@@ -172,7 +172,15 @@ struct Game
         SpriteAnim HeroRunSpriteAnim;
     };
 
-    std::variant<std::monostate, LoadingState, RunState> m_State;
+    struct FailedState
+    {
+    };
+
+    struct EndState
+    {
+    };
+
+    std::variant<FailedState, LoadingState, RunState, EndState> m_State;
 
     float PlayerX{ 0 };
     float PlayerY{ 0 };
@@ -350,9 +358,7 @@ Game::Run()
     }
 
     // Snap heading to the nearest sprite direction.
-    const auto snapAngleResult = spriteAnim->SnapAngle(PlayerRot);
-    GG_CHECKB(snapAngleResult, "Failed to snap angle");
-    const float heading = snapAngleResult->ToTurns();
+    const float heading = spriteAnim->SnapAngle(PlayerRot).ToTurns();
     const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
     const float forwardY = std::cos(heading * 2.0f * std::numbers::pi_v<float>);
     const float rightX = forwardY;

@@ -37,11 +37,6 @@ class Sprite
 public:
     Sprite() = delete;
 
-    /// Constructs a sprite with the given bind group, rectangle, and layer.
-    /// bindGroup is the bind group for the sprite's texture.
-    /// rect specifies the portion of the texture to use for the sprite.
-    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer);
-
     /// Returns the bind group for the sprite's texture.
     const wgpu::BindGroup& GetTextureBindGroup() const { return m_TextureBindGroup; }
 
@@ -53,6 +48,13 @@ public:
     uint32_t GetLayer() const { return m_Layer; }
 
 private:
+    friend class SpriteAnim;
+
+    /// Constructs a sprite with the given bind group, rectangle, and layer.
+    /// bindGroup is the bind group for the sprite's texture.
+    /// rect specifies the portion of the texture to use for the sprite.
+    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer);
+
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_Rect;
     uint32_t m_Layer; // Layer in the texture array.
@@ -71,7 +73,7 @@ public:
     Result<> Update();
 
     /// Snaps the given angle to the nearest direction supported by the animation.
-    Result<Angle> SnapAngle(const Angle& angle) const;
+    Angle SnapAngle(const Angle& angle) const;
 
     /// Returns the sprite corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
@@ -88,14 +90,22 @@ private:
 
     struct LoadedState
     {
+        wgpu::Texture m_TileSetTexture;
         BoundedVector<Sprite> m_Sprites;
         uint32_t m_FramesPerDirection{ 0 };
-        uint32_t m_DirectionCount{ 0 };
+
+        uint32_t GetDirectionCount() const
+        {
+            return m_TileSetTexture.GetDepthOrArrayLayers();
+        }
     };
 
-    explicit SpriteAnim(Renderer& renderer, TextureLoader textureLoader, const Dimension2d& dim);
+    explicit SpriteAnim(LoadingState&& state);
 
     Result<LoadedState> BuildSprites();
 
-    std::variant<std::monostate, LoadingState, LoadedState> m_State;
+    struct FailedState
+    {
+    };
+    std::variant<FailedState, LoadingState, LoadedState> m_State;
 };

@@ -7,6 +7,49 @@
 
 class Renderer;
 
+class TileSet
+{
+public:
+    /// Loads a cell map.
+    /// Each path in tileset paths corresponds to the texture used for a layer of the map.
+    static Result<TileSet> Load(const std::span<const FilePath> paths,
+        const uint32_t tilesPerSide,
+        Renderer& renderer,
+        FileFetcher& fileFetcher,
+        WebGpu& webGpu);
+
+    bool IsPending() const;
+
+    Result<> Update();
+
+    /// Returns the bind group for the tile set texture.
+    Result<wgpu::BindGroup> GetBindGroup() const;
+
+    uint32_t GetTilesPerSide() const;
+
+private:
+    struct LoadingState
+    {
+        TextureLoader m_TextureLoader;
+        Renderer* m_Renderer{ nullptr };
+        uint32_t m_TilesPerSide{ 0 };
+    };
+
+    struct LoadedState
+    {
+        wgpu::BindGroup m_BindGroup;
+        uint32_t m_TilesPerSide{ 0 };
+    };
+
+    explicit TileSet(LoadingState&& state);
+
+    struct FailedState
+    {
+    };
+
+    std::variant<FailedState, LoadingState, LoadedState> m_State;
+};
+
 class CellMap
 {
 public:
@@ -48,5 +91,9 @@ private:
 
     explicit CellMap(LoadingState&& state);
 
-    std::variant<std::monostate, LoadingState, LoadedState> m_State;
+    struct FailedState
+    {
+    };
+
+    std::variant<FailedState, LoadingState, LoadedState> m_State;
 };

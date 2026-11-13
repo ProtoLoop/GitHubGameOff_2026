@@ -21,6 +21,7 @@ public:
 
     static Result<std::unique_ptr<Renderer>> Create(const Params& params, const WebGpu& webGpu);
 
+    Renderer() = delete;
     Renderer(const Renderer&) = delete;
     ~Renderer() = default;
     Renderer& operator=(const Renderer&) = delete;
