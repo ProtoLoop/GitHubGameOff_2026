@@ -284,9 +284,9 @@ Renderer::Renderer(const uint32_t logicalDisplayWidth,
 }
 
 Result<>
-Renderer::BeginFrame()
+Renderer::Begin()
 {
-    GG_CHECKB(!m_CmdEncoder, "BeginFrame already active");
+    GG_CHECKB(!m_CmdEncoder, "Begin() already called");
 
     auto texResult = m_WebGpu->GetSwapchainTexture();
     GG_CHECK(texResult, "Failed to acquire swapchain texture");
@@ -304,9 +304,9 @@ Renderer::BeginFrame()
 }
 
 Result<>
-Renderer::EndFrame()
+Renderer::End()
 {
-    GG_CHECKB(m_CmdEncoder, "EndFrame called without an active BeginFrame");
+    GG_CHECKB(m_CmdEncoder, "End() called outside of Begin()");
 
     const wgpu::CommandEncoder cmdEncoder = std::move(m_CmdEncoder);
 
@@ -321,18 +321,15 @@ Renderer::EndFrame()
 void
 Renderer::SetView(const float viewX, const float viewY)
 {
-    m_ViewX = viewX;
-    m_ViewY = viewY;
-
     // The player is in sprite state zero.
-    m_SpriteStates[0].mapXY[0] = m_ViewX;
-    m_SpriteStates[0].mapXY[1] = m_ViewY;
+    m_SpriteStates[0].mapXY[0] = viewX;
+    m_SpriteStates[0].mapXY[1] = viewY;
 }
 
 Result<>
 Renderer::Render(const Sprite& sprite)
 {
-    GG_CHECKB(m_CmdEncoder, "Render called without an active BeginFrame");
+    GG_CHECKB(m_CmdEncoder, "Render called outside of Begin()/End()");
     
     auto texResult = m_WebGpu->GetSwapchainTexture();
     GG_CHECK(texResult, "Failed to acquire swapchain texture");
@@ -492,7 +489,7 @@ Renderer::EnsureCellMapParamsBuffer()
 
     const CellMapParams cellMapParams //
         {
-            .viewXY = { m_ViewX, m_ViewY },
+            .viewXY = { m_SpriteStates[0].mapXY[0], m_SpriteStates[0].mapXY[1] },
         };
     m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
         0,

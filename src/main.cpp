@@ -366,17 +366,17 @@ Game::Run()
 
     const Angle spriteAngle = PlayerRot + kAngleOffset;
     const uint32_t spriteDir = spriteAngle.GetDirection(spriteAnim->GetDirectionCount());
-    const uint32_t animFrame = frame % spriteAnim->GetStatesPerDirection();
-    const auto frameResult = spriteAnim->GetFrame(animFrame, spriteDir);
-    GG_CHECKB(frameResult, "Failed to get sprite animation frame");
+    const uint32_t animFrame = frame % spriteAnim->GetFramesPerDirection();
+    const auto spriteResult = spriteAnim->GetSprite(animFrame, spriteDir);
+    GG_CHECKB(spriteResult, "Failed to get sprite animation frame");
 
-    const Sprite* sprite = *frameResult;
+    const Sprite* sprite = *spriteResult;
 
     state.Renderer->SetView(PlayerX, PlayerY);
 
-    GG_CHECKB(state.Renderer->BeginFrame(), "Failed to begin frame");
+    GG_CHECKB(state.Renderer->Begin(), "Failed to begin rendering");
     GG_CHECKB(state.Renderer->Render(*sprite), "Failed to render");
-    GG_CHECKB(state.Renderer->EndFrame(), "Failed to end frame");
+    GG_CHECKB(state.Renderer->End(), "Failed to end rendering");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 

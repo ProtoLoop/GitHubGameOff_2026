@@ -29,8 +29,8 @@ public:
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
 
-    Result<> BeginFrame();
-    Result<> EndFrame();
+    Result<> Begin();
+    Result<> End();
 
     void SetView(const float viewX, const float viewY);
 
@@ -65,9 +65,6 @@ private:
     BoundedVector<LostSoul> m_LostSouls;
     std::vector<SpriteState> m_SpriteStates;
     std::vector<bool> m_Visibility;
-
-    float m_ViewY{ 0 };
-    float m_ViewX{ 0 };
 
     uint32_t m_LogicalDisplayWidth{ 0 };
     uint32_t m_LogicalDisplayHeight{ 0 };

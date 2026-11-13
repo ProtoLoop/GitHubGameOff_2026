@@ -67,19 +67,19 @@ public:
 
     Result<> Update();
 
-    /// Returns the number of animation states per direction.
-    uint32_t GetStatesPerDirection() const
+    /// Returns the number of animation frames per direction.
+    uint32_t GetFramesPerDirection() const
     {
-        return std::get<LoadedState>(m_State).m_StatesPerDirection;
+        return std::get<LoadedState>(m_State).m_FramesPerDirection;
     }
 
     /// Returns the number of directions in the animation.
     uint32_t GetDirectionCount() const { return std::get<LoadedState>(m_State).m_DirectionCount; }
 
     /// Returns the sprite for the given animation state and direction.
-    /// The state should be in the range [0, StatesPerDirection) and the direction should be in the
+    /// The frame should be in the range [0, FramesPerDirection) and the direction should be in the
     /// range [0, DirectionCount).
-    Result<const Sprite*> GetFrame(const uint32_t state, const uint32_t direction) const;
+    Result<const Sprite*> GetSprite(const uint32_t frame, const uint32_t direction) const;
 
 private:
 
@@ -92,7 +92,7 @@ private:
     struct LoadedState
     {
         BoundedVector<Sprite> m_Sprites;
-        uint32_t m_StatesPerDirection{ 0 };
+        uint32_t m_FramesPerDirection{ 0 };
         uint32_t m_DirectionCount{ 0 };
     };
 

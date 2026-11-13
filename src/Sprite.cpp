@@ -69,15 +69,15 @@ SpriteAnim::SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim)
 }
 
 Result<const Sprite*>
-SpriteAnim::GetFrame(const uint32_t state, const uint32_t direction) const
+SpriteAnim::GetSprite(const uint32_t frame, const uint32_t direction) const
 {
     GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
 
     const LoadedState& loaded = std::get<LoadedState>(m_State);
-    GG_CHECKB(state < loaded.m_StatesPerDirection, "Invalid animation state: {}", state);
+    GG_CHECKB(frame < loaded.m_FramesPerDirection, "Invalid animation frame: {}", frame);
     GG_CHECKB(direction < loaded.m_DirectionCount, "Invalid animation direction: {}", direction);
 
-    const size_t index = (direction * loaded.m_StatesPerDirection) + state;
+    const size_t index = (direction * loaded.m_FramesPerDirection) + frame;
     const Sprite* sprite = loaded.m_Sprites.TryGet(index);
     GG_CHECKB(sprite, "Invalid sprite index: {}", index);
 
@@ -138,7 +138,7 @@ SpriteAnim::BuildSprites()
     return LoadedState //
         {
             .m_Sprites = std::move(sprites),
-            .m_StatesPerDirection = stateCount,
+            .m_FramesPerDirection = stateCount,
             .m_DirectionCount = directionCount,
         };
 }
