@@ -11,7 +11,7 @@ namespace
 struct CellMapParams
 {
     float viewXY[2]{}; // Camera view position in map space
-    uint32_t pad0{ 0 };
+    uint32_t cellMapCellsPerSide{ 0 }; // Number of cells along each axis in the map
     uint32_t pad1{ 0 };
 };
 
@@ -48,6 +48,7 @@ Result<wgpu::RenderPipeline>
 CreateRenderPipeline(const wgpu::Device& gpuDevice,
     wgpu::TextureFormat targetFormat,
     const ShaderInfo& shaderInfo,
+    const wgpu::PipelineLayout& pipelineLayout,
     const std::span<const wgpu::ConstantEntry> vsConstantEntries)
 {
     static constexpr wgpu::BlendState blendState //
@@ -99,7 +100,7 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice,
     const wgpu::RenderPipelineDescriptor desc//
     {
         .label = shaderInfo.Label,
-        .layout = nullptr,
+        .layout = pipelineLayout,
         .vertex =
         {
             .module = shader,
@@ -158,16 +159,14 @@ CreateSpriteShaderBindGroup0(wgpu::Device gpuDevice,
     wgpu::Buffer cellMapParamsBuffer)
 {
     const wgpu::BindGroupEntry entries[] //
-        {
-            {
-                .binding = 0,
-                .buffer = spriteStateBuffer,
-            },
+        { {
+              .binding = 0,
+              .buffer = spriteStateBuffer,
+          },
             {
                 .binding = 1,
                 .buffer = cellMapParamsBuffer,
-            }
-        };
+            } };
 
     const wgpu::BindGroupDescriptor desc //
         {
@@ -181,70 +180,20 @@ CreateSpriteShaderBindGroup0(wgpu::Device gpuDevice,
 }
 
 wgpu::BindGroup
-CreateSpriteTextureBindGroup(wgpu::Device gpuDevice,
-    wgpu::BindGroupLayout layout,
-    wgpu::Texture texture,
-    wgpu::Sampler sampler)
+CreateMapShaderBindGroup0(
+    wgpu::Device gpuDevice, wgpu::BindGroupLayout layout, wgpu::Buffer cellMapParamsBuffer)
 {
-    const wgpu::TextureViewDescriptor viewDesc //
-        {
-            .dimension = wgpu::TextureViewDimension::e2DArray,
-        };
-
     const wgpu::BindGroupEntry entries[] //
         {
             {
                 .binding = 0,
-                .textureView = texture.CreateView(&viewDesc),
-            },
-            {
-                .binding = 1,
-                .sampler = sampler,
-            },
-        };
-
-    const wgpu::BindGroupDescriptor desc //
-        {
-            .label = "SpriteShaderBindGroup1",
-            .layout = layout,
-            .entryCount = std::size(entries),
-            .entries = &entries[0],
-        };
-
-    return gpuDevice.CreateBindGroup(&desc);
-}
-
-wgpu::BindGroup
-CreateTileShaderBindGroup0(wgpu::Device gpuDevice,
-    wgpu::BindGroupLayout layout,
-    wgpu::Texture texture,
-    wgpu::Sampler sampler,
-    wgpu::Buffer cellMapParamsBuffer)
-{
-    const wgpu::TextureViewDescriptor viewDesc //
-        {
-            .dimension = wgpu::TextureViewDimension::e2DArray,
-        };
-
-    const wgpu::BindGroupEntry entries[] //
-        {
-            {
-                .binding = 0,
-                .textureView = texture.CreateView(&viewDesc),
-            },
-            {
-                .binding = 1,
-                .sampler = sampler,
-            },
-            {
-                .binding = 2,
                 .buffer = cellMapParamsBuffer,
             },
         };
 
     const wgpu::BindGroupDescriptor desc //
         {
-            .label = "TileShaderBindGroup0",
+            .label = "MapShaderBindGroup0",
             .layout = layout,
             .entryCount = std::size(entries),
             .entries = &entries[0],
@@ -255,25 +204,81 @@ CreateTileShaderBindGroup0(wgpu::Device gpuDevice,
 } // namespace
 
 Result<std::unique_ptr<Renderer>>
-Renderer::Create(const Params& params,
-    const WebGpu& webGpu,
-    const CellMap& cellMap,
-    BoundedVector<LostSoul>&& lostSouls)
+Renderer::Create(const Params& params, const WebGpu& webGpu)
 {
-    return std::unique_ptr<Renderer>(new Renderer{ params, webGpu, cellMap, std::move(lostSouls) });
+    return std::unique_ptr<Renderer>(new Renderer{ params, webGpu });
 }
 
-Renderer::Renderer(const Params& params,
-    const WebGpu& webGpu,
-    const CellMap& cellMap,
-    BoundedVector<LostSoul>&& lostSouls)
-    : m_LostSouls(std::move(lostSouls)),
-      m_SpriteStates(m_LostSouls.size()),
-      m_Visibility(m_LostSouls.size()),
-      m_Params(params),
-      m_WebGpu(&webGpu),
-      m_CellMap(&cellMap)
+Renderer::Renderer(const Params& params, const WebGpu& webGpu)
+    : m_Params(params),
+      m_WebGpu(&webGpu)
 {
+}
+
+Result<wgpu::BindGroup>
+Renderer::CreateSpriteTextureBindGroup(const wgpu::Texture& texture)
+{
+    GG_CHECK(EnsurePipelines(), "Failed to ensure pipelines");
+
+    const wgpu::TextureViewDescriptor viewDesc //
+        {
+            .dimension = wgpu::TextureViewDimension::e2DArray,
+        };
+
+    const wgpu::BindGroupEntry entries[] //
+        {
+            {
+                .binding = 0,
+                .textureView = texture.CreateView(&viewDesc),
+            },
+            {
+                .binding = 1,
+                .sampler = m_WebGpu->GetDefaultSampler(),
+            },
+        };
+
+    const wgpu::BindGroupDescriptor desc //
+        {
+            .label = "SpriteShaderBindGroup1",
+            .layout = m_SpritePipeline.GetBindGroupLayout(1),
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return m_WebGpu->GetDevice().CreateBindGroup(&desc);
+}
+
+Result<wgpu::BindGroup>
+Renderer::CreateTileSetTextureBindGroup(const wgpu::Texture& texture)
+{
+    GG_CHECK(EnsurePipelines(), "Failed to ensure pipelines");
+
+    const wgpu::TextureViewDescriptor viewDesc //
+        {
+            .dimension = wgpu::TextureViewDimension::e2DArray,
+        };
+
+    const wgpu::BindGroupEntry entries[] //
+        {
+            {
+                .binding = 0,
+                .textureView = texture.CreateView(&viewDesc),
+            },
+            {
+                .binding = 1,
+                .sampler = m_WebGpu->GetDefaultSampler(),
+            },
+        };
+
+    const wgpu::BindGroupDescriptor desc //
+        {
+            .label = "MapShaderBindGroup1",
+            .layout = m_MapPipeline.GetBindGroupLayout(1),
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return m_WebGpu->GetDevice().CreateBindGroup(&desc);
 }
 
 Result<>
@@ -281,18 +286,9 @@ Renderer::Begin()
 {
     GG_CHECKB(!m_CmdEncoder, "Begin() already called");
 
-    auto texResult = m_WebGpu->GetSwapchainTexture();
-    GG_CHECK(texResult, "Failed to acquire swapchain texture");
-    const wgpu::Texture renderTarget = *texResult;
-
-    GG_CHECK(EnsurePipelines(renderTarget), "Failed to ensure pipeline");
-    GG_CHECK(EnsureSpriteStateBuffer(), "Failed to ensure sprite state buffer");
-    GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
-    GG_CHECK(EnsureBindGroups(), "Failed to ensure bind groups");
-
     m_CmdEncoder = m_WebGpu->GetDevice().CreateCommandEncoder();
     GG_CHECKB(m_CmdEncoder, "Failed to create command encoder");
-    
+
     return Result<>::Success();
 }
 
@@ -307,7 +303,7 @@ Renderer::End()
     GG_CHECK(commandBuffer, "Failed to finish command buffer");
 
     m_WebGpu->GetQueue().Submit(1, &commandBuffer);
-    
+
     return Result<>::Success();
 }
 
@@ -320,10 +316,10 @@ Renderer::SetView(const float viewX, const float viewY)
 }
 
 Result<>
-Renderer::Render(const Sprite& sprite)
+Renderer::Render(const CellMap& cellMap, const Sprite& sprite)
 {
     GG_CHECKB(m_CmdEncoder, "Render called outside of Begin()/End()");
-    
+
     auto texResult = m_WebGpu->GetSwapchainTexture();
     GG_CHECK(texResult, "Failed to acquire swapchain texture");
     const wgpu::Texture renderTarget = *texResult;
@@ -331,9 +327,15 @@ Renderer::Render(const Sprite& sprite)
     const wgpu::RenderPassEncoder renderPass = CreateRenderPassEncoder(m_CmdEncoder, renderTarget);
     GG_CHECK(renderPass, "Failed to create render pass");
 
+    GG_CHECK(EnsureSpriteStateBuffer(), "Failed to ensure sprite state buffer");
+    GG_CHECK(EnsureCellMapParamsBuffer(cellMap), "Failed to ensure cell map params buffer");
+
+    GG_CHECK(EnsurePipelines(), "Failed to ensure pipeline");
+    GG_CHECK(EnsureBindGroups(), "Failed to ensure bind groups");
+
     GG_CHECK(SetViewport(renderTarget, renderPass), "Failed to set viewport");
-    GG_CHECK(RenderMap(renderPass), "Failed to render map");
-    GG_CHECK(RenderSprites(renderPass, sprite), "Failed to render sprites");
+    GG_CHECK(RenderMap(cellMap, renderPass), "Failed to render map");
+    GG_CHECK(RenderSprites(sprite, renderPass), "Failed to render sprites");
 
     renderPass.End();
 
@@ -343,10 +345,14 @@ Renderer::Render(const Sprite& sprite)
 // private:
 
 Result<>
-Renderer::RenderMap(const wgpu::RenderPassEncoder& renderPass)
+Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
 {
-    renderPass.SetBindGroup(0, m_TileBindGroup);
-    renderPass.SetPipeline(m_TilePipeline);
+    auto bgResult = cellMap.GetTileSetBindGroup();
+    GG_CHECK(bgResult, "Failed to get tile set bind group");
+
+    renderPass.SetBindGroup(0, m_MapBindGroup0);
+    renderPass.SetBindGroup(1, *bgResult);
+    renderPass.SetPipeline(m_MapPipeline);
 
     /*// Number of rows/columns of cells visible in the current view.
     // This calculation assumes an isometric projection where the width of the view is
@@ -363,7 +369,7 @@ Renderer::RenderMap(const wgpu::RenderPassEncoder& renderPass)
     renderPass.Draw(6, instanceCount, 0, 0);*/
 
     // This version just sends all the cells.
-    const uint32_t instanceCount = m_CellMap->GetGridSize() * m_CellMap->GetGridSize();
+    const uint32_t instanceCount = cellMap.GetCellCount();
     // NOLINTNEXTLINE(readability-magic-numbers)
     renderPass.Draw(6, instanceCount * 3 / 2, 0, 0);
 
@@ -371,7 +377,7 @@ Renderer::RenderMap(const wgpu::RenderPassEncoder& renderPass)
 }
 
 Result<>
-Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite& sprite)
+Renderer::RenderSprites(const Sprite& sprite, const wgpu::RenderPassEncoder& renderPass)
 {
     SpriteState& spriteState = m_SpriteStates[0];
     const Rect& rect = sprite.GetRect();
@@ -384,18 +390,11 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite&
     // Update the sprite state buffer with the current sprite states
     m_WebGpu->GetQueue().WriteBuffer(m_SpriteStateBuffer,
         0,
-        m_SpriteStates.data(),
-        sizeof(SpriteState) * m_SpriteStates.size());
+        &m_SpriteStates[0],
+        sizeof(SpriteState) * std::size(m_SpriteStates));
 
-    auto bg = CreateSpriteTextureBindGroup(m_WebGpu->GetDevice(),
-        m_SpritePipeline.GetBindGroupLayout(1),
-        sprite.GetTexture(),
-        m_WebGpu->GetDefaultSampler());
-
-    GG_CHECK(bg, "Failed to create bind group");
-
-    renderPass.SetBindGroup(0, m_SpriteStatesBindGroup);
-    renderPass.SetBindGroup(1, bg);
+    renderPass.SetBindGroup(0, m_SpriteBindGroup0);
+    renderPass.SetBindGroup(1, sprite.GetTextureBindGroup());
     renderPass.SetPipeline(m_SpritePipeline);
 
     // NOLINTNEXTLINE(readability-magic-numbers)
@@ -414,7 +413,8 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite&
 }
 
 Result<>
-Renderer::SetViewport(const wgpu::Texture& renderTarget, const wgpu::RenderPassEncoder& renderPass) const
+Renderer::SetViewport(const wgpu::Texture& renderTarget,
+    const wgpu::RenderPassEncoder& renderPass) const
 {
     const float ldw = static_cast<float>(m_Params.LogicalDisplayWidth);
     const float ldh = static_cast<float>(m_Params.LogicalDisplayHeight);
@@ -433,38 +433,53 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget, const wgpu::RenderPassE
 }
 
 Result<>
-Renderer::EnsurePipelines(const wgpu::Texture& renderTarget)
+Renderer::EnsurePipelines()
 {
+    const wgpu::TextureFormat swapchainFormat = m_WebGpu->GetSwapchainFormat();
+
     const wgpu::ConstantEntry vsConstantEntries[] //
         {
-            { .key = "logicalTargetWidth", .value = static_cast<double>(m_Params.LogicalDisplayWidth) },
-            { .key = "logicalTargetHeight", .value = static_cast<double>(m_Params.LogicalDisplayHeight) },
-            { .key = "cellPixelsPerSide", .value = static_cast<double>(m_Params.CellPixelsPerSide) },
-            { .key = "sheetTilesPerSide", .value = static_cast<double>(m_Params.SheetTilesPerSide) },
-            { .key = "cellMapCellsPerSide", .value = static_cast<double>(m_CellMap->GetGridSize()) },
+            {
+                .key = "logicalTargetWidth",
+                .value = static_cast<double>(m_Params.LogicalDisplayWidth),
+            },
+            {
+                .key = "logicalTargetHeight",
+                .value = static_cast<double>(m_Params.LogicalDisplayHeight),
+            },
+            {
+                .key = "cellPixelsPerSide",
+                .value = static_cast<double>(m_Params.CellPixelsPerSide),
+            },
+            {
+                .key = "sheetTilesPerSide",
+                .value = static_cast<double>(m_Params.SheetTilesPerSide),
+            },
         };
 
-    if(!m_SpritePipeline || m_PipelineFormat != renderTarget.GetFormat())
+    if(!m_SpritePipeline || m_RenderTargetFormat != swapchainFormat)
     {
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
-            renderTarget.GetFormat(),
+            swapchainFormat,
             kSpriteShaderInfo,
+            nullptr,//*layoutResult,
             vsConstantEntries);
         GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kSpriteShaderInfo.Label);
         m_SpritePipeline = std::move(*pipelineResult);
     }
 
-    if(!m_TilePipeline || m_PipelineFormat != renderTarget.GetFormat())
+    if(!m_MapPipeline || m_RenderTargetFormat != swapchainFormat)
     {
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
-            renderTarget.GetFormat(),
+            swapchainFormat,
             kTileMapShaderInfo,
+            nullptr, //*layoutResult,
             vsConstantEntries);
         GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kTileMapShaderInfo.Label);
-        m_TilePipeline = std::move(*pipelineResult);
+        m_MapPipeline = std::move(*pipelineResult);
     }
 
-    m_PipelineFormat = renderTarget.GetFormat();
+    m_RenderTargetFormat = swapchainFormat;
 
     return Result<>::Success();
 }
@@ -472,7 +487,7 @@ Renderer::EnsurePipelines(const wgpu::Texture& renderTarget)
 Result<>
 Renderer::EnsureSpriteStateBuffer()
 {
-    const size_t bufferSize = sizeof(SpriteState) * m_SpriteStates.size();
+    const size_t bufferSize = sizeof(SpriteState) * std::size(m_SpriteStates);
 
     if(!m_SpriteStateBuffer || m_SpriteStateBuffer.GetSize() < bufferSize)
     {
@@ -485,7 +500,7 @@ Renderer::EnsureSpriteStateBuffer()
 }
 
 Result<>
-Renderer::EnsureCellMapParamsBuffer()
+Renderer::EnsureCellMapParamsBuffer(const CellMap& cellMap)
 {
     if(!m_CellMapParamsBuffer)
     {
@@ -494,9 +509,12 @@ Renderer::EnsureCellMapParamsBuffer()
         GG_CHECK(m_CellMapParamsBuffer, "Failed to create cell map params buffer");
     }
 
+    const SpriteState& spriteState = m_SpriteStates[0];
+
     const CellMapParams cellMapParams //
         {
-            .viewXY = { m_SpriteStates[0].mapXY[0], m_SpriteStates[0].mapXY[1] },
+            .viewXY = { spriteState.mapXY[0], spriteState.mapXY[1] },
+            .cellMapCellsPerSide = cellMap.GetCellsPerSide(),
         };
     m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
         0,
@@ -509,25 +527,23 @@ Renderer::EnsureCellMapParamsBuffer()
 Result<>
 Renderer::EnsureBindGroups()
 {
-    if(!m_SpriteStatesBindGroup)
+    if(!m_SpriteBindGroup0)
     {
-        m_SpriteStatesBindGroup = CreateSpriteShaderBindGroup0(m_WebGpu->GetDevice(),
+        m_SpriteBindGroup0 = CreateSpriteShaderBindGroup0(m_WebGpu->GetDevice(),
             m_SpritePipeline.GetBindGroupLayout(0),
             m_SpriteStateBuffer,
             m_CellMapParamsBuffer);
 
-        GG_CHECK(m_SpriteStatesBindGroup, "Failed to create bind group");
+        GG_CHECK(m_SpriteBindGroup0, "Failed to create sprite ");
     }
 
-    if(!m_TileBindGroup)
+    if(!m_MapBindGroup0)
     {
-        m_TileBindGroup = CreateTileShaderBindGroup0(m_WebGpu->GetDevice(),
-            m_TilePipeline.GetBindGroupLayout(0),
-            m_CellMap->GetTileSetTexture(),
-            m_WebGpu->GetDefaultSampler(),
+        m_MapBindGroup0 = CreateMapShaderBindGroup0(m_WebGpu->GetDevice(),
+            m_MapPipeline.GetBindGroupLayout(0),
             m_CellMapParamsBuffer);
 
-        GG_CHECK(m_TileBindGroup, "Failed to create bind group");
+        GG_CHECK(m_MapBindGroup0, "Failed to create map bind group 0");
     }
 
     return Result<>::Success();

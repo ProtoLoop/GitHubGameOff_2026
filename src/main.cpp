@@ -1,3 +1,4 @@
+#include <memory>
 #include <webgpu/webgpu_cpp.h>
 #define SDL_MAIN_USE_CALLBACKS 1
 
@@ -138,21 +139,40 @@ struct Game
 
     struct LoadingState
     {
+        std::unique_ptr<Renderer> Renderer;
         Result<LevelLoader> LevelLoader;
-        Result<TextureLoader> CellMapTextureLoader;
-        Result<SpriteAnim> HeroIdleSpriteAnim;
-        Result<SpriteAnim> HeroRunSpriteAnim;
+        CellMap CellMap;
+        SpriteAnim HeroIdleSpriteAnim;
+        SpriteAnim HeroRunSpriteAnim;
+
+        Result<> Update()
+        {
+            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
+            GG_CHECK(CellMap.Update(), "Failed to update cellmap");
+            GG_CHECK(HeroIdleSpriteAnim.Update(), "Failed to update hero idle sprite anim");
+            GG_CHECK(HeroRunSpriteAnim.Update(), "Failed to update hero run sprite anim");
+
+            return Result<>::Success();
+        }
+
+        bool IsPending() const
+        {
+            return LevelLoader->IsPending()
+                || CellMap.IsPending()
+                || HeroIdleSpriteAnim.IsPending()
+                || HeroRunSpriteAnim.IsPending();
+        }
     };
 
     struct RunState
     {
-        std::unique_ptr<CellMap> CellMap;
+        CellMap CellMap;
         std::unique_ptr<Renderer> Renderer;
         SpriteAnim HeroIdleSpriteAnim;
         SpriteAnim HeroRunSpriteAnim;
     };
 
-    std::variant<std::monostate, LoadingState, RunState> m_State = LoadingState{};
+    std::variant<std::monostate, LoadingState, RunState> m_State;
 
     float PlayerX{ 0 };
     float PlayerY{ 0 };
@@ -207,20 +227,44 @@ Game::Update()
             break;
         case Stage::WebGpuReady:
         {
-            auto& state = std::get<LoadingState>(m_State);
+            const Renderer::Params rendererParams //
+                {
+                    .LogicalDisplayWidth = kLogicalDisplayWidth,
+                    .LogicalDisplayHeight = kLogicalDisplayHeight,
+                    .CellPixelsPerSide = kCellPixelsPerSide,
+                    .SheetTilesPerSide = kSheetTilesPerSide,
+                };
 
-            state.LevelLoader = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
-            GG_CHECKB(state.LevelLoader, "Failed to start loading level");
+            auto rendererResult = Renderer::Create(rendererParams, WebGpu);
+            GG_CHECKB(rendererResult, "Failed to create renderer");
 
-            state.CellMapTextureLoader =
-                TextureLoader::Load(kCellMapTextures, FileFetcher, WebGpu, "Test");
-            GG_CHECKB(state.CellMapTextureLoader, "Failed to start texture load");
+            std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
 
-            state.HeroIdleSpriteAnim = SpriteAnim::Create(kHeroIdleAnimDef, FileFetcher, WebGpu);
-            GG_CHECKB(state.HeroIdleSpriteAnim, "Failed to start hero idle sprite anim load");
+            auto levelLoaderResult = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
+            GG_CHECKB(levelLoaderResult, "Failed to start loading level");
 
-            state.HeroRunSpriteAnim = SpriteAnim::Create(kHeroRunAnimDef, FileFetcher, WebGpu);
-            GG_CHECKB(state.HeroRunSpriteAnim, "Failed to start hero run sprite anim load");
+            auto cellMapResult = CellMap::Load(kCellMapTextures,
+                kCellMapCellsPerSide,
+                *renderer,
+                FileFetcher,
+                WebGpu);
+            GG_CHECKB(cellMapResult, "Failed to start texture load");
+
+            auto heroIdleSpriteAnimResult =
+                SpriteAnim::Load(kHeroIdleAnimDef, FileFetcher, *renderer, WebGpu);
+            GG_CHECKB(heroIdleSpriteAnimResult, "Failed to start hero idle sprite anim load");
+                
+            auto heroRunSpriteAnimResult = SpriteAnim::Load(kHeroRunAnimDef, FileFetcher, *renderer, WebGpu);
+            GG_CHECKB(heroRunSpriteAnimResult, "Failed to start hero run sprite anim load");
+
+            m_State = LoadingState//
+            {
+                .Renderer = std::move(renderer),
+                .LevelLoader = std::move(levelLoaderResult),
+                .CellMap = std::move(*cellMapResult),
+                .HeroIdleSpriteAnim = std::move(*heroIdleSpriteAnimResult),
+                .HeroRunSpriteAnim = std::move(*heroRunSpriteAnimResult),
+            };
 
             m_Stage = Stage::Loading;
         }
@@ -229,14 +273,8 @@ Game::Update()
         {
             auto& state = std::get<LoadingState>(m_State);
 
-            GG_CHECK(state.LevelLoader->Update(), "Failed to update level loader");
-            GG_CHECK(state.HeroIdleSpriteAnim->Update(), "Failed to update hero idle sprite anim");
-            GG_CHECK(state.HeroRunSpriteAnim->Update(), "Failed to update hero run sprite anim");
-
-            if(!state.LevelLoader->IsPending()
-                && !state.CellMapTextureLoader->IsPending()
-                && !state.HeroIdleSpriteAnim->IsPending()
-                && !state.HeroRunSpriteAnim->IsPending())
+            GG_CHECK(state.Update(), "Failed to update loading state");
+            if(!state.IsPending())
             {
                 m_Stage = Stage::Loaded;
             }
@@ -246,38 +284,12 @@ Game::Update()
         {
             auto& state = std::get<LoadingState>(m_State);
 
-            auto cellmapTexResult = state.CellMapTextureLoader->Take();
-            GG_CHECKB(cellmapTexResult, "Failed to load cellmap texture");
-
-            auto cellmapResult = CellMap::Create(*cellmapTexResult, kCellMapCellsPerSide);
-            GG_CHECK(cellmapResult, "Failed to create cell map");
-
-            BoundedVector<LostSoul> lostSouls(8); // NOLINT
-            for(size_t i = 0; i < lostSouls.capacity(); ++i)
-            {
-                GG_CHECKB(lostSouls.push_back(LostSoul{}), "Failed to add lost soul");
-            }
-
-            auto cellmap = std::move(*cellmapResult);
-
-            const Renderer::Params rendererParams //
-                {
-                    .LogicalDisplayWidth = kLogicalDisplayWidth,
-                    .LogicalDisplayHeight = kLogicalDisplayHeight,
-                    .CellPixelsPerSide = kCellPixelsPerSide,
-                    .SheetTilesPerSide = kSheetTilesPerSide,
-                };
-
-            auto rendererResult =
-                Renderer::Create(rendererParams, WebGpu, *cellmap, std::move(lostSouls));
-            GG_CHECKB(rendererResult, "Failed to create renderer");
-
             m_State = RunState //
                 {
-                    .CellMap = std::move(cellmap),
-                    .Renderer = std::move(*rendererResult),
-                    .HeroIdleSpriteAnim = std::move(*state.HeroIdleSpriteAnim),
-                    .HeroRunSpriteAnim = std::move(*state.HeroRunSpriteAnim),
+                    .CellMap = std::move(state.CellMap),
+                    .Renderer = std::move(state.Renderer),
+                    .HeroIdleSpriteAnim = std::move(state.HeroIdleSpriteAnim),
+                    .HeroRunSpriteAnim = std::move(state.HeroRunSpriteAnim),
                 };
 
             m_Stage = Stage::Running;
@@ -384,7 +396,7 @@ Game::Run()
     state.Renderer->SetView(PlayerX, PlayerY);
 
     GG_CHECKB(state.Renderer->Begin(), "Failed to begin rendering");
-    GG_CHECKB(state.Renderer->Render(*sprite), "Failed to render");
+    GG_CHECKB(state.Renderer->Render(state.CellMap,*sprite), "Failed to render");
     GG_CHECKB(state.Renderer->End(), "Failed to end rendering");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");

@@ -4,10 +4,11 @@
 #include "TextureLoader.h"
 
 #include <variant>
-#include <webgpu/webgpu_cpp.h>
 #include <vector>
+#include <webgpu/webgpu_cpp.h>
 
 class WebGpu;
+class Renderer;
 class Angle;
 
 struct Rect
@@ -36,13 +37,13 @@ class Sprite
 public:
     Sprite() = delete;
 
-    /// Constructs a sprite with the given texture, rectangle, and layer.
-    /// The texture could be multi-layered and layer specifies which layer of the texture to use.
+    /// Constructs a sprite with the given bind group, rectangle, and layer.
+    /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
-    Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer);
+    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer);
 
-    /// Returns the texture atlas containing the sprite.
-    const wgpu::Texture& GetTexture() const { return m_Texture; }
+    /// Returns the bind group for the sprite's texture.
+    const wgpu::BindGroup& GetTextureBindGroup() const { return m_TextureBindGroup; }
 
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Rect; }
@@ -52,7 +53,7 @@ public:
     uint32_t GetLayer() const { return m_Layer; }
 
 private:
-    wgpu::Texture m_Texture; // Texture containing the sprite, possibly multilayer.
+    wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_Rect;
     uint32_t m_Layer; // Layer in the texture array.
 };
@@ -62,7 +63,8 @@ class SpriteAnim
 public:
     SpriteAnim() = delete;
 
-    static Result<SpriteAnim> Create(const SpriteAnimDef& animDef, FileFetcher& fileFetcher, WebGpu& webGpu);
+    static Result<SpriteAnim> Load(
+        const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu);
 
     bool IsPending() const;
 
@@ -77,11 +79,11 @@ public:
     Result<const Sprite*> GetSprite(const float phase, const Angle& angle) const;
 
 private:
-
     struct LoadingState
     {
         TextureLoader m_TextureLoader;
         Dimension2d m_Dim;
+        Renderer* m_Renderer;
     };
 
     struct LoadedState
@@ -91,10 +93,9 @@ private:
         uint32_t m_DirectionCount{ 0 };
     };
 
-    explicit SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim);
+    explicit SpriteAnim(Renderer& renderer, TextureLoader textureLoader, const Dimension2d& dim);
 
     Result<LoadedState> BuildSprites();
 
-    std::variant<std::monostate,LoadingState, LoadedState> m_State;
-
+    std::variant<std::monostate, LoadingState, LoadedState> m_State;
 };

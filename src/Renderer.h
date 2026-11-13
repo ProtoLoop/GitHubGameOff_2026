@@ -1,34 +1,25 @@
 #pragma once
 
-#include "BoundedVector.h"
 #include "Sprite.h"
 #include "WebGpu.h"
 
 #include <webgpu/webgpu_cpp.h>
-#include <vector>
 
 class CellMap;
 class SpriteLib;
-
-struct LostSoul
-{
-};
 
 class Renderer
 {
 public:
     struct Params
     {
-        uint32_t LogicalDisplayWidth;   // Logical width of the display in pixels
-        uint32_t LogicalDisplayHeight;  // Logical height of the display in pixels
-        uint32_t CellPixelsPerSide;     // Number of pixels along each axis of a cell.
-        uint32_t SheetTilesPerSide;     // Number of tiles along each axis in of a tile sheet.
+        uint32_t LogicalDisplayWidth;  // Logical width of the display in pixels
+        uint32_t LogicalDisplayHeight; // Logical height of the display in pixels
+        uint32_t CellPixelsPerSide;    // Number of pixels along each axis of a cell.
+        uint32_t SheetTilesPerSide;    // Number of tiles along each axis in of a tile sheet.
     };
 
-    static Result<std::unique_ptr<Renderer>> Create(const Params& params,
-        const WebGpu& webGpu,
-        const CellMap& cellMap,
-        BoundedVector<LostSoul>&& lostSouls);
+    static Result<std::unique_ptr<Renderer>> Create(const Params& params, const WebGpu& webGpu);
 
     Renderer(const Renderer&) = delete;
     ~Renderer() = default;
@@ -36,53 +27,52 @@ public:
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
 
+    Result<wgpu::BindGroup> CreateSpriteTextureBindGroup(const wgpu::Texture& texture);
+
+    Result<wgpu::BindGroup> CreateTileSetTextureBindGroup(const wgpu::Texture& texture);
+
     Result<> Begin();
     Result<> End();
 
     void SetView(const float viewX, const float viewY);
 
-    Result<> Render(const Sprite& sprite);
+    Result<> Render(const CellMap& cellMap, const Sprite& sprite);
 
 private:
     struct SpriteState
-    {        
-        float mapXY[2]{};       // Map space cell coordinates of the sprite.
-        uint32_t layer{ 0 };    // Layer of the texture array containing the sprite.
-        uint32_t pad0{ 0 };     // Padding to align the structure to 16 bytes.
-        float srcRect[4]{};     // Source rectangle in the texture (x, y, w, h)
-
+    {
+        float mapXY[2]{};    // Map space cell coordinates of the sprite.
+        uint32_t layer{ 0 }; // Layer of the texture array containing the sprite.
+        uint32_t pad0{ 0 };  // Padding to align the structure to 16 bytes.
+        float srcRect[4]{};  // Source rectangle in the texture (x, y, w, h)
     };
 
-    Renderer(const Params& params,
-        const WebGpu& webGpu,
-        const CellMap& cellMap,
-        BoundedVector<LostSoul>&& lostSouls);
+    Renderer(const Params& params, const WebGpu& webGpu);
 
-    Result<> RenderMap(const wgpu::RenderPassEncoder& renderPass);
+    Result<> RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
 
-    Result<> RenderSprites(const wgpu::RenderPassEncoder& renderPass, const Sprite& sprite);
+    Result<> RenderSprites(const Sprite& sprite, const wgpu::RenderPassEncoder& renderPass);
 
-    Result<> SetViewport(const wgpu::Texture& renderTarget, const wgpu::RenderPassEncoder& renderPass) const;
-    Result<> EnsurePipelines(const wgpu::Texture& renderTarget);
+    Result<> SetViewport(const wgpu::Texture& renderTarget,
+        const wgpu::RenderPassEncoder& renderPass) const;
+    Result<> EnsurePipelines();
     Result<> EnsureSpriteStateBuffer();
-    Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureCellMapParamsBuffer(const CellMap& cellMap);
     Result<> EnsureBindGroups();
 
-    BoundedVector<LostSoul> m_LostSouls;
-    std::vector<SpriteState> m_SpriteStates;
-    std::vector<bool> m_Visibility;
+    SpriteState m_SpriteStates[8]; // NOLINT
 
     Params m_Params;
     const WebGpu* m_WebGpu{ nullptr };
-    const CellMap* m_CellMap{ nullptr };
-    wgpu::TextureFormat m_PipelineFormat{ wgpu::TextureFormat::Undefined };
+    wgpu::TextureFormat m_RenderTargetFormat{ wgpu::TextureFormat::Undefined };
     wgpu::Buffer m_SpriteStateBuffer;
     wgpu::Buffer m_CellMapParamsBuffer;
+
     wgpu::RenderPipeline m_SpritePipeline;
-    wgpu::BindGroup m_SpriteStatesBindGroup;
-    
-    wgpu::RenderPipeline m_TilePipeline;
-    wgpu::BindGroup m_TileBindGroup;
+    wgpu::BindGroup m_SpriteBindGroup0;
+
+    wgpu::RenderPipeline m_MapPipeline;
+    wgpu::BindGroup m_MapBindGroup0;
 
     wgpu::CommandEncoder m_CmdEncoder;
 };

@@ -10,7 +10,7 @@ struct VSOut
 struct CellMapParams
 {
     viewXY : vec2f, // Camera view position in world space
-    pad0 : u32,
+    cellMapCellsPerSide : u32, // Number of cells along each axis in the map
     pad1 : u32,
 };
 
@@ -32,7 +32,6 @@ override logicalTargetWidth: f32;   // Logical width of the render target in pix
 override logicalTargetHeight: f32;  // Logical height of the render target in pixels
 override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cell
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
-override cellMapCellsPerSide: u32;  // Number of cells along each axis in the map
     
 const spriteVerts = array<vec2f, 6>(
     vec2f(-0.5, -0.5),
@@ -93,23 +92,27 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
     return select(hi, lo, vec4(linear.rgb <= vec3f(0.0031308), true));
 }
 
+// Returns true if a fragment is on the grid lines based on its UV coordinates.
+// Used to draw sprite bounding boxes.
+fn isOnGrid(gridUV: vec2f) -> bool
+{
+    let thickness = fwidth(gridUV);
+    return gridUV.x < thickness.x || gridUV.y < thickness.y;
+}
+
 /// Used when outputting to an sRGB framebuffer.
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let thickness = fwidth(i.outlineUV);
-    let onGrid = i.outlineUV.x < thickness.x || i.outlineUV.y < thickness.y;
     let p = textureSample(texture, smp, i.uv, i.texLayer);
-    return select(p, vec4f(1.0, 1.0, 0.0, 1.0), onGrid);
+    return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
 }
 
 /// Used when outputting to a non-sRGB framebuffer.
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let thickness = fwidth(i.outlineUV);
-    let onGrid = i.outlineUV.x < thickness.x || i.outlineUV.y < thickness.y;
     let p = linear_to_srgb(textureSample(texture, smp, i.uv, i.texLayer));
-    return select(p, vec4f(1.0, 1.0, 0.0, 1.0), onGrid);
+    return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
 }
 )";

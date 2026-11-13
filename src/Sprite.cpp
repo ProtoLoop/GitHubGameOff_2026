@@ -2,11 +2,12 @@
 
 #include "Angle.h"
 #include "Defer.h"
+#include "Renderer.h"
 
 /// Sprite
 
-Sprite::Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer)
-    : m_Texture(std::move(texture)),
+Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer)
+    : m_TextureBindGroup(std::move(bindGroup)),
       m_Rect(rect),
       m_Layer(layer)
 {
@@ -15,7 +16,8 @@ Sprite::Sprite(wgpu::Texture texture, const Rect& rect, const uint32_t layer)
 /// SpriteAnim
 
 Result<SpriteAnim>
-SpriteAnim::Create(const SpriteAnimDef& animDef, FileFetcher& fileFetcher, WebGpu& webGpu)
+SpriteAnim::Load(
+    const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu)
 {
     GG_CHECKB(!animDef.Textures.empty(), "Animation textures must not be empty");
     GG_CHECKB(animDef.Dim.w > 0 && animDef.Dim.h > 0,
@@ -26,7 +28,7 @@ SpriteAnim::Create(const SpriteAnimDef& animDef, FileFetcher& fileFetcher, WebGp
     auto texLoadResult = TextureLoader::Load(animDef.Textures, fileFetcher, webGpu, "Anim");
     GG_CHECKB(texLoadResult, "Failed to start anim texture load");
 
-    return SpriteAnim(std::move(*texLoadResult), animDef.Dim);
+    return SpriteAnim(renderer, std::move(*texLoadResult), animDef.Dim);
 }
 
 bool
@@ -42,30 +44,30 @@ SpriteAnim::Update()
     {
         const LoadingState& state = std::get<LoadingState>(m_State);
 
-        auto onFailed = GG_DEFER
+        if(state.m_TextureLoader.IsPending())
         {
-            m_State = std::monostate{};
-        };
-
-        if(!state.m_TextureLoader.IsPending())
-        {
-            auto buildResult = BuildSprites();
-            GG_CHECKB(buildResult, "Failed to build sprites");
-            m_State = std::move(*buildResult);
+            return Result<>::Success();
         }
 
-        onFailed.cancel();
+        auto onFailed = GG_DEFER
+        {
+            if(std::holds_alternative<LoadingState>(m_State))
+            {
+                m_State = std::monostate{};
+            }
+        };
+
+        auto buildResult = BuildSprites();
+        GG_CHECKB(buildResult, "Failed to build sprites");
+        m_State = std::move(*buildResult);
     }
 
     return Result<>::Success();
 }
 
-SpriteAnim::SpriteAnim(TextureLoader textureLoader, const Dimension2d& dim)
+SpriteAnim::SpriteAnim(Renderer& renderer, TextureLoader textureLoader, const Dimension2d& dim)
     : m_State(LoadingState //
-          {
-              .m_TextureLoader = std::move(textureLoader),
-              .m_Dim = dim,
-          })
+          { .m_TextureLoader = std::move(textureLoader), .m_Dim = dim, .m_Renderer = &renderer })
 {
 }
 
@@ -129,10 +131,14 @@ SpriteAnim::BuildSprites()
     const uint32_t spriteRows = texH / spriteDim.h;
     const uint32_t spriteCols = texW / spriteDim.w;
     const uint32_t stateCount = spriteRows * spriteCols;
+    // Each layer in the texture corresponds to a direction.
     const uint32_t directionCount = texResult->GetDepthOrArrayLayers();
     const uint32_t spriteCount = directionCount * stateCount;
 
     BoundedVector<Sprite> sprites(spriteCount);
+
+    auto bgResult = state.m_Renderer->CreateSpriteTextureBindGroup(texture);
+    GG_CHECKB(bgResult, "Failed to create bind group for sprite texture");
 
     for(uint32_t layer = 0; layer < directionCount; ++layer)
     {
@@ -148,7 +154,8 @@ SpriteAnim::BuildSprites()
                         .h = spriteDim.h,
                     };
 
-                GG_CHECKB(sprites.push_back(Sprite(texture, rect, layer)), "Failed to add sprite");
+                GG_CHECKB(sprites.push_back(Sprite(*bgResult, rect, layer)),
+                    "Failed to add sprite");
             }
         }
     }

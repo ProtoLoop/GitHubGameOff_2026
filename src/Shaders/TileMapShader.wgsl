@@ -10,19 +10,19 @@ struct VSOut
 struct CellMapParams
 {
     viewXY : vec2f, // Camera view position in world space
-    pad0 : u32,
+    cellMapCellsPerSide : u32, // Number of cells along each axis in the map
     pad1 : u32,
 };
 
-@group(0) @binding(0) var tileSheets : texture_2d_array<f32>;
-@group(0) @binding(1) var smp : sampler;
-@group(0) @binding(2) var<uniform> cellMapParams : CellMapParams;
+@group(0) @binding(0) var<uniform> cellMapParams : CellMapParams;
+
+@group(1) @binding(0) var tileSheets : texture_2d_array<f32>;
+@group(1) @binding(1) var smp : sampler;
 
 override logicalTargetWidth: f32;   // Logical width of the render target in pixels
 override logicalTargetHeight: f32;  // Logical height of the render target in pixels
 override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cell
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
-override cellMapCellsPerSide: u32;  // Number of cells along each axis in the map
     
 const cellVerts = array<vec2f, 6>(
     vec2f(0.0, 0.0),
@@ -84,7 +84,7 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
     let worldCellCol = (viewTopLeftCol + f32(viewCellCol));
     let worldCellIndex = u32(worldCellRow * f32(cellMapGridSize) + worldCellCol);*/
 
-    let cellsPerLayer = cellMapCellsPerSide * cellMapCellsPerSide;
+    let cellsPerLayer = cellMapParams.cellMapCellsPerSide * cellMapParams.cellMapCellsPerSide;
     let layer = worldCellIndex / cellsPerLayer;
     // Index of the cell within its layer.
     let layerCellIndex = worldCellIndex % cellsPerLayer;
@@ -92,10 +92,10 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
     let cellVtx = cellVerts[vidx];
     let cellUV = cellUVs[vidx];
 
-    let halfMapGridSize = f32(cellMapCellsPerSide) / 2.0;
+    let halfMapGridSize = f32(cellMapParams.cellMapCellsPerSide) / 2.0;
 
     // Coords of the cell in cell map space
-    let mapCellXY = vec2u(layerCellIndex % cellMapCellsPerSide, layerCellIndex / cellMapCellsPerSide);
+    let mapCellXY = vec2u(layerCellIndex % cellMapParams.cellMapCellsPerSide, layerCellIndex / cellMapParams.cellMapCellsPerSide);
     // Coords in camera space
     let camXY = vec2f(f32(mapCellXY.x) - halfMapGridSize, halfMapGridSize - f32(mapCellXY.y)) - cellMapParams.viewXY;
 
@@ -124,7 +124,7 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
 
     // Coords of the tile containing the cell in tile map space.
     let mapTileXY = mapCellXY / tileCellSize;
-    let tileColumnCount = u32(ceil(f32(cellMapCellsPerSide) / f32(tileCellSize)));
+    let tileColumnCount = u32(ceil(f32(cellMapParams.cellMapCellsPerSide) / f32(tileCellSize)));
     // Index of the tile in the tile map.
     let mapTileIndex = mapTileXY.y * tileColumnCount + mapTileXY.x;
 
@@ -160,23 +160,27 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
     return select(hi, lo, vec4(linear.rgb <= vec3f(0.0031308), true));
 }
 
+// Returns true if a fragment is on the grid lines based on its UV coordinates.
+// Used to draw grid lines.
+fn isOnGrid(gridUV: vec2f) -> bool
+{
+    let thickness = fwidth(gridUV);
+    return gridUV.x < thickness.x || gridUV.y < thickness.y;
+}
+
 /// Used when outputting to an sRGB framebuffer.
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 {
-    let thickness = fwidth(i.gridUV);
-    let onGrid = i.gridUV.x < thickness.x || i.gridUV.y < thickness.y;
     var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
-    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), onGrid);
+    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
 }
 
 /// Used when outputting to a non-sRGB framebuffer.
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
 {
-    let thickness = fwidth(i.gridUV);
-    let onGrid = i.gridUV.x < thickness.x || i.gridUV.y < thickness.y;
     var p = linear_to_srgb(textureSample(tileSheets, smp, i.uv, i.texLayer));
-    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), onGrid);
+    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
 }
 )";
