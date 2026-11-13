@@ -51,6 +51,8 @@ public:
 
     wgpu::Sampler GetDefaultSampler() const;
 
+    wgpu::TextureFormat GetSwapchainFormat() const;
+
     Result<wgpu::Texture> GetSwapchainTexture() const;
 
     Result<> Present() const;
@@ -96,4 +98,5 @@ private:
     wgpu::Queue m_Queue;
     wgpu::Surface m_Surface;
     wgpu::Sampler m_DefaultSampler;
+    wgpu::TextureFormat m_SwapchainFormat{ wgpu::TextureFormat::Undefined };
 };

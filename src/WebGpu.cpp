@@ -356,6 +356,8 @@ WebGpu::Update()
             auto surfaceFormat = ConfigureSurface(m_Adapter, m_Device, m_Surface, width, height);
             GG_CHECK(surfaceFormat, "Failed to configure WebGPU surface");
 
+            m_SwapchainFormat = *surfaceFormat;
+
             m_DefaultSampler = CreateSampler(m_Device);
             GG_CHECK(m_DefaultSampler, "Failed to create default sampler");
 
@@ -551,6 +553,13 @@ WebGpu::GetDefaultSampler() const
 {
     GG_ASSERT(IsReady());
     return m_DefaultSampler;
+}
+
+wgpu::TextureFormat
+WebGpu::GetSwapchainFormat() const
+{
+    GG_ASSERT(IsReady());
+    return m_SwapchainFormat;
 }
 
 Result<wgpu::Texture>
