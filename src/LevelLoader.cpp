@@ -43,7 +43,7 @@ ParseLayer(const JsonObject& layer)
     {
         if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
         {
-            return Result<>::Fail();
+            return Result<>::Error;
         }
         else if(key == "sheet")
         {
@@ -54,7 +54,7 @@ ParseLayer(const JsonObject& layer)
                 || !GG_VERIFYB(value.TryGetUint32(sheetIndex.emplace()),
                     "Failed to get sheet index"))
             {
-                return Result<>::Fail();
+                return Result<>::Error;
             }
         }
         else if(key == "cells")
@@ -66,7 +66,7 @@ ParseLayer(const JsonObject& layer)
                 || !GG_VERIFYB(value.TryGetArray(cellsArray.emplace()),
                     "Failed to get cells array"))
             {
-                return Result<>::Fail();
+                return Result<>::Error;
             }
         }
     }
@@ -101,7 +101,7 @@ ParseLayers(const JsonArray& jsonLayers)
         JsonObject layer;
         if(!GG_VERIFYB(value.TryGetObject(layer), "Failed to get layer object"))
         {
-            return Result<>::Fail();
+            return Result<>::Error;
         }
 
         auto layerResult = ParseLayer(layer);
@@ -130,12 +130,12 @@ Parse(std::vector<std::byte> data)
     {
         if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
         {
-            return Result<>::Fail();
+            return Result<>::Error;
         }
         else if(JsonValue value;
             !GG_VERIFYB(prop.TryGetValue(value), "Failed to get property value"))
         {
-            return Result<>::Fail();
+            return Result<>::Error;
         }
         else if(key == "gridSize")
         {
@@ -196,7 +196,7 @@ Parse(std::vector<std::byte> data)
         }
     }
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 } // namespace
 
@@ -244,7 +244,7 @@ LevelLoader::Update()
         case Status::Taken:
             break;
     }
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 bool

@@ -76,7 +76,7 @@ JsonValue::TryGetUint32(uint32_t& value) const
         "Unexpected trailing characters: (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -95,14 +95,14 @@ JsonValue::TryGetBool(bool& value) const
     {
         value = true;
 
-        return Result<>::Success();
+        return Result<>::Ok;
     }
 
     GG_CHECKB(sv == "false", "Invalid boolean value (line:{})", GetLine(m_Index, m_Tokens, m_Json));
 
     value = false;
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -117,7 +117,7 @@ JsonValue::TryGetString(std::string_view& value) const
 
     value = TokStr(tok, m_Json);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -136,7 +136,7 @@ JsonValue::TryGetObject(JsonObject& value) const
         GetLine(m_Index, m_Tokens, m_Json));
 
     value = JsonObject(m_Index, m_Tokens, m_Json);
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -157,7 +157,7 @@ JsonValue::TryGetArray(JsonArray& value) const
         GetLine(m_Index, m_Tokens, m_Json));
 
     value = JsonArray(m_Index, m_Tokens, m_Json);
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 /// JsonProperty
@@ -169,7 +169,7 @@ JsonProperty::TryGetKey(std::string_view& key) const
 
     key = TokStr(m_Tokens[m_Index], m_Json);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -178,7 +178,7 @@ JsonProperty::TryGetValue(JsonValue& value) const
     GG_CHECKB(m_Index + 1 < m_Tokens.size(), "JsonProperty out of bounds");
 
     value = JsonValue(m_Index + 1, m_Tokens, m_Json);
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 JsonProperty::JsonProperty(

@@ -305,7 +305,7 @@ WebGpu::Start(SDL_Window* window)
         OnAdapterRequestedCb,
         this);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -315,7 +315,7 @@ WebGpu::Update()
     {
         case Stage::Idle:
             GG_ERROR("WebGPU initialization has not been started");
-            return Result<>::Fail();
+            return Result<>::Error;
         case Stage::RequestingAdapter:
             break;
         case Stage::AdapterReady:
@@ -371,15 +371,15 @@ WebGpu::Update()
     }
     if(m_Stage == Stage::Failed)
     {
-        return Result<>::Fail();
+        return Result<>::Error;
     }
     m_Instance.ProcessEvents();
 
     if(m_Stage == Stage::Failed)
     {
-        return Result<>::Fail();
+        return Result<>::Error;
     }
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 bool
@@ -601,7 +601,7 @@ WebGpu::GetSwapchainTexture() const
             break;
         case wgpu::SurfaceGetCurrentTextureStatus::Error:
             GG_ERROR("Failed to acquire current surface texture: Unknown error");
-            return Result<>::Fail();
+            return Result<>::Error;
             break;
     }
 
@@ -636,7 +636,7 @@ WebGpu::Present() const
 
 #endif // !defined(__EMSCRIPTEN__)
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 // private:

@@ -289,7 +289,7 @@ Renderer::Begin()
     m_CmdEncoder = m_WebGpu->GetDevice().CreateCommandEncoder();
     GG_CHECKB(m_CmdEncoder, "Failed to create command encoder");
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -304,7 +304,7 @@ Renderer::End()
 
     m_WebGpu->GetQueue().Submit(1, &commandBuffer);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 void
@@ -339,7 +339,7 @@ Renderer::Render(const CellMap& cellMap, const Sprite& sprite)
 
     renderPass.End();
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 // private:
@@ -373,7 +373,7 @@ Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& rende
     // NOLINTNEXTLINE(readability-magic-numbers)
     renderPass.Draw(6, instanceCount * 3 / 2, 0, 0);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -409,7 +409,7 @@ Renderer::RenderSprites(const Sprite& sprite, const wgpu::RenderPassEncoder& ren
         renderPass.Draw(6, 1, 0, static_cast<uint32_t>(instanceIndex));
     }*/
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -429,7 +429,7 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget,
 
     renderPass.SetViewport(vpX, vpY, vpW, vpH, 0.0f, 1.0f);
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -481,7 +481,7 @@ Renderer::EnsurePipelines()
 
     m_RenderTargetFormat = swapchainFormat;
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -496,7 +496,7 @@ Renderer::EnsureSpriteStateBuffer()
         GG_CHECK(m_SpriteStateBuffer, "Failed to create sprite state buffer");
     }
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -521,7 +521,7 @@ Renderer::EnsureCellMapParamsBuffer(const CellMap& cellMap)
         &cellMapParams,
         sizeof(cellMapParams));
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<>
@@ -546,5 +546,5 @@ Renderer::EnsureBindGroups()
         GG_CHECK(m_MapBindGroup0, "Failed to create map bind group 0");
     }
 
-    return Result<>::Success();
+    return Result<>::Ok;
 }

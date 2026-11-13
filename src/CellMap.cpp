@@ -37,7 +37,7 @@ TileSet::Update()
 
         if(state.m_TextureLoader.IsPending())
         {
-            return Result<>::Success();
+            return Result<>::Ok;
         }
 
         auto onFailed = GG_DEFER
@@ -60,7 +60,7 @@ TileSet::Update()
                 .m_TilesPerSide = state.m_TilesPerSide,
             };
     }
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<wgpu::BindGroup>
@@ -125,7 +125,7 @@ CellMap::Update()
 
         if(state.m_TextureLoader.IsPending())
         {
-            return Result<>::Success();
+            return Result<>::Ok;
         }
 
         auto onFailed = GG_DEFER
@@ -148,7 +148,7 @@ CellMap::Update()
                 .m_CellsPerSide = state.m_CellsPerSide,
             };
     }
-    return Result<>::Success();
+    return Result<>::Ok;
 }
 
 Result<wgpu::BindGroup>

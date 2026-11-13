@@ -117,14 +117,14 @@ public:
     {
         GG_CHECKB(m_Size < N)
         std::construct_at(AsPointer(m_Size++), value);
-        return Result<>::Success();
+        return Result<>::Ok;
     }
 
     Result<> push_back(T&& value)
     {
         GG_CHECKB(m_Size < N)
         std::construct_at(AsPointer(m_Size++), std::move(value));
-        return Result<>::Success();
+        return Result<>::Ok;
     }
 
     template<typename... Args>
@@ -132,7 +132,7 @@ public:
     {
         GG_CHECKB(m_Size < N)
         std::construct_at(AsPointer(m_Size++), std::forward<Args>(args)...);
-        return Result<>::Success();
+        return Result<>::Ok;
     }
 
     T* TryGet(const size_t index) { return index < size() ? AsPointer(index) : nullptr; }
