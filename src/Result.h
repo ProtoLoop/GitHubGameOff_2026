@@ -70,10 +70,18 @@ public:
     Result(Result&&) = default;
     Result& operator=(Result&&) = default;
 
+    /// Borrows an existing object without extending its lifetime.
+    /// Deducing U through U& rejects rvalues, even when T is const.
+    /// Requiring U* to convert to T* rejects conversions that create temporaries.
+    template<class U>
+    // Exclude Result itself from being used as U
+        requires(!std::is_same_v<std::remove_cvref_t<U>, Result>)
     // NOLINTNEXTLINE(google-explicit-constructor)
-    Result(T& value)
-        : m_Value(std::in_place, std::ref(value))
+    Result(U& value)
+        : m_Value(std::ref(value))
     {
+        static_assert(std::convertible_to<U*, T*>,
+            "Result<T&> requires a compatible lvalue without temporary conversion");
     }
 
     // NOLINTNEXTLINE(google-explicit-constructor)
