@@ -30,6 +30,8 @@ public:
 
     Result<const SpriteAnim&> GetSpriteAnim(const std::string_view name) const;
 
+    Result<SpriteAnim::Instance> CreateSpriteAnimInstance(const std::string_view name) const;
+
 private:
     struct LoadingState
     {

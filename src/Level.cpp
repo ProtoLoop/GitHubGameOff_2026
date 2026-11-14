@@ -117,3 +117,20 @@ Level::GetSpriteAnim(const std::string_view name) const
 
     return Result<>::Error;
 }
+
+Result<SpriteAnim::Instance>
+Level::CreateSpriteAnimInstance(const std::string_view name) const
+{
+    GG_CHECK(std::holds_alternative<LoadedState>(m_State), "Level is not loaded");
+    const auto& state = std::get<LoadedState>(m_State);
+
+    for(const SpriteAnim& anim : state.SpriteAnims)
+    {
+        if(anim.GetName() == name)
+        {
+            return anim.CreateInstance();
+        }
+    }
+
+    return Result<>::Error;
+}

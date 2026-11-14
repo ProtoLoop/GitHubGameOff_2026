@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Angle.h"
 #include "BoundedVector.h"
 #include "InlineString.h"
 #include "TextureLoader.h"
@@ -10,7 +11,6 @@
 
 class WebGpu;
 class Renderer;
-class Angle;
 
 namespace detail
 {
@@ -69,9 +69,14 @@ private:
     uint32_t m_Layer; // Layer in the texture array.
 };
 
+/// A sprite animation resource.
+/// It defines the frames, directions, and textures for a sprite animation.
+/// To control individual instances of the animation create an Instance using CreateInstance().
 class SpriteAnim
 {
 public:
+    class Instance;
+
     SpriteAnim() = delete;
 
     static Result<SpriteAnim> Load(
@@ -84,13 +89,17 @@ public:
     /// Returns the name of the sprite animation.
     const ResourceName& GetName() const;
 
+    /// Creates an instance of the sprite animation.
+    /// The instance can be used to control and query the animation state.
+    Result<Instance> CreateInstance() const;
+
     /// Snaps the given angle to the nearest direction supported by the animation.
     Angle SnapAngle(const Angle& angle) const;
 
     /// Returns the sprite corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    Result<const Sprite*> GetSprite(const float phase, const Angle& angle) const;
+    Result<const Sprite&> GetSprite(const float phase, const Angle& angle) const;
 
 private:
     struct LoadingState
@@ -104,13 +113,13 @@ private:
     struct LoadedState
     {
         ResourceName Name;
-        wgpu::Texture m_TileSetTexture;
+        wgpu::Texture m_Texture;
         BoundedVector<Sprite> m_Sprites;
         uint32_t m_FramesPerDirection{ 0 };
 
         uint32_t GetDirectionCount() const
         {
-            return m_TileSetTexture.GetDepthOrArrayLayers();
+            return m_Texture.GetDepthOrArrayLayers();
         }
     };
 
@@ -121,5 +130,48 @@ private:
     struct FailedState
     {
     };
+    
     std::variant<FailedState, LoadingState, LoadedState> m_State;
+};
+
+/// Represents an instance of a sprite animation.
+/// An instance of a sprite animation can be used to control and query the animation state, such as
+/// its current phase and angle.
+/// Borrows a SpriteAnim, which must remain alive at the same address for the
+/// lifetime of this instance.
+class SpriteAnim::Instance
+{
+public:
+    Instance() = delete;
+
+    /// Advances the animation by delta time.
+    /// deltaTime is the time elapsed since the last update.
+    void Tick(const float deltaTime);
+
+    /// Sets the period/duration of one animation cycle.
+    void SetPeriod(const float period);
+
+    /// Sets the current animation phase within a cycle.
+    /// phase is a value between 0 and 1.
+    void SetPhase(const float phase);
+
+    /// Sets the current animation angle - the direction the sprite should face.
+    void SetAngle(const Angle& angle);
+
+    /// Snaps the given angle to the nearest direction supported by the animation.
+    Angle SnapAngle(const Angle& angle) const;
+
+    /// Returns the sprite corresponding to the current animation phase and angle.
+    Result<const Sprite&> GetSprite() const;
+
+private:
+    friend SpriteAnim;
+
+    explicit Instance(const SpriteAnim& anim);
+
+    const SpriteAnim* m_Anim;
+
+    float m_Period{ 1.0f }; // Duration of one animation cycle.
+    float m_Phase{ 0.0f };
+    Angle m_Angle;
 };

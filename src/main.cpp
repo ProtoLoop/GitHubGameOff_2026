@@ -310,8 +310,6 @@ Game::Run()
 {
     static constexpr float kTurnsPerSec = 1;
 
-    static float animPhase = 0;
-    static constexpr float kAnimPhaseScale = 1.5;
     static uint64_t ms = SDL_GetTicks();
 
     auto& state = std::get<RunState>(m_State);
@@ -320,9 +318,6 @@ Game::Run()
     const uint64_t deltaMs = curMs - ms;
     ms = curMs;
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
-    animPhase += deltaSec * kAnimPhaseScale;
-
-    animPhase = std::fmod(animPhase, 1.0f);
 
     float value{};
     if(Input.IsTriggered(Input::ActionId::RotateLeft, value))
@@ -336,22 +331,32 @@ Game::Run()
         PlayerRot += Angle(dturns);
     }
 
-    auto spriteAnimResult = state.Level.GetSpriteAnim(kHeroIdleAnim);
-    GG_CHECKB(spriteAnimResult, "Failed to get sprite anim: {}", kHeroIdleAnim);
-    const SpriteAnim* spriteAnim = &spriteAnimResult.Value();
+    auto createAnimInstance = [&](const std::string_view name)-> SpriteAnim::Instance
+    {
+        auto result = state.Level.CreateSpriteAnimInstance(name);
+
+        result->SetPeriod(0.66f);//NOLINT
+        return *result;
+    };
+
+    static SpriteAnim::Instance heroIdle = createAnimInstance(kHeroIdleAnim);
+    static SpriteAnim::Instance heroRun = createAnimInstance(kHeroRunAnim);
+
+    heroIdle.Tick(deltaSec);
+    heroRun.Tick(deltaSec);
+
+    SpriteAnim::Instance* spriteInstance = &heroIdle;
 
     if(Input.IsTriggered(Input::ActionId::MoveLeft, value)
         || Input.IsTriggered(Input::ActionId::MoveRight, value)
         || Input.IsTriggered(Input::ActionId::MoveForward, value)
         || Input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
-        spriteAnimResult = state.Level.GetSpriteAnim(kHeroRunAnim);
-        GG_CHECKB(spriteAnimResult, "Failed to get sprite anim: {}", kHeroRunAnim);
-        spriteAnim = &spriteAnimResult.Value();
+        spriteInstance = &heroRun;
     }
 
     // Snap heading to the nearest sprite direction.
-    const float heading = spriteAnim->SnapAngle(PlayerRot).ToTurns();
+    const float heading = spriteInstance->SnapAngle(PlayerRot).ToTurns();
     const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
     const float forwardY = std::cos(heading * 2.0f * std::numbers::pi_v<float>);
     const float rightX = forwardY;
@@ -387,10 +392,9 @@ Game::Run()
     static const Angle kAngleOffset(0.125f);
 
     const Angle spriteAngle = PlayerRot + kAngleOffset;
-    const auto spriteResult = spriteAnim->GetSprite(animPhase, spriteAngle);
+    spriteInstance->SetAngle(spriteAngle);
+    const auto spriteResult = spriteInstance->GetSprite();
     GG_CHECKB(spriteResult, "Failed to get sprite animation frame");
-
-    const Sprite* sprite = *spriteResult;
 
     state.Renderer->SetView(PlayerX, PlayerY);
 
@@ -398,7 +402,7 @@ Game::Run()
     GG_CHECKB(cellMapResult, "Failed to get cell map");
 
     GG_CHECKB(state.Renderer->Begin(), "Failed to begin rendering");
-    GG_CHECKB(state.Renderer->Render(*cellMapResult,*sprite), "Failed to render");
+    GG_CHECKB(state.Renderer->Render(*cellMapResult,*spriteResult), "Failed to render");
     GG_CHECKB(state.Renderer->End(), "Failed to end rendering");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");

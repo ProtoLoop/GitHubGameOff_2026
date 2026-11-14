@@ -91,10 +91,17 @@ SpriteAnim::GetName() const
     {
         GG_ASSERT(false, "Sprite animation is in an invalid state");
 
-        static constexpr ResourceName kInvalidName{"*** Invalid SpriteAnim ***"};
-        
+        static constexpr ResourceName kInvalidName{ "*** Invalid SpriteAnim ***" };
+
         return kInvalidName;
     }
+}
+
+Result<SpriteAnim::Instance>
+SpriteAnim::CreateInstance() const
+{
+    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
+    return Instance(*this);
 }
 
 Angle
@@ -107,7 +114,7 @@ SpriteAnim::SnapAngle(const Angle& angle) const
 
     const LoadedState& state = std::get<LoadedState>(m_State);
 
-    const uint32_t directionCount = state.m_TileSetTexture.GetDepthOrArrayLayers();
+    const uint32_t directionCount = state.m_Texture.GetDepthOrArrayLayers();
     if(!GG_VERIFYB(directionCount > 0, "Sprite animation has no directions"))
     {
         return Angle(0.0f);
@@ -118,14 +125,14 @@ SpriteAnim::SnapAngle(const Angle& angle) const
     return Angle(static_cast<float>(dir) / static_cast<float>(directionCount));
 }
 
-Result<const Sprite*>
+Result<const Sprite&>
 SpriteAnim::GetSprite(const float phase, const Angle& angle) const
 {
     GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
 
     const LoadedState& state = std::get<LoadedState>(m_State);
 
-    const uint32_t directionCount = state.m_TileSetTexture.GetDepthOrArrayLayers();
+    const uint32_t directionCount = state.m_Texture.GetDepthOrArrayLayers();
     GG_CHECKB(directionCount > 0, "Sprite animation has no directions");
 
     const float fdir = angle.ToTurns() * static_cast<float>(directionCount);
@@ -140,7 +147,7 @@ SpriteAnim::GetSprite(const float phase, const Angle& angle) const
     const Sprite* sprite = state.m_Sprites.TryGet(index);
     GG_CHECKB(sprite, "Invalid sprite index: {}", index);
 
-    return sprite;
+    return *sprite;
 }
 
 // private:
@@ -202,8 +209,55 @@ SpriteAnim::BuildSprites()
     return LoadedState //
         {
             .Name = std::move(state.Name),
-            .m_TileSetTexture = std::move(texture),
+            .m_Texture = std::move(texture),
             .m_Sprites = std::move(sprites),
             .m_FramesPerDirection = framesPerDir,
         };
+}
+
+/// SpriteAnim::Instance
+
+SpriteAnim::Instance::Instance(const SpriteAnim& anim)
+    : m_Anim(&anim)
+{
+}
+
+void
+SpriteAnim::Instance::Tick(const float deltaTime)
+{
+    SetPhase(m_Phase + (deltaTime / m_Period));
+}
+
+void
+SpriteAnim::Instance::SetPeriod(const float period)
+{
+    constexpr float minPeriod = 1e-6f; // Minimum allowed animation period
+    if(GG_VERIFYB(period > minPeriod, "Animation period must be positive"))
+    {
+        m_Period = period;
+    }
+}
+
+void
+SpriteAnim::Instance::SetPhase(const float phase)
+{
+    m_Phase = phase - std::floor(phase);
+}
+
+void
+SpriteAnim::Instance::SetAngle(const Angle& angle)
+{
+    m_Angle = angle;
+}
+
+Angle
+SpriteAnim::Instance::SnapAngle(const Angle& angle) const
+{
+    return m_Anim->SnapAngle(angle);
+}
+
+Result<const Sprite&>
+SpriteAnim::Instance::GetSprite() const
+{
+    return m_Anim->GetSprite(m_Phase, m_Angle);
 }
