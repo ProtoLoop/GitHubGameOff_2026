@@ -176,17 +176,22 @@ private:
         return Result<>::Error;                                                                    \
     }
 
+#define GG_TRY_CAT_1(a, b) a##b
+#define GG_TRY_CAT(a, b) GG_TRY_CAT_1(a, b)
+
 #define GG_TRY(name, expr, ...)                                                                    \
-    auto name = (expr);                                                                            \
-    if(!static_cast<bool>(name))                                                                   \
+    auto GG_TRY_CAT(name, __LINE__) = (expr);                                                      \
+    if(!static_cast<bool>(GG_TRY_CAT(name, __LINE__)))                                             \
     {                                                                                              \
         __VA_OPT__(GG_ERROR(__VA_ARGS__));                                                         \
         return Result<>::Error;                                                                    \
-    }
+    }                                                                                              \
+    auto& name = *GG_TRY_CAT(name, __LINE__);
 
 #define GG_TRYB(name, expr, ...)                                                                   \
-    auto name = (expr);                                                                            \
-    if(!GG_VERIFYB(name __VA_OPT__(, ) __VA_ARGS__))                                               \
+    auto GG_TRY_CAT(name, __LINE__) = (expr);                                                      \
+    if(!GG_VERIFYB(GG_TRY_CAT(name, __LINE__) __VA_OPT__(, ) __VA_ARGS__))                         \
     {                                                                                              \
         return Result<>::Error;                                                                    \
-    }
+    }                                                                                              \
+    auto& name = *GG_TRY_CAT(name, __LINE__);

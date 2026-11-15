@@ -1,23 +1,5 @@
 #include "Nodes.h"
 
-Result<SpriteAnimNode>
-SpriteAnimNode::Create(Node2D& node, const SpriteAnim::Instance& instance)
-{
-    return SpriteAnimNode(node, instance);
-}
-
-Node2D&
-SpriteAnimNode::GetNode()
-{
-    return *m_Node;
-}
-
-const Node2D&
-SpriteAnimNode::GetNode() const
-{
-    return *m_Node;
-}
-
 void
 SpriteAnimNode::Play(const SpriteAnim::Instance& instance)
 {
@@ -67,4 +49,16 @@ void
 SpriteAnimNode::Tick(const float deltaTime)
 {
     m_CurAnim.Tick(deltaTime);
+}
+
+NodeHandle<Node2D>
+SpriteAnimNode::GetNode()
+{
+    return m_Node;
+}
+
+NodeHandle<const Node2D>
+SpriteAnimNode::GetNode() const
+{
+    return m_Node;
 }

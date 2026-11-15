@@ -1,5 +1,6 @@
 #include "Entities.h"
 
+#include "Defer.h"
 #include "Input.h"
 #include "Level.h"
 #include "Nodes.h"
@@ -21,18 +22,32 @@ const Angle kIsoAngleOffset(0.125f);
 
 } // namespace
 
+Caretaker::Caretaker(NodeHandle<Node2D> node2D, NodeHandle<SpriteAnimNode> animNode)
+    : m_Node2D(node2D)
+    , m_AnimNode(animNode)
+{
+    m_AnimNode->SetPeriod(kAnimPeriod);
+}
+
 Result<Caretaker>
 Caretaker::Create(Level& level)
 {
     auto animInstanceResult = level.CreateSpriteAnimInstance(kAnimName_Idle);
     GG_CHECK(animInstanceResult, "Failed to create sprite animation instance");
 
-    auto animNodeResult = level.CreateSpriteAnimNode(*animInstanceResult);
-    GG_CHECK(animNodeResult, "Failed to create sprite animation node");
+    GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
+    auto onFail = GG_DEFER
+    {
+        level.DestroyNode2D(node2D);
+    };
 
-    animNodeResult->SetPeriod(kAnimPeriod);
+    GG_TRYB(animNode,
+        level.CreateSpriteAnimNode(node2D, *animInstanceResult),
+        "Failed to create sprite animation node");
 
-    return Caretaker(*animNodeResult);
+    onFail.cancel();
+
+    return Caretaker(node2D, animNode);
 }
 
 Result<>
@@ -81,12 +96,12 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
 
     if(m_AnimNode->WhatsPlaying() != desiredAnimName)
     {
-        GG_TRYB(animInstanceResult,
+        GG_TRYB(animInstance,
             level.CreateSpriteAnimInstance(desiredAnimName),
             "Failed to create sprite anim instance for {}",
             desiredAnimName);
 
-        m_AnimNode->Play(*animInstanceResult);
+        m_AnimNode->Play(animInstance);
         m_AnimNode->SetPeriod(kAnimPeriod);
     }
 

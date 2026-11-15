@@ -100,7 +100,7 @@ public:
         m_Size = 0;
     }
     
-    void erase_last()
+    void pop_back()
     {
         if(!empty())
         {

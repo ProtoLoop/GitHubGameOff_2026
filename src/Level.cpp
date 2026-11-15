@@ -108,6 +108,18 @@ Level::Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims)
     : m_CellMap(std::move(cellMap)),
       m_SpriteAnims(std::move(spriteAnims))
 {
+    m_FreeHandleSlots.reserve(m_HandleSlots.size());
+
+    for(NodeHandleSlot& slot : m_HandleSlots)
+    {
+        m_FreeHandleSlots.push_back(&slot);
+    }
+}
+
+Level::~Level()
+{
+    GG_ASSERT(m_FreeHandleSlots.size() == m_HandleSlots.size(),
+        "Not all handle slots have been freed");
 }
 
 void
@@ -153,8 +165,8 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
     return anim.CreateInstance();
 }
 
-Result<SpriteAnimNode&>
-Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
+Result<NodeHandle<Node2D>>
+Level::CreateNode2D()
 {
     auto node2dResult = m_Nodes.emplace_back();
     GG_CHECKB(node2dResult, "Failed to create Node2D");
@@ -163,22 +175,89 @@ Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
     auto onFail = GG_DEFER
     {
         // On failure deallocate the node.
-        m_Nodes.erase_last();
+        m_Nodes.pop_back();
     };
 
-    auto animNodeResult = SpriteAnimNode::Create(node2d, instance);
-    GG_CHECKB(animNodeResult, "Failed to create SpriteAnimNode");
+    auto handleSlotResult = AllocateHandleSlot();
+    GG_CHECKB(handleSlotResult, "Failed to get handle slot");
 
-    auto result = m_SpriteAnimNodes.emplace_back(std::move(*animNodeResult));
-    GG_CHECKB(result, "Failed to create SpriteAnimNode");
+    NodeHandleSlot* handleSlot = *handleSlotResult;
 
     onFail.cancel();
 
-    return *result;
+    handleSlot->m_Ptr = &node2d;
+
+    return NodeHandle<Node2D>(*handleSlot);
+}
+
+void
+Level::DestroyNode2D(NodeHandle<Node2D>& handle)
+{
+    DestroyNode(m_Nodes, handle);
+}
+
+Result<NodeHandle<SpriteAnimNode>>
+Level::CreateSpriteAnimNode(NodeHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
+{
+    GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
+
+    auto onFail = GG_DEFER
+    {
+        // On failure deallocate the handle slot.
+        FreeHandleSlot(slot);
+    };
+
+    GG_TRYB(animNode,
+        m_SpriteAnimNodes.emplace_back(node2D, instance),
+        "Failed to create SpriteAnimNode");
+
+    onFail.cancel();
+
+    slot->m_Ptr = &animNode;
+
+    return NodeHandle<SpriteAnimNode>(*slot);
+}
+
+void
+Level::DestroySpriteAnimNode(NodeHandle<SpriteAnimNode>& handle)
+{
+    DestroyNode(m_SpriteAnimNodes, handle);
 }
 
 std::span<const SpriteAnimNode>
 Level::GetSpriteAnimNodes() const
 {
     return m_SpriteAnimNodes;
+}
+
+// private:
+
+Result<NodeHandleSlot*>
+Level::AllocateHandleSlot()
+{
+    GG_CHECKB(!m_FreeHandleSlots.empty(), "No free handle slots available");
+
+    NodeHandleSlot* handleSlot = m_FreeHandleSlots.back();
+    m_FreeHandleSlots.pop_back();
+
+    handleSlot->m_Ptr = nullptr;
+    handleSlot->m_Allocated = true;
+    ++handleSlot->m_Generation;
+
+    return handleSlot;
+}
+
+void
+Level::FreeHandleSlot(NodeHandleSlot* handleSlot)
+{
+    if(GG_VERIFYB(handleSlot >= m_HandleSlots.data() && handleSlot <= &m_HandleSlots.back(),
+           "Invalid handle slot"))
+    {
+        if(GG_VERIFYB(handleSlot->m_Allocated, "Handle slot not allocated"))
+        {
+            handleSlot->m_Allocated = false;
+            handleSlot->m_Ptr = nullptr;
+            m_FreeHandleSlots.push_back(handleSlot);
+        }
+    }
 }

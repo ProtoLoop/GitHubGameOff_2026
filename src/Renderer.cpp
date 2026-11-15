@@ -311,7 +311,7 @@ Renderer::Render(const Level& level)
 
     for(const SpriteAnimNode& animNode : animNodes)
     {
-        m_SpriteDrawRecords.emplace_back(&animNode.GetNode(), &animNode.GetCurrentSprite());
+        m_SpriteDrawRecords.emplace_back(animNode.GetNode(), &animNode.GetCurrentSprite());
     }
 
     GG_CHECK(RenderMap(level.GetCellMap(), renderPass), "Failed to render map");

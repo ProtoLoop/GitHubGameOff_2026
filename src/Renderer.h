@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Nodes.h"
 #include "Result.h"
 
 #include <webgpu/webgpu_cpp.h>
@@ -12,7 +13,7 @@ class WebGpu;
 
 struct SpriteDrawRecord
 {
-    const Node2D* Node;
+    NodeHandle<const Node2D> Node;
     const Sprite* Sprite;
 };
 

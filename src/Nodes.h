@@ -7,6 +7,78 @@
 #include <glm/vec2.hpp>
 #include <string_view>
 
+class NodeHandleSlot
+{
+public:
+
+    void* m_Ptr{ nullptr };
+    uint32_t m_Generation{ 0 };
+    bool m_Allocated{ false };
+};
+
+template<typename T>
+class NodeHandle
+{
+public:
+    NodeHandle() = delete;
+
+    T* operator->()
+    {
+        GG_ASSERT(IsValid());
+        return static_cast<T*>(m_Slot->m_Ptr);
+    }
+
+    const T* operator->() const
+    {
+        GG_ASSERT(IsValid());
+        return static_cast<const T*>(m_Slot->m_Ptr);
+    }
+
+    bool IsValid() const
+    {
+        return m_Slot && m_Slot->m_Generation == m_Generation;
+    }
+
+    explicit operator bool() const { return IsValid(); }
+
+    template<typename>
+    friend class NodeHandle;
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    operator NodeHandle<const T>() const
+        requires(!std::is_const_v<T>)
+    {
+        return NodeHandle<const T>(*m_Slot, m_Generation);
+    }
+
+    friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs)
+    {
+        if(lhs.m_Slot != rhs.m_Slot)
+        {
+            return lhs.m_Slot->m_Ptr <=> rhs.m_Slot->m_Ptr;
+        }
+        return lhs.m_Generation <=> rhs.m_Generation;
+    }
+
+private:
+    friend class Level;
+
+    explicit NodeHandle(NodeHandleSlot& slot)
+        : m_Slot(&slot),
+          m_Generation(slot.m_Generation)
+    {
+    }
+
+    NodeHandle(NodeHandleSlot& slot, uint32_t generation)
+        : m_Slot(&slot),
+          m_Generation(generation)
+    {
+    }
+
+    NodeHandleSlot* m_Slot;
+    uint32_t m_Generation;
+};
+
 /// Represents a 2D transform with position and rotation.
 /// Y-up coordinates with compass bearings.
 /// North: 0 degrees, +Y
@@ -48,8 +120,6 @@ public:
     ~Node2D() = default;
     Node2D(const Node2D&) = delete;
     Node2D& operator=(const Node2D&) = delete;
-    Node2D(Node2D&&) = default;
-    Node2D& operator=(Node2D&&) = default;
 
     /// Moves the node to the specified position (x, y).
     Node2D& MoveTo(const float x, const float y)
@@ -102,6 +172,12 @@ public:
     glm::vec2 GetRight() const { return m_Transform.GetRight(); }
 
 private:
+    friend class Level;
+
+    // Only Level can move.
+    Node2D(Node2D&&) = default;
+    Node2D& operator=(Node2D&&) = default;
+
     Transform2D m_Transform;
 };
 
@@ -112,55 +188,55 @@ public:
     /// Moves the node to the specified position (x, y).
     T& MoveTo(const float x, const float y)
     {
-        static_cast<T&>(*this).GetNode().MoveTo(x, y);
+        static_cast<T*>(this)->GetNode()->MoveTo(x, y);
         return static_cast<T&>(*this);
     }
 
     /// Moves the node to the specified position vector.
     T& MoveTo(const glm::vec2& pos)
     {
-        static_cast<T&>(*this).GetNode().MoveTo(pos);
+        static_cast<T*>(this)->GetNode()->MoveTo(pos);
         return static_cast<T&>(*this);
     }
 
     /// Moves the node by the specified delta vector.
     T& MoveBy(const glm::vec2& delta)
     {
-        static_cast<T&>(*this).GetNode().MoveBy(delta);
+        static_cast<T*>(this)->GetNode()->MoveBy(delta);
         return static_cast<T&>(*this);
     }
 
     /// Rotates the node to the specified rotation angle.
     T& RotateTo(const Angle& rot)
     {
-        static_cast<T&>(*this).GetNode().RotateTo(rot);
+        static_cast<T*>(this)->GetNode()->RotateTo(rot);
         return static_cast<T&>(*this);
     }
 
     /// Rotates the node by the specified delta angle.
     T& RotateBy(const Angle& delta)
     {
-        static_cast<T&>(*this).GetNode().RotateBy(delta);
+        static_cast<T*>(this)->GetNode()->RotateBy(delta);
         return static_cast<T&>(*this);
     }
 
     /// Returns the transform of this node.
     const Transform2D& GetTransform() const
     {
-        return static_cast<const T&>(*this).GetNode().GetTransform();
+        return static_cast<const T*>(this)->GetNode()->GetTransform();
     }
 
     /// Returns the position of this node.
-    const glm::vec2& GetPos() const { return static_cast<const T&>(*this).GetNode().GetPos(); }
+    const glm::vec2& GetPos() const { return static_cast<const T*>(this)->GetNode()->GetPos(); }
 
     /// Returns the rotation of this node.
-    const Angle& GetRot() const { return static_cast<const T&>(*this).GetNode().GetRot(); }
+    const Angle& GetRot() const { return static_cast<const T*>(this)->GetNode()->GetRot(); }
 
     /// Returns the forward direction vector of this node.
-    glm::vec2 GetForward() const { return static_cast<const T&>(*this).GetNode().GetForward(); }
+    glm::vec2 GetForward() const { return static_cast<const T*>(this)->GetNode()->GetForward(); }
 
     /// Returns the right direction vector of this node.
-    glm::vec2 GetRight() const { return static_cast<const T&>(*this).GetNode().GetRight(); }
+    glm::vec2 GetRight() const { return static_cast<const T*>(this)->GetNode()->GetRight(); }
 
 private:
     friend T;
@@ -180,14 +256,12 @@ public:
     ~SpriteAnimNode() = default;
     SpriteAnimNode(const SpriteAnimNode&) = delete;
     SpriteAnimNode& operator=(const SpriteAnimNode&) = delete;
-    SpriteAnimNode(SpriteAnimNode&&) = default;
-    SpriteAnimNode& operator=(SpriteAnimNode&&) = default;
-
-    static Result<SpriteAnimNode> Create(Node2D& node, const SpriteAnim::Instance& instance);
-
-    Node2D& GetNode();
-
-    const Node2D& GetNode() const;
+    
+    SpriteAnimNode(NodeHandle<Node2D> node, const SpriteAnim::Instance& instance)
+        : m_Node(node),
+          m_CurAnim(instance)
+    {
+    }
 
     void Play(const SpriteAnim::Instance& instance);
 
@@ -206,13 +280,17 @@ public:
 
     void Tick(const float deltaTime);
 
-private:
-    SpriteAnimNode(Node2D& node, const SpriteAnim::Instance& instance)
-        : m_Node(&node),
-          m_CurAnim(instance)
-    {
-    }
+    NodeHandle<Node2D> GetNode();
 
-    Node2D* m_Node;
+    NodeHandle<const Node2D> GetNode() const;
+
+private:
+    friend class Level;
+
+    // Only Level can move.
+    SpriteAnimNode(SpriteAnimNode&&) = default;
+    SpriteAnimNode& operator=(SpriteAnimNode&&) = default;
+
+    NodeHandle<Node2D> m_Node;
     SpriteAnim::Instance m_CurAnim;
 };

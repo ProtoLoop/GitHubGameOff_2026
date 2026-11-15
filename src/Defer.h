@@ -53,9 +53,6 @@ template<typename F>
     requires std::invocable<F> && std::same_as<std::invoke_result_t<F>, void>
 Defer(F) -> Defer<F>;
 
-#define GG_DEFER_CAT_1(a, b) a##b
-#define GG_DEFER_CAT(a, b) MLG_DEFER_CAT_1(a, b)
-
 class DeferHelper
 {
 public:
