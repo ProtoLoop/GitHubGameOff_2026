@@ -22,6 +22,8 @@ struct ShaderInfo
 const ShaderInfo kSpriteShaderInfo{ .Label = "SpriteShader", .Code = kSpriteShaderCode };
 const ShaderInfo kTileMapShaderInfo{ .Label = "TileMapShader", .Code = kTileMapShaderCode };
 
+constexpr uint32_t kVerticesPerQuad = 6;
+
 constexpr const char* kVertexEntry = "vs_main";
 /// Entry point for the fragment shader when outputting to a non-sRGB framebuffer.
 constexpr const char* kFragmentEntry_non_srgb = "fs_main_non_srgb";
@@ -348,8 +350,7 @@ Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& rende
 
     // Send all the cells.
     const uint32_t instanceCount = cellMap.GetCellCount();
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    renderPass.Draw(6, instanceCount * 3 / 2, 0, 0);
+    renderPass.Draw(kVerticesPerQuad, instanceCount, 0, 0);
 
     return Result<>::Ok;
 }
@@ -416,8 +417,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
     {
         const Sprite* sprite = spriteNode.Sprite;
         renderPass.SetBindGroup(1, sprite->GetTextureBindGroup());
-        // NOLINTNEXTLINE(readability-magic-numbers)
-        renderPass.Draw(6, 1, 0, instanceIndex);
+        renderPass.Draw(kVerticesPerQuad, 1, 0, instanceIndex);
         ++instanceIndex;
     }
 

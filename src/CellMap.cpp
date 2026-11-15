@@ -31,12 +31,7 @@ CellMapLoader::IsPending() const
 Result<>
 CellMapLoader::Update()
 {
-    if(m_TextureLoader.IsPending())
-    {
-        return Result<>::Ok;
-    }
-
-    return Result<>::Ok;
+    return m_TextureLoader.Update();
 }
 
 Result<CellMap>

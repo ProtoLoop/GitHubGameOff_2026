@@ -112,6 +112,20 @@ TextureLoader::IsPending() const
     return false;
 }
 
+Result<>
+TextureLoader::Update()
+{
+    for(const auto& fetchRequest : m_FetchRequests)
+    {
+        if(fetchRequest && fetchRequest->IsPending())
+        {
+            //auto result = fetchRequest->Update();
+            //GG_CHECK(result, "Failed to update fetch request");
+        }
+    }
+    return Result<>::Ok;
+}
+
 Result<wgpu::Texture>
 TextureLoader::Take()
 {

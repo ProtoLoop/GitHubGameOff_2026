@@ -136,7 +136,6 @@ FileFetcher::~FileFetcher()
 }
 
 Result<FetchRequestPtr>
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 FileFetcher::Fetch(const FilePath& path)
 {
     GG_INFO("Fetching: {}", path.c_str());

@@ -54,10 +54,9 @@ SpriteAnimLoader::IsPending() const
 }
 
 Result<>
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 SpriteAnimLoader::Update()
 {
-    return Result<>::Ok;
+    return m_TextureLoader.Update();
 }
 
 Result<SpriteAnim>

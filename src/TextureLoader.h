@@ -35,6 +35,8 @@ public:
 
     bool IsPending() const;
 
+    Result<> Update();
+
     Result<wgpu::Texture> Take();
 
 private:
