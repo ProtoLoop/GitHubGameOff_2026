@@ -143,17 +143,19 @@ Level::GetSpriteAnim(const std::string_view name) const
     return *foundAnim;
 }
 
-Result<SpriteAnimNode&>
-Level::CreateSpriteAnimNode(const std::initializer_list<std::string_view> names)
+Result<SpriteAnim::Instance>
+Level::CreateSpriteAnimInstance(const std::string_view name) const
 {
-    return CreateSpriteAnimNode(std::span<const std::string_view>(names));
+    auto animResult = GetSpriteAnim(name);
+    GG_CHECKB(animResult, "Failed to get sprite anim for {}", name);
+    const auto& anim = *animResult;
+
+    return anim.CreateInstance();
 }
 
 Result<SpriteAnimNode&>
-Level::CreateSpriteAnimNode(const std::span<const std::string_view> animNames)
+Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
 {
-    GG_CHECKB(!animNames.empty(), "No animation names provided");
-
     auto node2dResult = m_Nodes.emplace_back();
     GG_CHECKB(node2dResult, "Failed to create Node2D");
     Node2D& node2d = *node2dResult;
@@ -164,15 +166,7 @@ Level::CreateSpriteAnimNode(const std::span<const std::string_view> animNames)
         m_Nodes.erase_last();
     };
 
-    BoundedVector<SpriteAnim::Instance> instances(animNames.size());
-    for(const std::string_view animName : animNames)
-    {
-        auto instance = CreateSpriteAnimInstance(animName);
-        GG_CHECK(instance, "Failed to create sprite anim instance for {}", animName);
-        GG_CHECK(instances.emplace_back(*instance), "Failed to add sprite anim instance");
-    }
-
-    auto animNodeResult = SpriteAnimNode::Create(node2d, std::move(instances));
+    auto animNodeResult = SpriteAnimNode::Create(node2d, instance);
     GG_CHECKB(animNodeResult, "Failed to create SpriteAnimNode");
 
     auto result = m_SpriteAnimNodes.emplace_back(std::move(*animNodeResult));
@@ -181,16 +175,6 @@ Level::CreateSpriteAnimNode(const std::span<const std::string_view> animNames)
     onFail.cancel();
 
     return *result;
-}
-
-Result<SpriteAnim::Instance>
-Level::CreateSpriteAnimInstance(const std::string_view name) const
-{
-    auto animResult = GetSpriteAnim(name);
-    GG_CHECKB(animResult, "Failed to get sprite anim for {}", name);
-    const auto& anim = *animResult;
-
-    return anim.CreateInstance();
 }
 
 std::span<const SpriteAnimNode>

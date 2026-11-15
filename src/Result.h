@@ -175,3 +175,18 @@ private:
     {                                                                                              \
         return Result<>::Error;                                                                    \
     }
+
+#define GG_TRY(name, expr, ...)                                                                    \
+    auto name = (expr);                                                                            \
+    if(!static_cast<bool>(name))                                                                   \
+    {                                                                                              \
+        __VA_OPT__(GG_ERROR(__VA_ARGS__));                                                         \
+        return Result<>::Error;                                                                    \
+    }
+
+#define GG_TRYB(name, expr, ...)                                                                   \
+    auto name = (expr);                                                                            \
+    if(!GG_VERIFYB(name __VA_OPT__(, ) __VA_ARGS__))                                               \
+    {                                                                                              \
+        return Result<>::Error;                                                                    \
+    }

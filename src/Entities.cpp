@@ -24,13 +24,10 @@ const Angle kIsoAngleOffset(0.125f);
 Result<Caretaker>
 Caretaker::Create(Level& level)
 {
-    constexpr std::string_view animNames[]//
-    {
-        kAnimName_Idle,
-        kAnimName_Run
-    };
+    auto animInstanceResult = level.CreateSpriteAnimInstance(kAnimName_Idle);
+    GG_CHECK(animInstanceResult, "Failed to create sprite animation instance");
 
-    auto animNodeResult = level.CreateSpriteAnimNode(animNames);
+    auto animNodeResult = level.CreateSpriteAnimNode(*animInstanceResult);
     GG_CHECK(animNodeResult, "Failed to create sprite animation node");
 
     animNodeResult->SetPeriod(kAnimPeriod);
@@ -39,7 +36,7 @@ Caretaker::Create(Level& level)
 }
 
 Result<>
-Caretaker::Tick(const float deltaTime, const Input& input, const Level& /*level*/)
+Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
 {
     const float dturn = kTurnsPerSec * deltaTime;
 
@@ -84,7 +81,12 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& /*level*
 
     if(m_AnimNode->WhatsPlaying() != desiredAnimName)
     {
-        GG_CHECKB(m_AnimNode->Play(desiredAnimName), "Failed to play animation: {}", desiredAnimName);
+        GG_TRYB(animInstanceResult,
+            level.CreateSpriteAnimInstance(desiredAnimName),
+            "Failed to create sprite anim instance for {}",
+            desiredAnimName);
+
+        m_AnimNode->Play(*animInstanceResult);
         m_AnimNode->SetPeriod(kAnimPeriod);
     }
 

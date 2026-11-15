@@ -180,17 +180,16 @@ public:
     ~SpriteAnimNode() = default;
     SpriteAnimNode(const SpriteAnimNode&) = delete;
     SpriteAnimNode& operator=(const SpriteAnimNode&) = delete;
-    SpriteAnimNode(SpriteAnimNode&&) = delete;
-    SpriteAnimNode& operator=(SpriteAnimNode&&) = delete;
+    SpriteAnimNode(SpriteAnimNode&&) = default;
+    SpriteAnimNode& operator=(SpriteAnimNode&&) = default;
 
-    static Result<SpriteAnimNode> Create(Node2D& node,
-        BoundedVector<SpriteAnim::Instance>&& animInstances);
+    static Result<SpriteAnimNode> Create(Node2D& node, const SpriteAnim::Instance& instance);
 
     Node2D& GetNode();
 
     const Node2D& GetNode() const;
 
-    Result<> Play(const std::string_view& animName);
+    void Play(const SpriteAnim::Instance& instance);
 
     std::string_view WhatsPlaying() const;
 
@@ -208,14 +207,12 @@ public:
     void Tick(const float deltaTime);
 
 private:
-    SpriteAnimNode(Node2D& node, BoundedVector<SpriteAnim::Instance>&& animInstances)
+    SpriteAnimNode(Node2D& node, const SpriteAnim::Instance& instance)
         : m_Node(&node),
-          m_AnimInstances(std::move(animInstances))
-
+          m_CurAnim(instance)
     {
     }
 
     Node2D* m_Node;
-    BoundedVector<SpriteAnim::Instance> m_AnimInstances;
-    size_t m_CurAnimIndex{ 0 };
+    SpriteAnim::Instance m_CurAnim;
 };

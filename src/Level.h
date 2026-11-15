@@ -4,7 +4,6 @@
 #include "Nodes.h"
 #include "Sprite.h"
 
-#include <initializer_list>
 #include <span>
 #include <string_view>
 
@@ -65,11 +64,9 @@ public:
 
     Result<const SpriteAnim&> GetSpriteAnim(const std::string_view name) const;
 
-    Result<SpriteAnimNode&> CreateSpriteAnimNode(const std::initializer_list<std::string_view> names);
-
-    Result<SpriteAnimNode&> CreateSpriteAnimNode(const std::span<const std::string_view> animNames);
-
     Result<SpriteAnim::Instance> CreateSpriteAnimInstance(const std::string_view name) const;
+
+    Result<SpriteAnimNode&> CreateSpriteAnimNode(const SpriteAnim::Instance& instance);
 
     std::span<const SpriteAnimNode> GetSpriteAnimNodes() const;
 
