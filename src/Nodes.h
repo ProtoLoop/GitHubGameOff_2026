@@ -17,10 +17,19 @@ public:
 };
 
 template<typename T>
-class NodeHandle
+class OwnedNodeHandle;
+
+/// A handle that provides temporary, non-owning access to a node of type T.
+template<typename T>
+class BorrowedNodeHandle
 {
 public:
-    NodeHandle() = delete;
+    BorrowedNodeHandle() = delete;
+    ~BorrowedNodeHandle() = default;
+    BorrowedNodeHandle(const BorrowedNodeHandle&) = default;
+    BorrowedNodeHandle& operator=(const BorrowedNodeHandle&) = default;
+    BorrowedNodeHandle(BorrowedNodeHandle&&) = default;
+    BorrowedNodeHandle& operator=(BorrowedNodeHandle&&) = default;
 
     T* operator->()
     {
@@ -42,16 +51,16 @@ public:
     explicit operator bool() const { return IsValid(); }
 
     template<typename>
-    friend class NodeHandle;
+    friend class BorrowedNodeHandle;
 
     // NOLINTNEXTLINE(google-explicit-constructor)
-    operator NodeHandle<const T>() const
+    operator BorrowedNodeHandle<const T>() const
         requires(!std::is_const_v<T>)
     {
-        return NodeHandle<const T>(*m_Slot, m_Generation);
+        return BorrowedNodeHandle<const T>(*m_Slot, m_Generation);
     }
 
-    friend auto operator<=>(const NodeHandle& lhs, const NodeHandle& rhs)
+    friend auto operator<=>(const BorrowedNodeHandle& lhs, const BorrowedNodeHandle& rhs)
     {
         if(lhs.m_Slot != rhs.m_Slot)
         {
@@ -61,15 +70,107 @@ public:
     }
 
 private:
+    friend OwnedNodeHandle<T>;
+
+    BorrowedNodeHandle(NodeHandleSlot& slot, uint32_t generation)
+        : m_Slot(&slot),
+          m_Generation(generation)
+    {
+    }
+
+    NodeHandleSlot* m_Slot;
+    uint32_t m_Generation;
+};
+
+/// A handle that owns a node of type T and manages its lifetime.
+/// The handle must be explicitly destroyed or moved before the destructor is called.
+template<typename T>
+class OwnedNodeHandle
+{
+public:
+    OwnedNodeHandle() = delete;
+    ~OwnedNodeHandle()
+    {
+        GG_ASSERT(!m_Slot || (!m_Slot->m_Allocated && !m_Slot->m_Ptr),
+            "Attempt to destroy an active OwnedNodeHandle - this will leak a slot, a node, or both");
+    }
+    OwnedNodeHandle(const OwnedNodeHandle&) = delete;
+    OwnedNodeHandle& operator=(const OwnedNodeHandle&) = delete;
+    OwnedNodeHandle(OwnedNodeHandle&& other) noexcept
+        : m_Slot(other.m_Slot),
+          m_Generation(other.m_Generation)
+    {
+        other.m_Slot = nullptr;
+        other.m_Generation = 0;
+    }
+
+    BorrowedNodeHandle<T> Borrow() const
+    {
+        GG_ASSERT(IsValid());
+        return BorrowedNodeHandle<T>(*m_Slot, m_Generation);
+    }
+
+    OwnedNodeHandle& operator=(OwnedNodeHandle&&other) noexcept
+    {
+        if(this != &other)
+        {
+            GG_ASSERT(!m_Slot || (!m_Slot->m_Allocated && !m_Slot->m_Ptr),
+                "Attempt to move to an active OwnedNodeHandle - this will leak a slot, a node, or both");
+
+            m_Slot = other.m_Slot;
+            m_Generation = other.m_Generation;
+            other.m_Slot = nullptr;
+            other.m_Generation = 0;
+        }
+        return *this;
+    }
+
+    T* operator->()
+    {
+        GG_ASSERT(IsValid());
+        return static_cast<T*>(m_Slot->m_Ptr);
+    }
+
+    const T* operator->() const
+    {
+        GG_ASSERT(IsValid());
+        return static_cast<const T*>(m_Slot->m_Ptr);
+    }
+
+    bool IsValid() const
+    {
+        return m_Slot && m_Slot->m_Generation == m_Generation;
+    }
+
+    explicit operator bool() const { return IsValid(); }
+
+    friend auto operator<=>(const OwnedNodeHandle& lhs, const OwnedNodeHandle& rhs)
+    {
+        if(lhs.m_Slot != rhs.m_Slot)
+        {
+            if(!lhs.m_Slot)
+            {
+                return std::strong_ordering::less;
+            }
+            if(!rhs.m_Slot)
+            {
+                return std::strong_ordering::greater;
+            }
+            return lhs.m_Slot->m_Ptr <=> rhs.m_Slot->m_Ptr;
+        }
+        return lhs.m_Generation <=> rhs.m_Generation;
+    }
+
+private:
     friend class Level;
 
-    explicit NodeHandle(NodeHandleSlot& slot)
+    explicit OwnedNodeHandle(NodeHandleSlot& slot)
         : m_Slot(&slot),
           m_Generation(slot.m_Generation)
     {
     }
 
-    NodeHandle(NodeHandleSlot& slot, uint32_t generation)
+    OwnedNodeHandle(NodeHandleSlot& slot, uint32_t generation)
         : m_Slot(&slot),
           m_Generation(generation)
     {
@@ -257,7 +358,7 @@ public:
     SpriteAnimNode(const SpriteAnimNode&) = delete;
     SpriteAnimNode& operator=(const SpriteAnimNode&) = delete;
     
-    SpriteAnimNode(NodeHandle<Node2D> node, const SpriteAnim::Instance& instance)
+    SpriteAnimNode(BorrowedNodeHandle<Node2D> node, const SpriteAnim::Instance& instance)
         : m_Node(node),
           m_CurAnim(instance)
     {
@@ -280,9 +381,9 @@ public:
 
     void Tick(const float deltaTime);
 
-    NodeHandle<Node2D> GetNode();
+    BorrowedNodeHandle<Node2D> GetNode();
 
-    NodeHandle<const Node2D> GetNode() const;
+    BorrowedNodeHandle<const Node2D> GetNode() const;
 
 private:
     friend class Level;
@@ -291,6 +392,6 @@ private:
     SpriteAnimNode(SpriteAnimNode&&) = default;
     SpriteAnimNode& operator=(SpriteAnimNode&&) = default;
 
-    NodeHandle<Node2D> m_Node;
+    BorrowedNodeHandle<Node2D> m_Node;
     SpriteAnim::Instance m_CurAnim;
 };

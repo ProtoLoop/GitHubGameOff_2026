@@ -34,6 +34,19 @@ releasing their targets or leave those targets with an owner that outlives
 the callbacks. Borrowed dependencies must outlive all work and resources that
 use them.
 
+## Owned and borrowed handles
+
+An owned handle carries responsibility for releasing a node. Moving it
+transfers that responsibility. A borrowed handle provides access without
+responsibility for release.
+
+Nodes are released explicitly through `Level`. Destroying an owned handle
+without first releasing or transferring ownership is a programming error.
+Borrowed handles must not be used after the node is released.
+
+See the handle types in [Nodes.h](../../src/Nodes.h) and the
+[ownership decision](decisions.md#game-entities-and-level-owned-node-storage).
+
 ## Valid Construction
 
 An object should be valid and ready to use after it is constructed. Delete the

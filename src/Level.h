@@ -67,14 +67,14 @@ public:
 
     Result<SpriteAnim::Instance> CreateSpriteAnimInstance(const std::string_view name) const;
 
-    Result<NodeHandle<Node2D>> CreateNode2D();
+    Result<OwnedNodeHandle<Node2D>> CreateNode2D();
 
-    void DestroyNode2D(NodeHandle<Node2D>& handle);
+    void DestroyNode2D(OwnedNodeHandle<Node2D>& handle);
 
-    Result<NodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(NodeHandle<Node2D> node2D,
+    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(BorrowedNodeHandle<Node2D> node2D,
         const SpriteAnim::Instance& instance);
 
-    void DestroySpriteAnimNode(NodeHandle<SpriteAnimNode>& handle);
+    void DestroySpriteAnimNode(OwnedNodeHandle<SpriteAnimNode>& handle);
 
     std::span<const SpriteAnimNode> GetSpriteAnimNodes() const;
 
@@ -85,7 +85,7 @@ private:
     Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims);
 
     template<typename T>
-    void DestroyNode(BoundedVector<T>& nodes, NodeHandle<T>& handle)
+    void DestroyNode(BoundedVector<T>& nodes, OwnedNodeHandle<T>& handle)
     {
         if(!GG_VERIFYB(handle.m_Slot, "Invalid handle slot"))
         {
@@ -130,6 +130,9 @@ private:
         nodes.pop_back();
 
         FreeHandleSlot(handle.m_Slot);
+
+        handle.m_Slot = nullptr;
+        handle.m_Generation = 0;
     }
 
     Result<NodeHandleSlot*> AllocateHandleSlot();

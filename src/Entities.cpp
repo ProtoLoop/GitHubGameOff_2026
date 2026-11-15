@@ -22,32 +22,16 @@ const Angle kIsoAngleOffset(0.125f);
 
 } // namespace
 
-Caretaker::Caretaker(NodeHandle<Node2D> node2D, NodeHandle<SpriteAnimNode> animNode)
-    : m_Node2D(node2D)
-    , m_AnimNode(animNode)
+Caretaker::Caretaker(OwnedNodeHandle<Node2D>&& node2D, OwnedNodeHandle<SpriteAnimNode>&& animNode)
+    : m_Node2D(std::move(node2D))
+    , m_AnimNode(std::move(animNode))
 {
     m_AnimNode->SetPeriod(kAnimPeriod);
 }
 
-Result<Caretaker>
-Caretaker::Create(Level& level)
+Caretaker::~Caretaker()
 {
-    auto animInstanceResult = level.CreateSpriteAnimInstance(kAnimName_Idle);
-    GG_CHECK(animInstanceResult, "Failed to create sprite animation instance");
-
-    GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
-    auto onFail = GG_DEFER
-    {
-        level.DestroyNode2D(node2D);
-    };
-
-    GG_TRYB(animNode,
-        level.CreateSpriteAnimNode(node2D, *animInstanceResult),
-        "Failed to create sprite animation node");
-
-    onFail.cancel();
-
-    return Caretaker(node2D, animNode);
+    GG_ASSERT(!m_Node2D && !m_AnimNode, "Forgot to call Destroy()?");
 }
 
 Result<>
@@ -108,4 +92,36 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
     m_AnimNode->FaceDirection(GetRot() + kIsoAngleOffset);
 
     return Result<>::Ok;
+}
+
+// private:
+
+Result<Caretaker>
+Caretaker::Create(Level& level)
+{
+    GG_TRY(animInstance,
+        level.CreateSpriteAnimInstance(kAnimName_Idle),
+        "Failed to create sprite anim instance for {}",
+        kAnimName_Idle);
+
+    GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
+    auto onFail = GG_DEFER
+    {
+        level.DestroyNode2D(node2D);
+    };
+
+    GG_TRYB(animNode,
+        level.CreateSpriteAnimNode(node2D.Borrow(), animInstance),
+        "Failed to create sprite animation node");
+
+    onFail.cancel();
+
+    return Caretaker(std::move(node2D), std::move(animNode));
+}
+
+void 
+Caretaker::Destroy(Level& level)
+{
+    level.DestroySpriteAnimNode(m_AnimNode);
+    level.DestroyNode2D(m_Node2D);
 }

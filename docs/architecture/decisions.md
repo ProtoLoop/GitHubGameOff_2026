@@ -273,3 +273,34 @@ mutating the document. This follows
 The authoritative algorithms and reference values are in
 [File formats](../../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection).
 See [Coverage masks](../COVERAGE_MASKS.md) for the relationship between the grids.
+
+## Game entities and level-owned node storage
+
+Date: 2026-11-15. Status: Accepted.
+
+Entities need to create and release nodes, while the level keeps node storage
+and shared resources together for animation and rendering. `Level` should not
+depend on game-specific entity types. Entities also should not retain a
+`Level*` that could become invalid when the level moves.
+
+`Game` owns the level, renderer, and gameplay entities. Entities hold owned
+handles for nodes they must release. Other components use borrowed handles
+when they need access without responsibility for release. `Level` manages
+storage and performs node creation and destruction. It does not own the
+gameplay entities.
+
+Release is explicit through `Level`. `Game` supplies its level when releasing
+entities' nodes and destroys its entities before destroying the level. Owned
+handles transfer release responsibility when moved and diagnose missing
+release when destroyed. Their destructors do not release nodes automatically.
+
+We considered storing a level reference in each entity for automatic cleanup,
+but that would require a stable level address. Making the level own gameplay
+entities would instead require it to support game-specific types through an
+interface or type-erased storage. Keeping that ownership in `Game` avoids both
+requirements, at the cost of explicit cleanup and a required destruction order.
+
+This follows [clear responsibility](principles.md#make-it-clear-who-is-responsible)
+and the [owned and borrowed handles pattern](patterns.md#owned-and-borrowed-handles).
+See [Game](../../src/Game.h), [Level](../../src/Level.h), and the
+[runtime boundary](../development.md#runtime-boundary).

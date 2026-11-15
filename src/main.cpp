@@ -2,13 +2,12 @@
 
 #include "CellMap.h"
 #include "Defer.h"
-#include "Entities.h"
+#include "Game.h"
 #include "Input.h"
 #include "Level.h"
 #include "LevelFetcher.h"
 #include "Renderer.h"
 #include "Sprite.h"
-#include "TextureLoader.h"
 #include "WebGpu.h"
 
 #include <cstdint>
@@ -122,7 +121,7 @@ const CellMapDef kCellMapDef //
         },
     };
 
-struct Game
+struct App
 {
     static constexpr const char* const kWindowTitle = "GraveyardShift";
     static constexpr int kWindowWidth = 800;
@@ -140,13 +139,13 @@ struct Game
     /// Number of tiles along each axis in of a tile sheet.
     static constexpr uint32_t kSheetTilesPerSide = 1;
 
-    Game() = default;
-    Game(const Game&) = delete;
-    Game& operator=(const Game&) = delete;
-    Game(Game&&) = delete;
-    Game& operator=(Game&&) = delete;
+    App() = default;
+    App(const App&) = delete;
+    App& operator=(const App&) = delete;
+    App(App&&) = delete;
+    App& operator=(App&&) = delete;
 
-    ~Game()
+    ~App()
     {
         // Release resources.
         m_State = EndState{};
@@ -176,30 +175,39 @@ struct Game
 
     SDL_Window* Window = nullptr;
     WebGpu WebGpu;
-    FileFetcher FileFetcher;
     Input Input;
 
     struct LoadingState
     {
+        LoadingState(const std::string_view levelPath,
+            std::unique_ptr<Renderer> renderer,
+            class WebGpu& webGpu)
+            : Renderer(std::move(renderer)),
+              LevelFetcher(LevelFetcher::Fetch(levelPath, FileFetcher)),
+              LevelLoader(
+                  LevelLoader::Load(kCtSpriteAnimDefs, kCellMapDef, FileFetcher, *Renderer, webGpu))
+        {
+            GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
+            GG_ASSERT(LevelLoader, "Failed to initialize level loader");
+        }
+
+        class FileFetcher FileFetcher;
         std::unique_ptr<Renderer> Renderer;
         Result<LevelFetcher> LevelFetcher;
-        LevelLoader LevelLoader;
+        Result<LevelLoader> LevelLoader;
 
         Result<> Update()
         {
+            GG_CHECKB(LevelFetcher, "Level fetcher not initialized");
+            GG_CHECKB(LevelLoader, "Level loader not initialized");
+
             GG_CHECK(LevelFetcher->Update(), "Failed to update level fetcher");
-            GG_CHECK(LevelLoader.Update(), "Failed to update level loader");
+            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
 
             return Result<>::Ok;
         }
 
-        bool IsPending() const { return LevelFetcher->IsPending() || LevelLoader.IsPending(); }
-    };
-
-    struct RunState
-    {
-        std::unique_ptr<Renderer> Renderer;
-        Level Level;
+        bool IsPending() const { return LevelFetcher->IsPending() || LevelLoader->IsPending(); }
     };
 
     struct FailedState
@@ -210,15 +218,14 @@ struct Game
     {
     };
 
-    std::variant<FailedState, LoadingState, RunState, EndState> m_State;
-
-    std::optional<Caretaker> Caretaker0;
+    std::variant<FailedState, LoadingState, Game, EndState> m_State;
 
     Stage m_Stage = Stage::None;
+
+    static std::optional<App> m_App;
 };
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::optional<Game> g_Game;
+std::optional<App> App::m_App;
 
 [[maybe_unused]] float
 TurnsToRadians(uint32_t turns)
@@ -230,7 +237,7 @@ TurnsToRadians(uint32_t turns)
 }
 
 Result<>
-Game::Update()
+App::Update()
 {
     // If we exit due to error then set the stage to Stopped.
     auto stopRunning = GG_DEFER
@@ -276,19 +283,7 @@ Game::Update()
 
             std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
 
-            auto levelFetcherResult = LevelFetcher::Fetch("/assets/sample/level.json", FileFetcher);
-            GG_CHECKB(levelFetcherResult, "Failed to start loading level");
-
-            auto levelLoaderResult =
-                LevelLoader::Load(kCtSpriteAnimDefs, kCellMapDef, FileFetcher, *renderer, WebGpu);
-            GG_CHECKB(levelLoaderResult, "Failed to start loading level");
-
-            m_State = LoadingState //
-                {
-                    .Renderer = std::move(renderer),
-                    .LevelFetcher = std::move(levelFetcherResult),
-                    .LevelLoader = std::move(*levelLoaderResult),
-                };
+            m_State.emplace<LoadingState>("/assets/sample/level.json", std::move(renderer), WebGpu);
 
             m_Stage = Stage::Loading;
         }
@@ -309,26 +304,23 @@ Game::Update()
         {
             auto& oldState = std::get<LoadingState>(m_State);
 
-            auto levelResult = oldState.LevelLoader.Take();
+            auto levelResult = oldState.LevelLoader->Take();
             GG_CHECKB(levelResult, "Failed to load level");
 
-            m_State = RunState //
-                {
-                    .Renderer = std::move(oldState.Renderer),
-                    .Level = std::move(*levelResult),
-                };
+            // Save the renderer prior to destroying the old state
+            std::unique_ptr<Renderer> renderer = std::move(oldState.Renderer);
 
-            auto& newState = std::get<RunState>(m_State);
+            m_State.emplace<Game>(Input, std::move(*levelResult), std::move(renderer));
 
-            auto caretakerResult = Caretaker::Create(newState.Level);
-            GG_CHECKB(caretakerResult, "Failed to create caretaker");
-            Caretaker0 = std::move(*caretakerResult);
+            auto& game = std::get<Game>(m_State);
+
+            GG_CHECKB(game.Begin(), "Failed to begin game");
 
             m_Stage = Stage::Running;
         }
         break;
         case Stage::Running:
-            GG_CHECK(Run(), "Failed to run game");
+            GG_CHECK(Run(), "Failed to run app");
             break;
 
         case Stage::Stopped:
@@ -341,26 +333,22 @@ Game::Update()
 }
 
 Result<>
-Game::Run()
+App::Run()
 {
     static uint64_t ms = SDL_GetTicks();
 
-    auto& state = std::get<RunState>(m_State);
+    auto& game = std::get<Game>(m_State);
 
     const uint64_t curMs = SDL_GetTicks();
     const uint64_t deltaMs = curMs - ms;
     ms = curMs;
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
 
-    GG_CHECKB(Caretaker0->Tick(deltaSec, Input, state.Level));
-
-    state.Level.Tick(deltaSec);
+    GG_CHECKB(game.Tick(deltaSec), "Failed to tick game");
 
     Input.Reset();
 
-    state.Renderer->SetView(Caretaker0->GetPos().x, Caretaker0->GetPos().y);
-
-    GG_CHECKB(state.Renderer->Render(state.Level), "Failed to render level");
+    GG_CHECKB(game.GetRenderer().Render(game.GetLevel()), "Failed to render level");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 
@@ -381,36 +369,34 @@ SDL_AppInit(void** appstate, int, char**)
         return SDL_APP_FAILURE;
     }
 
-    g_Game.emplace();
+    App::m_App.emplace();
 
-    Game& game = *g_Game;
-
-    game.Window = SDL_CreateWindow(Game::kWindowTitle,
-        Game::kWindowWidth,
-        Game::kWindowHeight,
+    App::m_App->Window = SDL_CreateWindow(App::kWindowTitle,
+        App::kWindowWidth,
+        App::kWindowHeight,
         SDL_WINDOW_RESIZABLE);
 
-    if(!GG_VERIFYB(game.Window))
+    if(!GG_VERIFYB(App::m_App->Window))
     {
         GG_ERROR("Window creation failed: {}", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    if(!game.WebGpu.Start(game.Window))
+    if(!App::m_App->WebGpu.Start(App::m_App->Window))
     {
         return SDL_APP_FAILURE;
     }
 
-    game.m_Stage = Game::Stage::InitializingWebGpu;
+    App::m_App->m_Stage = App::Stage::InitializingWebGpu;
 
-    *appstate = &game;
+    *appstate = &App::m_App.value();
     return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult
 SDL_AppEvent(void* appstate, SDL_Event* event)
 {
-    Game& game = *static_cast<Game*>(appstate);
+    App& game = *static_cast<App*>(appstate);
     switch(event->type)
     {
         case SDL_EVENT_QUIT:
@@ -432,14 +418,14 @@ SDL_AppEvent(void* appstate, SDL_Event* event)
 SDL_AppResult
 SDL_AppIterate(void* appstate)
 {
-    Game& game = *static_cast<Game*>(appstate);
+    App& app = *static_cast<App*>(appstate);
 
-    if(!game.Update())
+    if(!app.Update())
     {
         return SDL_APP_FAILURE;
     }
 
-    if(game.IsStopped())
+    if(app.IsStopped())
     {
         return SDL_APP_SUCCESS;
     }
@@ -451,6 +437,6 @@ void
 SDL_AppQuit(void* /*appstate*/, SDL_AppResult)
 {
     // Destroy the renderer and window before shutting down SDL, including on failure.
-    g_Game.reset();
+    App::m_App.reset();
     // SDL calls SDL_Quit after this callback returns.
 }

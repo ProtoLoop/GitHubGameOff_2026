@@ -131,7 +131,14 @@ public:
     Result& operator=(Result&&) = default;
 
     // NOLINTNEXTLINE(google-explicit-constructor)
-    Result(T value)
+    Result(const T& value)
+        requires std::is_copy_constructible_v<T>
+        : m_Value(std::in_place, value)
+    {
+    }
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    Result(T&& value)
         : m_Value(std::in_place, std::move(value))
     {
     }

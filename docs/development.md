@@ -18,9 +18,6 @@ and rendering rules.
 C++ bootstrap for GitHub Game Off 2026. The current targets are macOS and
 the browser through Emscripten. Windows and Linux support is planned.
 
-The smoke test opens a resizable window and renders an animated sprite against a
-black background. Close the native window or press Escape to quit.
-
 ## Daily workflow
 
 After completing the [setup](#prerequisites), use VS Code's Command Palette:
@@ -387,8 +384,17 @@ in VS Code while the game runs in Chrome. See
 ## Runtime boundary
 
 SDL handles windows, input, and application callbacks on native and browser
-targets. WebGPU handles rendering and presentation. The app initializes WebGPU
-asynchronously before loading assets.
+targets. WebGPU handles rendering and presentation. `App` manages the SDL
+lifecycle, initializes WebGPU asynchronously, and advances loading before
+starting `Game`.
+
+`Game` owns the running level, renderer, and gameplay entities. Entities own
+nodes and release them through `Level`. During shutdown, `Game` releases its
+entities' nodes before destroying the entities and the level. `App` then
+destroys the window before SDL shuts down.
+
+The ownership choice is recorded in
+[Game entities and level-owned node storage](architecture/decisions.md#game-entities-and-level-owned-node-storage).
 
 Rendering uses an 800×600 logical canvas, scaled to fit the window while
 preserving its aspect ratio. Unused space forms black borders.

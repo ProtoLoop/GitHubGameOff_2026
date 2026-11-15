@@ -165,7 +165,7 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
     return anim.CreateInstance();
 }
 
-Result<NodeHandle<Node2D>>
+Result<OwnedNodeHandle<Node2D>>
 Level::CreateNode2D()
 {
     auto node2dResult = m_Nodes.emplace_back();
@@ -187,17 +187,17 @@ Level::CreateNode2D()
 
     handleSlot->m_Ptr = &node2d;
 
-    return NodeHandle<Node2D>(*handleSlot);
+    return OwnedNodeHandle<Node2D>(*handleSlot);
 }
 
 void
-Level::DestroyNode2D(NodeHandle<Node2D>& handle)
+Level::DestroyNode2D(OwnedNodeHandle<Node2D>& handle)
 {
     DestroyNode(m_Nodes, handle);
 }
 
-Result<NodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(NodeHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
+Result<OwnedNodeHandle<SpriteAnimNode>>
+Level::CreateSpriteAnimNode(BorrowedNodeHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
 {
     GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
 
@@ -215,11 +215,11 @@ Level::CreateSpriteAnimNode(NodeHandle<Node2D> node2D, const SpriteAnim::Instanc
 
     slot->m_Ptr = &animNode;
 
-    return NodeHandle<SpriteAnimNode>(*slot);
+    return OwnedNodeHandle<SpriteAnimNode>(*slot);
 }
 
 void
-Level::DestroySpriteAnimNode(NodeHandle<SpriteAnimNode>& handle)
+Level::DestroySpriteAnimNode(OwnedNodeHandle<SpriteAnimNode>& handle)
 {
     DestroyNode(m_SpriteAnimNodes, handle);
 }

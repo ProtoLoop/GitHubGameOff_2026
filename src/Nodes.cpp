@@ -51,13 +51,13 @@ SpriteAnimNode::Tick(const float deltaTime)
     m_CurAnim.Tick(deltaTime);
 }
 
-NodeHandle<Node2D>
+BorrowedNodeHandle<Node2D>
 SpriteAnimNode::GetNode()
 {
     return m_Node;
 }
 
-NodeHandle<const Node2D>
+BorrowedNodeHandle<const Node2D>
 SpriteAnimNode::GetNode() const
 {
     return m_Node;
