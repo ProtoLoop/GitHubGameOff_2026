@@ -1,11 +1,11 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
-#include "Angle.h"
 #include "CellMap.h"
 #include "Defer.h"
+#include "Entities.h"
 #include "Input.h"
 #include "Level.h"
-#include "LevelLoader.h"
+#include "LevelFetcher.h"
 #include "Renderer.h"
 #include "Sprite.h"
 #include "TextureLoader.h"
@@ -21,57 +21,90 @@
 
 namespace
 {
-constexpr const ResourceName kHeroIdleAnim = "HeroIdle";
-constexpr const ResourceName kHeroRunAnim = "HeroRun";
+constexpr const ResourceName kCtAnimName_Idle = "CtIdle";
+constexpr const ResourceName kCtAnimName_Run = "CtRun";
+constexpr const ResourceName kCtAnimName_Walk = "CtWalk";
 
-const SpriteAnimDef kHeroIdleAnimDef //
+const SpriteAnimDef kCtAnimDef_Idle //
     {
-        .Name = kHeroIdleAnim,
+        .Name = kCtAnimName_Idle,
         .Dim{ .w = 180, .h = 180 },
         .Textures //
         {
-            "/assets/HeroAnims/Idle/Idle_Body_337.png",
-            "/assets/HeroAnims/Idle/Idle_Body_000.png",
-            "/assets/HeroAnims/Idle/Idle_Body_022.png",
-            "/assets/HeroAnims/Idle/Idle_Body_045.png",
-            "/assets/HeroAnims/Idle/Idle_Body_067.png",
-            "/assets/HeroAnims/Idle/Idle_Body_090.png",
-            "/assets/HeroAnims/Idle/Idle_Body_112.png",
-            "/assets/HeroAnims/Idle/Idle_Body_135.png",
-            "/assets/HeroAnims/Idle/Idle_Body_157.png",
-            "/assets/HeroAnims/Idle/Idle_Body_180.png",
-            "/assets/HeroAnims/Idle/Idle_Body_202.png",
-            "/assets/HeroAnims/Idle/Idle_Body_225.png",
-            "/assets/HeroAnims/Idle/Idle_Body_247.png",
-            "/assets/HeroAnims/Idle/Idle_Body_270.png",
-            "/assets/HeroAnims/Idle/Idle_Body_292.png",
-            "/assets/HeroAnims/Idle/Idle_Body_315.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_337.png", // 337 actually points north
+            "/assets/Anims/Caretaker/Idle/Idle_Body_000.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_022.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_045.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_067.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_090.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_112.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_135.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_157.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_180.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_202.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_225.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_247.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_270.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_292.png",
+            "/assets/Anims/Caretaker/Idle/Idle_Body_315.png",
         },
     };
 
-const SpriteAnimDef kHeroRunAnimDef //
+const SpriteAnimDef kCtAnimDef_Walk //
     {
-        .Name = kHeroRunAnim,
+        .Name = kCtAnimName_Walk,
         .Dim{ .w = 180, .h = 180 },
         .Textures //
         {
-            "/assets/HeroAnims/Run/Run_Body_000.png",
-            "/assets/HeroAnims/Run/Run_Body_022.png",
-            "/assets/HeroAnims/Run/Run_Body_045.png",
-            "/assets/HeroAnims/Run/Run_Body_067.png",
-            "/assets/HeroAnims/Run/Run_Body_090.png",
-            "/assets/HeroAnims/Run/Run_Body_112.png",
-            "/assets/HeroAnims/Run/Run_Body_135.png",
-            "/assets/HeroAnims/Run/Run_Body_157.png",
-            "/assets/HeroAnims/Run/Run_Body_180.png",
-            "/assets/HeroAnims/Run/Run_Body_202.png",
-            "/assets/HeroAnims/Run/Run_Body_225.png",
-            "/assets/HeroAnims/Run/Run_Body_247.png",
-            "/assets/HeroAnims/Run/Run_Body_270.png",
-            "/assets/HeroAnims/Run/Run_Body_292.png",
-            "/assets/HeroAnims/Run/Run_Body_315.png",
-            "/assets/HeroAnims/Run/Run_Body_337.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_000.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_022.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_045.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_067.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_090.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_112.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_135.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_157.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_180.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_202.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_225.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_247.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_270.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_292.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_315.png",
+            "/assets/Anims/Caretaker/Walk/Walk_Body_337.png",
         },
+    };
+
+const SpriteAnimDef kCtAnimDef_Run //
+    {
+        .Name = kCtAnimName_Run,
+        .Dim{ .w = 180, .h = 180 },
+        .Textures //
+        {
+            "/assets/Anims/Caretaker/Run/Run_Body_000.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_022.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_045.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_067.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_090.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_112.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_135.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_157.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_180.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_202.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_225.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_247.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_270.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_292.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_315.png",
+            "/assets/Anims/Caretaker/Run/Run_Body_337.png",
+        },
+    };
+
+const SpriteAnimDef kCtSpriteAnimDefs[] //
+    {
+        kCtAnimDef_Idle,
+        kCtAnimDef_Walk,
+        kCtAnimDef_Run,
     };
 
 /// Number of cells along each axis of the cell map.
@@ -149,18 +182,18 @@ struct Game
     struct LoadingState
     {
         std::unique_ptr<Renderer> Renderer;
-        Result<LevelLoader> LevelLoader;
-        Level Level;
+        Result<LevelFetcher> LevelFetcher;
+        LevelLoader LevelLoader;
 
         Result<> Update()
         {
-            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
-            GG_CHECK(Level.Update(), "Failed to update level");
+            GG_CHECK(LevelFetcher->Update(), "Failed to update level fetcher");
+            GG_CHECK(LevelLoader.Update(), "Failed to update level loader");
 
             return Result<>::Ok;
         }
 
-        bool IsPending() const { return LevelLoader->IsPending() || Level.IsPending(); }
+        bool IsPending() const { return LevelFetcher->IsPending() || LevelLoader.IsPending(); }
     };
 
     struct RunState
@@ -179,10 +212,8 @@ struct Game
 
     std::variant<FailedState, LoadingState, RunState, EndState> m_State;
 
-    float PlayerX{ 0 };
-    float PlayerY{ 0 };
+    std::optional<Caretaker> Caretaker0;
 
-    Angle PlayerRot;
     Stage m_Stage = Stage::None;
 };
 
@@ -245,25 +276,19 @@ Game::Update()
 
             std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
 
-            auto levelLoaderResult = LevelLoader::Load("/assets/sample/level.json", FileFetcher);
+            auto levelFetcherResult = LevelFetcher::Fetch("/assets/sample/level.json", FileFetcher);
+            GG_CHECKB(levelFetcherResult, "Failed to start loading level");
+
+            auto levelLoaderResult =
+                LevelLoader::Load(kCtSpriteAnimDefs, kCellMapDef, FileFetcher, *renderer, WebGpu);
             GG_CHECKB(levelLoaderResult, "Failed to start loading level");
 
-            const SpriteAnimDef spriteAnimDefs[]//
-            {
-                kHeroIdleAnimDef,
-                kHeroRunAnimDef
-            };
-
-            auto levelResult =
-                Level::Load(spriteAnimDefs, kCellMapDef, FileFetcher, *renderer, WebGpu);
-            GG_CHECKB(levelResult, "Failed to start loading level");
-
-            m_State = LoadingState//
-            {
-                .Renderer = std::move(renderer),
-                .LevelLoader = std::move(levelLoaderResult),
-                .Level = std::move(*levelResult)
-            };
+            m_State = LoadingState //
+                {
+                    .Renderer = std::move(renderer),
+                    .LevelFetcher = std::move(levelFetcherResult),
+                    .LevelLoader = std::move(*levelLoaderResult),
+                };
 
             m_Stage = Stage::Loading;
         }
@@ -273,6 +298,7 @@ Game::Update()
             auto& state = std::get<LoadingState>(m_State);
 
             GG_CHECK(state.Update(), "Failed to update loading state");
+
             if(!state.IsPending())
             {
                 m_Stage = Stage::Loaded;
@@ -281,13 +307,22 @@ Game::Update()
         break;
         case Stage::Loaded:
         {
-            auto& state = std::get<LoadingState>(m_State);
+            auto& oldState = std::get<LoadingState>(m_State);
+
+            auto levelResult = oldState.LevelLoader.Take();
+            GG_CHECKB(levelResult, "Failed to load level");
 
             m_State = RunState //
                 {
-                    .Renderer = std::move(state.Renderer),
-                    .Level = std::move(state.Level)
+                    .Renderer = std::move(oldState.Renderer),
+                    .Level = std::move(*levelResult),
                 };
+
+            auto& newState = std::get<RunState>(m_State);
+
+            auto caretakerResult = Caretaker::Create(newState.Level);
+            GG_CHECKB(caretakerResult, "Failed to create caretaker");
+            Caretaker0 = std::move(*caretakerResult);
 
             m_Stage = Stage::Running;
         }
@@ -308,8 +343,6 @@ Game::Update()
 Result<>
 Game::Run()
 {
-    static constexpr float kTurnsPerSec = 1;
-
     static uint64_t ms = SDL_GetTicks();
 
     auto& state = std::get<RunState>(m_State);
@@ -319,91 +352,15 @@ Game::Run()
     ms = curMs;
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
 
-    float value{};
-    if(Input.IsTriggered(Input::ActionId::RotateLeft, value))
-    {
-        const float dturns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        PlayerRot -= Angle(dturns);
-    }
-    if(Input.IsTriggered(Input::ActionId::RotateRight, value))
-    {
-        const float dturns = (static_cast<float>(deltaMs) / 1000.0f) * kTurnsPerSec;
-        PlayerRot += Angle(dturns);
-    }
+    GG_CHECKB(Caretaker0->Tick(deltaSec, Input, state.Level));
 
-    auto createAnimInstance = [&](const std::string_view name)-> SpriteAnim::Instance
-    {
-        auto result = state.Level.CreateSpriteAnimInstance(name);
-
-        result->SetPeriod(0.66f);//NOLINT
-        return *result;
-    };
-
-    static SpriteAnim::Instance heroIdle = createAnimInstance(kHeroIdleAnim);
-    static SpriteAnim::Instance heroRun = createAnimInstance(kHeroRunAnim);
-
-    heroIdle.Tick(deltaSec);
-    heroRun.Tick(deltaSec);
-
-    SpriteAnim::Instance* spriteInstance = &heroIdle;
-
-    if(Input.IsTriggered(Input::ActionId::MoveLeft, value)
-        || Input.IsTriggered(Input::ActionId::MoveRight, value)
-        || Input.IsTriggered(Input::ActionId::MoveForward, value)
-        || Input.IsTriggered(Input::ActionId::MoveBackward, value))
-    {
-        spriteInstance = &heroRun;
-    }
-
-    // Snap heading to the nearest sprite direction.
-    const float heading = spriteInstance->SnapAngle(PlayerRot).ToTurns();
-    const float forwardX = std::sin(heading * 2.0f * std::numbers::pi_v<float>);
-    const float forwardY = std::cos(heading * 2.0f * std::numbers::pi_v<float>);
-    const float rightX = forwardY;
-    const float rightY = -forwardX;
-
-    constexpr float kMoveSpeed = 2.0f;
-
-    float moveLR = 0.0f, moveFB = 0.0f;
-
-    if(Input.IsTriggered(Input::ActionId::MoveLeft, value))
-    {
-        moveLR -= value * kMoveSpeed * deltaSec;
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveRight, value))
-    {
-        moveLR += value * kMoveSpeed * deltaSec;
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveForward, value))
-    {
-        moveFB += value * kMoveSpeed * deltaSec;
-    }
-    if(Input.IsTriggered(Input::ActionId::MoveBackward, value))
-    {
-        moveFB -= value * kMoveSpeed * deltaSec;
-    }
-
-    PlayerX += (moveLR * rightX) + (moveFB * forwardX);
-    PlayerY += (moveLR * rightY) + (moveFB * forwardY);
+    state.Level.Tick(deltaSec);
 
     Input.Reset();
 
-    // Offset to align the sprite with the isometric view.
-    static const Angle kAngleOffset(0.125f);
+    state.Renderer->SetView(Caretaker0->GetPos().x, Caretaker0->GetPos().y);
 
-    const Angle spriteAngle = PlayerRot + kAngleOffset;
-    spriteInstance->SetAngle(spriteAngle);
-    const auto spriteResult = spriteInstance->GetSprite();
-    GG_CHECKB(spriteResult, "Failed to get sprite animation frame");
-
-    state.Renderer->SetView(PlayerX, PlayerY);
-
-    auto cellMapResult = state.Level.GetCellMap();
-    GG_CHECKB(cellMapResult, "Failed to get cell map");
-
-    GG_CHECKB(state.Renderer->Begin(), "Failed to begin rendering");
-    GG_CHECKB(state.Renderer->Render(*cellMapResult,*spriteResult), "Failed to render");
-    GG_CHECKB(state.Renderer->End(), "Failed to end rendering");
+    GG_CHECKB(state.Renderer->Render(state.Level), "Failed to render level");
 
     GG_CHECKB(WebGpu.Present(), "Failed to present");
 

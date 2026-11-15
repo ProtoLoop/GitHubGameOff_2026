@@ -3,9 +3,11 @@
 #include "TextureLoader.h"
 
 #include <webgpu/webgpu_cpp.h>
-#include <variant>
 
+class CellMap;
+class FileFetcher;
 class Renderer;
+class WebGpu;
 
 struct CellMapDef
 {
@@ -13,20 +15,35 @@ struct CellMapDef
     std::vector<FilePath> TileSets;
 };
 
-class CellMap
+class CellMapLoader
 {
 public:
     /// Loads a cell map.
     /// Each path in tileset paths corresponds to the texture used for a layer of the map.
-    static Result<CellMap> Load(
+    static Result<CellMapLoader> Load(
         const CellMapDef& cellMapDef, Renderer& renderer, FileFetcher& fileFetcher, WebGpu& webGpu);
 
     bool IsPending() const;
 
     Result<> Update();
 
+    Result<CellMap> Take();
+
+private:
+    CellMapLoader(TextureLoader&& textureLoader, Renderer& renderer, uint32_t cellsPerSide);
+
+    TextureLoader m_TextureLoader;
+    Renderer* m_Renderer{ nullptr };
+    uint32_t m_CellsPerSide{ 0 };
+    bool m_Taken{ false };
+};
+
+class CellMap
+{
+public:
+
     /// Returns the bind group for the map's tile set texture.
-    Result<wgpu::BindGroup> GetTileSetBindGroup() const;
+    wgpu::BindGroup GetTileSetBindGroup() const;
 
     uint32_t GetCellsPerSide() const;
 
@@ -36,24 +53,11 @@ public:
     }
 
 private:
-    struct LoadingState
-    {
-        TextureLoader m_TextureLoader;
-        Renderer* m_Renderer{ nullptr };
-        uint32_t m_CellsPerSide{ 0 };
-    };
 
-    struct LoadedState
-    {
-        wgpu::BindGroup m_TileSetBindGroup;
-        uint32_t m_CellsPerSide{ 0 };
-    };
+    friend class CellMapLoader;
 
-    explicit CellMap(LoadingState&& state);
+    CellMap(wgpu::BindGroup m_TileSetBindGroup, const uint32_t cellsPerSide);
 
-    struct FailedState
-    {
-    };
-
-    std::variant<FailedState, LoadingState, LoadedState> m_State;
+    wgpu::BindGroup m_TileSetBindGroup;
+    uint32_t m_CellsPerSide{ 0 };
 };

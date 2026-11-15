@@ -70,11 +70,12 @@ public:
     }
 
     template<typename... Args>
-    Result<> emplace_back(Args&&... args)
+    Result<T&> emplace_back(Args&&... args)
     {
         GG_CHECKB(size() < capacity())
-        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::forward<Args>(args)...);
-        return Result<>::Ok;
+        T* ptr = AsPointer(m_Size++);
+        allocator_traits::construct(m_Allocator, ptr, std::forward<Args>(args)...);
+        return *ptr;
     }
 
     T* TryGet(const size_t index) { return index < size() ? AsPointer(index) : nullptr; }
@@ -97,6 +98,62 @@ public:
         }
 
         m_Size = 0;
+    }
+    
+    void erase_last()
+    {
+        if(!empty())
+        {
+            allocator_traits::destroy(m_Allocator, AsPointer(--m_Size));
+        }
+    }
+
+    Result<T&> at(const size_t index)
+    {
+        GG_CHECKB(index < size(), "Index out of bounds");
+        return *AsPointer(index);
+    }
+
+    Result<const T&> at(const size_t index) const
+    {
+        GG_CHECKB(index < size(), "Index out of bounds");
+        return *AsPointer(index);
+    }
+
+    Result<T&> operator[](const size_t index)
+    {
+        GG_CHECKB(index < size(), "Index out of bounds");
+        return *AsPointer(index);
+    }
+
+    Result<const T&> operator[](const size_t index) const
+    {
+        GG_CHECKB(index < size(), "Index out of bounds");
+        return *AsPointer(index);
+    }
+
+    Result<T&> front()
+    {
+        GG_CHECKB(!empty(), "Vector is empty");
+        return *AsPointer(0);
+    }
+
+    Result<const T&> front() const
+    {
+        GG_CHECKB(!empty(), "Vector is empty");
+        return *AsPointer(0);
+    }
+
+    Result<T&> back()
+    {
+        GG_CHECKB(!empty(), "Vector is empty");
+        return *AsPointer(size() - 1);
+    }
+
+    Result<const T&> back() const
+    {
+        GG_CHECKB(!empty(), "Vector is empty");
+        return *AsPointer(size() - 1);
     }
 
     iterator begin() { return AsPointer(0); }

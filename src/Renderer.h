@@ -1,12 +1,20 @@
 #pragma once
 
-#include "Sprite.h"
-#include "WebGpu.h"
+#include "Result.h"
 
 #include <webgpu/webgpu_cpp.h>
 
 class CellMap;
-class SpriteLib;
+class Node2D;
+class Level;
+class Sprite;
+class WebGpu;
+
+struct SpriteDrawRecord
+{
+    const Node2D* Node;
+    const Sprite* Sprite;
+};
 
 class Renderer
 {
@@ -32,12 +40,9 @@ public:
 
     Result<wgpu::BindGroup> CreateTileSetTextureBindGroup(const wgpu::Texture& texture);
 
-    Result<> Begin();
-    Result<> End();
-
     void SetView(const float viewX, const float viewY);
 
-    Result<> Render(const CellMap& cellMap, const Sprite& sprite);
+    Result<> Render(const Level& level);
 
 private:
     struct SpriteState
@@ -48,20 +53,30 @@ private:
         float srcRect[4]{};  // Source rectangle in the texture (x, y, w, h)
     };
 
+    struct CellMapParams
+    {
+        float viewXY[2]{};                 // Camera view position in map space
+        uint32_t cellMapCellsPerSide{ 0 }; // Number of cells along each axis in the map
+        uint32_t pad1{ 0 };
+    };
+
     Renderer(const Params& params, const WebGpu& webGpu);
 
     Result<> RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
 
-    Result<> RenderSprites(const Sprite& sprite, const wgpu::RenderPassEncoder& renderPass);
+    Result<> RenderSprites(const wgpu::RenderPassEncoder& renderPass);
 
     Result<> SetViewport(const wgpu::Texture& renderTarget,
         const wgpu::RenderPassEncoder& renderPass) const;
     Result<> EnsurePipelines();
-    Result<> EnsureSpriteStateBuffer();
-    Result<> EnsureCellMapParamsBuffer(const CellMap& cellMap);
-    Result<> EnsureBindGroups();
+    Result<> EnsureSpriteStateBuffer(const size_t size);
+    Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureSpriteBindGroups();
+    Result<> EnsureCellMapBindGroups();
 
-    SpriteState m_SpriteStates[8]; // NOLINT
+    std::vector<SpriteState> m_SpriteStates;
+    std::vector<SpriteDrawRecord> m_SpriteDrawRecords;
+    CellMapParams m_CellMapParams;
 
     Params m_Params;
     const WebGpu* m_WebGpu{ nullptr };
@@ -74,6 +89,4 @@ private:
 
     wgpu::RenderPipeline m_MapPipeline;
     wgpu::BindGroup m_MapBindGroup0;
-
-    wgpu::CommandEncoder m_CmdEncoder;
 };

@@ -1,7 +1,6 @@
 #include "Sprite.h"
 
 #include "Angle.h"
-#include "Defer.h"
 #include "Renderer.h"
 
 /// Sprite
@@ -13,15 +12,21 @@ Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer
 {
 }
 
-/// SpriteAnim
+/// SpriteAnimLoader
 
-SpriteAnim::SpriteAnim(LoadingState&& state)
-    : m_State(std::move(state))
+SpriteAnimLoader::SpriteAnimLoader(const ResourceName& name,
+    TextureLoader&& textureLoader,
+    const Dimension2d& dim,
+    Renderer* renderer)
+    : m_Name(name),
+      m_TextureLoader(std::move(textureLoader)),
+      m_Dim(dim),
+      m_Renderer(renderer)
 {
 }
 
-Result<SpriteAnim>
-SpriteAnim::Load(
+Result<SpriteAnimLoader>
+SpriteAnimLoader::Load(
     const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu)
 {
     GG_CHECKB(!animDef.Textures.empty(), "Animation textures must not be empty");
@@ -33,157 +38,63 @@ SpriteAnim::Load(
     auto texLoadResult = TextureLoader::Load(animDef.Textures, fileFetcher, webGpu, "Anim");
     GG_CHECKB(texLoadResult, "Failed to start anim texture load");
 
-    return SpriteAnim(LoadingState //
-        {
-            .Name = animDef.Name,
-            .m_TextureLoader = std::move(*texLoadResult),
-            .m_Dim = animDef.Dim,
-            .m_Renderer = &renderer,
-        });
-}
-
-bool
-SpriteAnim::IsPending() const
-{
-    return std::holds_alternative<LoadingState>(m_State);
-}
-
-Result<>
-SpriteAnim::Update()
-{
-    if(std::holds_alternative<LoadingState>(m_State))
-    {
-        const LoadingState& state = std::get<LoadingState>(m_State);
-
-        if(state.m_TextureLoader.IsPending())
-        {
-            return Result<>::Ok;
-        }
-
-        auto onFailed = GG_DEFER
-        {
-            if(std::holds_alternative<LoadingState>(m_State))
-            {
-                m_State = FailedState{};
-            }
-        };
-
-        auto buildResult = BuildSprites();
-        GG_CHECKB(buildResult, "Failed to build sprites");
-        m_State = std::move(*buildResult);
-    }
-
-    return Result<>::Ok;
+    return SpriteAnimLoader(animDef.Name, std::move(*texLoadResult), animDef.Dim, &renderer);
 }
 
 const ResourceName&
-SpriteAnim::GetName() const
+SpriteAnimLoader::GetName() const
 {
-    if(std::holds_alternative<LoadingState>(m_State))
-    {
-        return std::get<LoadingState>(m_State).Name;
-    }
-    else if(std::holds_alternative<LoadedState>(m_State))
-    {
-        return std::get<LoadedState>(m_State).Name;
-    }
-    else
-    {
-        GG_ASSERT(false, "Sprite animation is in an invalid state");
-
-        static constexpr ResourceName kInvalidName{ "*** Invalid SpriteAnim ***" };
-
-        return kInvalidName;
-    }
+    return m_Name;
 }
 
-Result<SpriteAnim::Instance>
-SpriteAnim::CreateInstance() const
+bool
+SpriteAnimLoader::IsPending() const
 {
-    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
-    return Instance(*this);
+    return m_TextureLoader.IsPending();
 }
 
-Angle
-SpriteAnim::SnapAngle(const Angle& angle) const
+Result<>
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+SpriteAnimLoader::Update()
 {
-    if(!GG_VERIFYB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded"))
-    {
-        return Angle(0.0f);
-    }
-
-    const LoadedState& state = std::get<LoadedState>(m_State);
-
-    const uint32_t directionCount = state.m_Texture.GetDepthOrArrayLayers();
-    if(!GG_VERIFYB(directionCount > 0, "Sprite animation has no directions"))
-    {
-        return Angle(0.0f);
-    }
-
-    const float fdir = angle.ToTurns() * static_cast<float>(directionCount);
-    const uint32_t dir = static_cast<uint32_t>(std::round(fdir)) % directionCount;
-    return Angle(static_cast<float>(dir) / static_cast<float>(directionCount));
+    return Result<>::Ok;
 }
 
-Result<const Sprite&>
-SpriteAnim::GetSprite(const float phase, const Angle& angle) const
+Result<SpriteAnim>
+SpriteAnimLoader::Take()
 {
-    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Sprite animation is not loaded");
+    GG_CHECKB(!IsPending(), "Sprite animation loader is still pending");
+    GG_CHECKB(!m_Taken, "Sprite animation has already been taken");
 
-    const LoadedState& state = std::get<LoadedState>(m_State);
+    m_Taken = true;
 
-    const uint32_t directionCount = state.m_Texture.GetDepthOrArrayLayers();
-    GG_CHECKB(directionCount > 0, "Sprite animation has no directions");
-
-    const float fdir = angle.ToTurns() * static_cast<float>(directionCount);
-    const uint32_t dir = static_cast<uint32_t>(std::round(fdir)) % directionCount;
-
-    const float normalizedPhase = phase - std::floor(phase);
-    const size_t frame =
-        static_cast<size_t>(normalizedPhase * static_cast<float>(state.m_FramesPerDirection));
-    const size_t normalizedFrame = frame % state.m_FramesPerDirection;
-
-    const size_t index = static_cast<size_t>(dir * state.m_FramesPerDirection) + normalizedFrame;
-    const Sprite* sprite = state.m_Sprites.TryGet(index);
-    GG_CHECKB(sprite, "Invalid sprite index: {}", index);
-
-    return *sprite;
-}
-
-// private:
-
-Result<SpriteAnim::LoadedState>
-SpriteAnim::BuildSprites()
-{
-    GG_CHECKB(std::holds_alternative<LoadingState>(m_State),
-        "Sprite animation is not in loading state");
-    LoadingState& state = std::get<LoadingState>(m_State);
-
-    auto texResult = state.m_TextureLoader.Take();
+    auto texResult = m_TextureLoader.Take();
     GG_CHECKB(texResult, "Failed to load anim texture");
 
     wgpu::Texture texture = *texResult;
     const uint32_t texW = texture.GetWidth();
     const uint32_t texH = texture.GetHeight();
-    const Dimension2d spriteDim = state.m_Dim;
 
-    GG_CHECKB(texW % spriteDim.w == 0 && texH % spriteDim.h == 0,
+    GG_CHECKB(texW % m_Dim.w == 0 && texH % m_Dim.h == 0,
         "Texture dimensions must be divisible by sprite dimensions: tex({},{}) sprite({},{})",
         texW,
         texH,
-        spriteDim.w,
-        spriteDim.h);
+        m_Dim.w,
+        m_Dim.h);
 
-    const uint32_t spriteRows = texH / spriteDim.h;
-    const uint32_t spriteCols = texW / spriteDim.w;
+    const uint32_t spriteRows = texH / m_Dim.h;
+    const uint32_t spriteCols = texW / m_Dim.w;
     const uint32_t framesPerDir = spriteRows * spriteCols;
+
     // Each layer in the texture corresponds to a direction.
     const uint32_t directionCount = texResult->GetDepthOrArrayLayers();
     const uint32_t spriteCount = directionCount * framesPerDir;
 
+    GG_CHECKB(directionCount > 0, "Sprite animation has no directions");
+
     BoundedVector<Sprite> sprites(spriteCount);
 
-    auto bgResult = state.m_Renderer->CreateSpriteTextureBindGroup(texture);
+    auto bgResult = m_Renderer->CreateSpriteTextureBindGroup(texture);
     GG_CHECKB(bgResult, "Failed to create bind group for sprite texture");
 
     for(uint32_t layer = 0; layer < directionCount; ++layer)
@@ -194,10 +105,10 @@ SpriteAnim::BuildSprites()
             {
                 const Rect rect //
                     {
-                        .x = col * spriteDim.w,
-                        .y = row * spriteDim.h,
-                        .w = spriteDim.w,
-                        .h = spriteDim.h,
+                        .x = col * m_Dim.w,
+                        .y = row * m_Dim.h,
+                        .w = m_Dim.w,
+                        .h = m_Dim.h,
                     };
 
                 GG_CHECKB(sprites.push_back(Sprite(*bgResult, rect, layer)),
@@ -206,13 +117,50 @@ SpriteAnim::BuildSprites()
         }
     }
 
-    return LoadedState //
-        {
-            .Name = std::move(state.Name),
-            .m_Texture = std::move(texture),
-            .m_Sprites = std::move(sprites),
-            .m_FramesPerDirection = framesPerDir,
-        };
+    return SpriteAnim(m_Name, std::move(texture), std::move(sprites), framesPerDir);
+}
+
+/// SpriteAnim
+
+SpriteAnim::SpriteAnim(const ResourceName& Name,
+    wgpu::Texture&& m_Texture,
+    BoundedVector<Sprite>&& m_Sprites,
+    const uint32_t m_FramesPerDirection)
+    : Name(Name),
+      m_Texture(std::move(m_Texture)),
+      m_Sprites(std::move(m_Sprites)),
+      m_FramesPerDirection(m_FramesPerDirection)
+{
+}
+
+const ResourceName&
+SpriteAnim::GetName() const
+{
+    return Name;
+}
+
+Result<SpriteAnim::Instance>
+SpriteAnim::CreateInstance() const
+{
+    return Instance(*this);
+}
+
+const Sprite&
+SpriteAnim::GetFrame(const float phase, const Angle& angle) const
+{
+    const uint32_t directionCount = m_Texture.GetDepthOrArrayLayers();
+
+    const float fdir = angle.ToTurns() * static_cast<float>(directionCount);
+    const size_t direction = static_cast<size_t>(std::round(fdir)) % directionCount;
+    const size_t framesPerDirection = m_FramesPerDirection;
+    const float normalizedPhase = phase - std::floor(phase);
+    const size_t frame =
+        static_cast<size_t>(normalizedPhase * static_cast<float>(framesPerDirection))
+        % framesPerDirection;
+
+    const size_t index = (direction * framesPerDirection) + frame;
+
+    return *m_Sprites.TryGet(index);
 }
 
 /// SpriteAnim::Instance
@@ -220,6 +168,12 @@ SpriteAnim::BuildSprites()
 SpriteAnim::Instance::Instance(const SpriteAnim& anim)
     : m_Anim(&anim)
 {
+}
+
+const ResourceName&
+SpriteAnim::Instance::GetName() const
+{
+    return m_Anim->GetName();
 }
 
 void
@@ -250,14 +204,14 @@ SpriteAnim::Instance::SetAngle(const Angle& angle)
     m_Angle = angle;
 }
 
-Angle
-SpriteAnim::Instance::SnapAngle(const Angle& angle) const
+const Angle&
+SpriteAnim::Instance::GetAngle() const
 {
-    return m_Anim->SnapAngle(angle);
+    return m_Angle;
 }
 
-Result<const Sprite&>
-SpriteAnim::Instance::GetSprite() const
+const Sprite&
+SpriteAnim::Instance::GetFrame() const
 {
-    return m_Anim->GetSprite(m_Phase, m_Angle);
+    return m_Anim->GetFrame(m_Phase, m_Angle);
 }

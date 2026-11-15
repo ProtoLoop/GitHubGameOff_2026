@@ -34,13 +34,13 @@ override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cel
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
     
 const spriteVerts = array<vec2f, 6>(
-    vec2f(-0.5, -0.5),
+    vec2f(-0.5, 0.5),
+    vec2f(0.5, 0.5),
     vec2f(0.5, -0.5),
-    vec2f(0.5, 0.5),
 
-    vec2f(-0.5, -0.5),
-    vec2f(0.5, 0.5),
-    vec2f(-0.5, 0.5)
+    vec2f(-0.5, 0.5),
+    vec2f(0.5, -0.5),
+    vec2f(-0.5, -0.5)
 );
 
 const spriteUV = array<vec2f, 6>(
@@ -68,7 +68,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let camXY = state.mapXY - cellMapParams.viewXY;
     //let screenVertXY = (camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
     let screenVertXY = (iso * camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
-    let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, -2.0);
+    let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 
     let texDims = vec2f(textureDimensions(texture, 0).xy);
     let uvOffset = state.srcRect.xy / texDims;

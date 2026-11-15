@@ -3,10 +3,10 @@
 #include "FileFetcher.h"
 #include "Result.h"
 
-class LevelLoader
+class LevelFetcher
 {
 public:
-    static Result<LevelLoader> Load(const FilePath& path, FileFetcher& fetcher);
+    static Result<LevelFetcher> Fetch(const FilePath& path, FileFetcher& fetcher);
 
     Result<> Update();
 
@@ -23,7 +23,7 @@ private:
         Taken
     };
 
-    explicit LevelLoader(FetchRequestPtr&& fetchRequest);
+    explicit LevelFetcher(FetchRequestPtr&& fetchRequest);
 
     FetchRequestPtr m_FetchRequest;
 

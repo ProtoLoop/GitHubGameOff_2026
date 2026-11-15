@@ -28,13 +28,6 @@ public:
     float Cos() const { return std::cos(ToRadians()); }
     float Sin() const { return std::sin(ToRadians()); }
 
-    /// Get the direction index based on the number of directions.
-    uint32_t GetDirection(const uint32_t numDirs) const
-    {
-        const float dir = ToTurns() * static_cast<float>(numDirs);
-        return static_cast<uint32_t>(std::lround(dir)) % numDirs;
-    }
-
     Angle& operator+=(const Angle& other)
     {
         m_Turns += other.m_Turns;
@@ -46,6 +39,8 @@ public:
         m_Turns -= other.m_Turns;
         return *this;
     }
+
+    Angle operator-() const { return Angle(-ToTurns()); }
 
     friend auto operator<=>(const Angle& lhs, const Angle& rhs)
     {

@@ -1,3 +1,6 @@
+# Exceptions:
+# - avoid-magic-numbers: covered by readability-magic-numbers.
+# - pro-type-union-access: GLM exposes components through unions.
 Checks: >
   clang-analyzer-*,
     -clang-analyzer-optin.core.EnumCastOutOfRange,
@@ -22,8 +25,10 @@ Checks: >
     -cppcoreguidelines-pro-bounds-constant-array-index,
     -cppcoreguidelines-avoid-c-arrays,
     -cppcoreguidelines-macro-usage,
-    -cppcoreguidelines-avoid-magic-numbers, # Note we check for magic numbers in readability-magic-numbers
+    -cppcoreguidelines-avoid-magic-numbers,
+    -cppcoreguidelines-pro-type-union-access,
   performance-*,
+    -performance-enum-size,
   readability-*,
     -readability-uppercase-literal-suffix,
     -readability-avoid-const-params-in-decls,

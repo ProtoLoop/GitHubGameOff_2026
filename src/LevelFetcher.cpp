@@ -1,4 +1,4 @@
-#include "LevelLoader.h"
+#include "LevelFetcher.h"
 
 #include "BoundedVector.h"
 #include "JsonDocument.h"
@@ -200,22 +200,22 @@ Parse(std::vector<std::byte> data)
 }
 } // namespace
 
-LevelLoader::LevelLoader(FetchRequestPtr&& fetchRequest)
+LevelFetcher::LevelFetcher(FetchRequestPtr&& fetchRequest)
     : m_FetchRequest(std::move(fetchRequest))
 {
 }
 
-Result<LevelLoader>
-LevelLoader::Load(const FilePath& path, FileFetcher& fetcher)
+Result<LevelFetcher>
+LevelFetcher::Fetch(const FilePath& path, FileFetcher& fetcher)
 {
     auto fetchResult = fetcher.Fetch(path);
     GG_CHECKB(fetchResult, "Failed to fetch file: {}", path.c_str());
 
-    return LevelLoader(std::move(*fetchResult));
+    return LevelFetcher(std::move(*fetchResult));
 }
 
 Result<>
-LevelLoader::Update()
+LevelFetcher::Update()
 {
     switch(m_Status)
     {
@@ -248,7 +248,7 @@ LevelLoader::Update()
 }
 
 bool
-LevelLoader::IsPending() const
+LevelFetcher::IsPending() const
 {
     return m_Status == Status::FetchingFile || m_Status == Status::LoadingLevel;
 }

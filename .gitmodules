@@ -10,3 +10,6 @@
 [submodule "thirdparty/dawn"]
 	path = thirdparty/dawn
 	url = https://github.com/google/dawn.git
+[submodule "thirdparty/glm"]
+	path = thirdparty/glm
+	url = https://github.com/g-truc/glm.git

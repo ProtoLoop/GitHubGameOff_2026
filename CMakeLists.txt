@@ -16,6 +16,10 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jsmn/jsmn.h")
     message(FATAL_ERROR "jsmn is missing. Run: git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/glm/CMakeLists.txt")
+    message(FATAL_ERROR "GLM is missing. Run: git submodule update --init --recursive")
+endif()
+
 set(SDL_SHARED OFF CACHE BOOL "Build shared SDL" FORCE)
 set(SDL_STATIC ON CACHE BOOL "Build static SDL" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Build SDL test library" FORCE)
@@ -38,6 +42,11 @@ add_subdirectory(thirdparty/dawn EXCLUDE_FROM_ALL SYSTEM)
 target_compile_definitions(dawn_utils_config INTERFACE
     "$<$<CONFIG:Debug>:DAWN_ENABLE_ASSERTS>"
 )
+
+set(GLM_BUILD_LIBRARY OFF CACHE BOOL "Build compiled GLM library" FORCE)
+set(GLM_BUILD_TESTS OFF CACHE BOOL "Build GLM tests" FORCE)
+set(GLM_BUILD_INSTALL OFF CACHE BOOL "Generate GLM install rules" FORCE)
+add_subdirectory(thirdparty/glm EXCLUDE_FROM_ALL SYSTEM)
 
 # Enable analysis after third-party targets and before project targets are created.
 option(ENABLE_CLANG_TIDY "Analyze project code with clang-tidy" ON)
@@ -66,6 +75,8 @@ set(GAMEOFF_SOURCES
     src/Defer.h
     src/Diag.h
     src/Diag.cpp
+    src/Entities.h
+    src/Entities.cpp
     src/FileFetcher.h
     src/FileFetcher.cpp
     src/InlineString.h
@@ -77,9 +88,11 @@ set(GAMEOFF_SOURCES
     src/JsonDocument.cpp
     src/Level.h
     src/Level.cpp
-    src/LevelLoader.h
-    src/LevelLoader.cpp
+    src/LevelFetcher.h
+    src/LevelFetcher.cpp
     src/main.cpp
+    src/Nodes.h
+    src/Nodes.cpp
     src/Renderer.h
     src/Renderer.cpp
     src/Result.h
@@ -95,6 +108,7 @@ set(GAMEOFF_SOURCES
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
+target_link_libraries(gameoff2026 PRIVATE glm::glm-header-only)
 if(EMSCRIPTEN)
     target_link_libraries(gameoff2026 PRIVATE emdawnwebgpu_cpp)
 else()

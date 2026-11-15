@@ -47,7 +47,7 @@ on `PATH`, including in VS Code's environment.
 
 | Tool | Used for |
 | --- | --- |
-| Git | Cloning the project and initializing the pinned SDL, stb, jsmn, and Dawn submodules |
+| Git | Cloning the project and initializing the pinned SDL, stb, jsmn, Dawn, and GLM submodules |
 | CMake 3.27 or newer | Configuring native and web builds |
 | Ninja | Building with Ninja Multi-Config |
 | Python 3 | Running the web compiler and serving browser builds locally |
@@ -136,6 +136,17 @@ CMake fetches Dawn's dependencies at the revisions in its `DEPS` file, so the
 first configure needs network access. Native builds link static
 `dawn::webgpu_dawn`. Browser builds use `emdawnwebgpu_cpp`. Bundled notices are
 included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
+
+`thirdparty/glm` is a Git submodule of `https://github.com/g-truc/glm.git`,
+pinned to release `1.0.3` at `8d1fd52e5ab5590e2c81768ace50c72bae28f2ed`.
+Initialize it with the other submodules. A missing GLM checkout produces a
+configure error with recovery instructions.
+
+Native and browser builds use `glm::glm-header-only`, with system include
+directories and no compiled GLM library. GLM tests and installation rules are
+disabled. The game retains its C++23 settings and uses GLM's default configuration
+macros. This target introduces no additional linked dependencies. GLM's MIT
+notice is included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
 
 ## Asset locations
 

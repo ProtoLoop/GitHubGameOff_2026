@@ -1,87 +1,77 @@
 #include "CellMap.h"
 
-#include "Defer.h"
 #include "Renderer.h"
 
-Result<CellMap>
-CellMap::Load(
+/// CellMapLoader
+
+Result<CellMapLoader>
+CellMapLoader::Load(
     const CellMapDef& cellMapDef, Renderer& renderer, FileFetcher& fileFetcher, WebGpu& webGpu)
 {
     auto loaderResult = TextureLoader::Load(cellMapDef.TileSets, fileFetcher, webGpu, "Test");
     GG_CHECKB(loaderResult, "Failed to start texture load");
 
-    return CellMap(LoadingState //
-        {
-            .m_TextureLoader = std::move(*loaderResult),
-            .m_Renderer = &renderer,
-            .m_CellsPerSide = cellMapDef.CellsPerSide,
-        });
+    return CellMapLoader(std::move(*loaderResult), renderer, cellMapDef.CellsPerSide);
 }
 
-CellMap::CellMap(LoadingState&& state)
-    : m_State(std::move(state))
+CellMapLoader::CellMapLoader(
+    TextureLoader&& textureLoader, Renderer& renderer, uint32_t cellsPerSide)
+    : m_TextureLoader(std::move(textureLoader)),
+      m_Renderer(&renderer),
+      m_CellsPerSide(cellsPerSide)
 {
+}
+
+bool
+CellMapLoader::IsPending() const
+{
+    return m_TextureLoader.IsPending();
 }
 
 Result<>
-CellMap::Update()
+CellMapLoader::Update()
 {
-    if(std::holds_alternative<LoadingState>(m_State))
+    if(m_TextureLoader.IsPending())
     {
-        auto& state = std::get<LoadingState>(m_State);
-
-        if(state.m_TextureLoader.IsPending())
-        {
-            return Result<>::Ok;
-        }
-
-        auto onFailed = GG_DEFER
-        {
-            if(std::holds_alternative<LoadingState>(m_State))
-            {
-                m_State = FailedState{};
-            }
-        };
-
-        auto textureResult = state.m_TextureLoader.Take();
-        GG_CHECKB(textureResult, "Failed to load texture");
-
-        auto bgResult = state.m_Renderer->CreateTileSetTextureBindGroup(*textureResult);
-        GG_CHECK(bgResult, "Failed to create map texture bind group");
-
-        m_State = LoadedState //
-            {
-                .m_TileSetBindGroup = std::move(*bgResult),
-                .m_CellsPerSide = state.m_CellsPerSide,
-            };
+        return Result<>::Ok;
     }
+
     return Result<>::Ok;
 }
 
-Result<wgpu::BindGroup>
+Result<CellMap>
+CellMapLoader::Take()
+{
+    GG_CHECKB(!IsPending(), "Cell map is still loading");
+    GG_CHECKB(!m_Taken, "Cell map has already been taken");
+    m_Taken = true;
+
+    auto textureResult = m_TextureLoader.Take();
+    GG_CHECKB(textureResult, "Failed to load texture");
+
+    auto bgResult = m_Renderer->CreateTileSetTextureBindGroup(*textureResult);
+    GG_CHECK(bgResult, "Failed to create map texture bind group");
+
+    return CellMap(std::move(*bgResult), m_CellsPerSide);
+
+}
+
+/// CellMap
+
+CellMap::CellMap(wgpu::BindGroup m_TileSetBindGroup, const uint32_t cellsPerSide)
+    : m_TileSetBindGroup(std::move(m_TileSetBindGroup)),
+      m_CellsPerSide(cellsPerSide)
+{
+}
+
+wgpu::BindGroup
 CellMap::GetTileSetBindGroup() const
 {
-    GG_CHECKB(std::holds_alternative<LoadedState>(m_State), "Cell map not loaded");
-
-    return std::get<LoadedState>(m_State).m_TileSetBindGroup;
+    return m_TileSetBindGroup;
 }
 
 uint32_t
 CellMap::GetCellsPerSide() const
 {
-    if(std::holds_alternative<LoadedState>(m_State))
-    {
-        return std::get<LoadedState>(m_State).m_CellsPerSide;
-    }
-    if(std::holds_alternative<LoadingState>(m_State))
-    {
-        return std::get<LoadingState>(m_State).m_CellsPerSide;
-    }
-    return 0;
-}
-
-bool
-CellMap::IsPending() const
-{
-    return std::holds_alternative<LoadingState>(m_State);
+    return m_CellsPerSide;
 }

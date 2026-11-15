@@ -66,24 +66,6 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
     // The lower right is at (cellMapGridSize/2, -cellMapGridSize/2)
     // The origin (0,0) is at the center of the map.
 
-    /*// Iso
-    let cellsPerRow = ceil((logicalTargetWidth + 2 * logicalTargetHeight) / f32(cellPixelsPerSide)) + 1;
-    let cellsPerCol = cellsPerRow;
-    
-    // Non-iso
-    //let cellsPerRow = u32(ceil(logicalTargetWidth / f32(cellPixelsPerSide))) + 1;
-    //let cellsPerCol = u32(ceil(logicalTargetHeight / f32(cellPixelsPerSide))) + 1;
-
-    let halfExtentRow = f32(cellsPerRow - 1) / 2.0;
-    let halfExtentCol = f32(cellsPerCol - 1) / 2.0;
-    let viewCellCol = viewCellIndex % u32(cellsPerRow);
-    let viewCellRow = viewCellIndex / u32(cellsPerRow);
-    let viewTopLeftRow = floor(f32(cellMapGridSize) / 2.0 - cellMapParams.viewXY.y - halfExtentCol);
-    let viewTopLeftCol = floor(f32(cellMapGridSize) / 2.0 + cellMapParams.viewXY.x - halfExtentRow);
-    let worldCellRow = (viewTopLeftRow + f32(viewCellRow));
-    let worldCellCol = (viewTopLeftCol + f32(viewCellCol));
-    let worldCellIndex = u32(worldCellRow * f32(cellMapGridSize) + worldCellCol);*/
-
     let cellsPerLayer = cellMapParams.cellMapCellsPerSide * cellMapParams.cellMapCellsPerSide;
     let layer = worldCellIndex / cellsPerLayer;
     // Index of the cell within its layer.

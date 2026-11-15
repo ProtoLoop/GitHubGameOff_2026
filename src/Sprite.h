@@ -5,7 +5,6 @@
 #include "InlineString.h"
 #include "TextureLoader.h"
 
-#include <variant>
 #include <vector>
 #include <webgpu/webgpu_cpp.h>
 
@@ -57,7 +56,7 @@ public:
     uint32_t GetLayer() const { return m_Layer; }
 
 private:
-    friend class SpriteAnim;
+    friend class SpriteAnimLoader;
 
     /// Constructs a sprite with the given bind group, rectangle, and layer.
     /// bindGroup is the bind group for the sprite's texture.
@@ -69,6 +68,43 @@ private:
     uint32_t m_Layer; // Layer in the texture array.
 };
 
+class SpriteAnim;
+
+class SpriteAnimLoader
+{
+public:
+    SpriteAnimLoader() = delete;
+    ~SpriteAnimLoader() = default;
+    SpriteAnimLoader(const SpriteAnimLoader&) = delete;
+    SpriteAnimLoader& operator=(const SpriteAnimLoader&) = delete;
+    SpriteAnimLoader(SpriteAnimLoader&&) = default;
+    SpriteAnimLoader& operator=(SpriteAnimLoader&&) = default;
+
+    static Result<SpriteAnimLoader> Load(
+        const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu);
+
+    const ResourceName& GetName() const;
+
+    bool IsPending() const;
+
+    Result<> Update();
+
+    Result<SpriteAnim> Take();
+
+private:
+    SpriteAnimLoader(const ResourceName& Name,
+        TextureLoader&& m_TextureLoader,
+        const Dimension2d& m_Dim,
+        Renderer* m_Renderer);
+
+    ResourceName m_Name;
+    TextureLoader m_TextureLoader;
+    Dimension2d m_Dim;
+    Renderer* m_Renderer;
+
+    bool m_Taken{ false };
+};
+
 /// A sprite animation resource.
 /// It defines the frames, directions, and textures for a sprite animation.
 /// To control individual instances of the animation create an Instance using CreateInstance().
@@ -78,13 +114,11 @@ public:
     class Instance;
 
     SpriteAnim() = delete;
-
-    static Result<SpriteAnim> Load(
-        const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu);
-
-    bool IsPending() const;
-
-    Result<> Update();
+    ~SpriteAnim() = default;
+    SpriteAnim(const SpriteAnim&) = delete;
+    SpriteAnim& operator=(const SpriteAnim&) = delete;
+    SpriteAnim(SpriteAnim&&) = default;
+    SpriteAnim& operator=(SpriteAnim&&) = default;
 
     /// Returns the name of the sprite animation.
     const ResourceName& GetName() const;
@@ -93,45 +127,28 @@ public:
     /// The instance can be used to control and query the animation state.
     Result<Instance> CreateInstance() const;
 
-    /// Snaps the given angle to the nearest direction supported by the animation.
-    Angle SnapAngle(const Angle& angle) const;
-
-    /// Returns the sprite corresponding to the given animation phase and angle.
+    /// Returns the sprite frame corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    Result<const Sprite&> GetSprite(const float phase, const Angle& angle) const;
+    const Sprite& GetFrame(const float phase, const Angle& angle) const;
 
 private:
-    struct LoadingState
+    friend class SpriteAnimLoader;
+
+    ResourceName Name;
+    wgpu::Texture m_Texture;
+    BoundedVector<Sprite> m_Sprites;
+    uint32_t m_FramesPerDirection{ 0 };
+
+    uint32_t GetDirectionCount() const
     {
-        ResourceName Name;
-        TextureLoader m_TextureLoader;
-        Dimension2d m_Dim;
-        Renderer* m_Renderer;
-    };
+        return m_Texture.GetDepthOrArrayLayers();
+    }
 
-    struct LoadedState
-    {
-        ResourceName Name;
-        wgpu::Texture m_Texture;
-        BoundedVector<Sprite> m_Sprites;
-        uint32_t m_FramesPerDirection{ 0 };
-
-        uint32_t GetDirectionCount() const
-        {
-            return m_Texture.GetDepthOrArrayLayers();
-        }
-    };
-
-    explicit SpriteAnim(LoadingState&& state);
-
-    Result<LoadedState> BuildSprites();
-
-    struct FailedState
-    {
-    };
-    
-    std::variant<FailedState, LoadingState, LoadedState> m_State;
+    SpriteAnim(const ResourceName& Name,
+        wgpu::Texture&& m_Texture,
+        BoundedVector<Sprite>&& m_Sprites,
+        const uint32_t m_FramesPerDirection);
 };
 
 /// Represents an instance of a sprite animation.
@@ -143,6 +160,8 @@ class SpriteAnim::Instance
 {
 public:
     Instance() = delete;
+
+    const ResourceName& GetName() const;
 
     /// Advances the animation by delta time.
     /// deltaTime is the time elapsed since the last update.
@@ -158,11 +177,11 @@ public:
     /// Sets the current animation angle - the direction the sprite should face.
     void SetAngle(const Angle& angle);
 
-    /// Snaps the given angle to the nearest direction supported by the animation.
-    Angle SnapAngle(const Angle& angle) const;
+    /// Returns the current animation angle - the direction the sprite is facing.
+    const Angle& GetAngle() const;
 
-    /// Returns the sprite corresponding to the current animation phase and angle.
-    Result<const Sprite&> GetSprite() const;
+    /// Returns the sprite frame corresponding to the current animation phase and angle.
+    const Sprite& GetFrame() const;
 
 private:
     friend SpriteAnim;
