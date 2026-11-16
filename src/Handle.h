@@ -12,6 +12,7 @@ public:
 
     void* m_Ptr{ nullptr };
     uint32_t m_Generation{ 0 };
+    uint32_t m_BorrowCount{ 0 };
     bool m_Allocated{ false };
 };
 
@@ -24,12 +25,52 @@ template<typename T>
 class BorrowedHandle
 {
 public:
-    BorrowedHandle() = delete;
-    ~BorrowedHandle() = default;
-    BorrowedHandle(const BorrowedHandle&) = default;
-    BorrowedHandle& operator=(const BorrowedHandle&) = default;
-    BorrowedHandle(BorrowedHandle&&) = default;
-    BorrowedHandle& operator=(BorrowedHandle&&) = default;
+    ~BorrowedHandle()
+    {
+        Release();
+    }
+    BorrowedHandle(const BorrowedHandle& other)
+        : m_Slot(other.m_Slot),
+          m_Generation(other.m_Generation)
+    {
+        AddRef();
+    }
+    BorrowedHandle& operator=(const BorrowedHandle& other)
+    {
+        if(this != &other)
+        {
+            Release();
+
+            m_Slot = other.m_Slot;
+            m_Generation = other.m_Generation;
+            
+            AddRef();
+        }
+        return *this;
+    }
+
+    BorrowedHandle(BorrowedHandle&& other) noexcept
+        : m_Slot(other.m_Slot),
+          m_Generation(other.m_Generation)
+    {
+        other.m_Slot = nullptr;
+        other.m_Generation = 0;
+    }
+
+    BorrowedHandle& operator=(BorrowedHandle&& other) noexcept
+    {
+        if(this != &other)
+        {
+            Release();
+
+            m_Slot = other.m_Slot;
+            m_Generation = other.m_Generation;
+
+            other.m_Slot = nullptr;
+            other.m_Generation = 0;
+        }
+        return *this;
+    }
 
     T* operator->()
     {
@@ -57,13 +98,21 @@ public:
     operator BorrowedHandle<const T>() const
         requires(!std::is_const_v<T>)
     {
-        return BorrowedHandle<const T>(*m_Slot, m_Generation);
+        return m_Slot ?  BorrowedHandle<const T>(*m_Slot, m_Generation) : BorrowedHandle<const T>();
     }
 
     friend auto operator<=>(const BorrowedHandle& lhs, const BorrowedHandle& rhs)
     {
         if(lhs.m_Slot != rhs.m_Slot)
         {
+            if(!lhs.m_Slot)
+            {
+                return std::strong_ordering::less;
+            }
+            if(!rhs.m_Slot)
+            {
+                return std::strong_ordering::greater;
+            }
             return lhs.m_Slot->m_Ptr <=> rhs.m_Slot->m_Ptr;
         }
         return lhs.m_Generation <=> rhs.m_Generation;
@@ -73,14 +122,34 @@ private:
     template<typename X, typename Y>
     friend class OwnedHandle;
 
+    BorrowedHandle() = default;
+
     BorrowedHandle(HandleSlot& slot, uint32_t generation)
         : m_Slot(&slot),
           m_Generation(generation)
     {
+        AddRef();
     }
 
-    HandleSlot* m_Slot;
-    uint32_t m_Generation;
+    void AddRef()
+    {
+        if(m_Slot)
+        {
+            m_Slot->m_BorrowCount++;
+        }
+    }
+
+    void Release()
+    {
+        if(m_Slot)
+        {
+            GG_ASSERT(m_Slot->m_BorrowCount > 0, "Borrow count is already zero");
+            m_Slot->m_BorrowCount--;
+        }
+    }
+
+    HandleSlot* m_Slot{ nullptr };
+    uint32_t m_Generation{ 0 };
 };
 
 /// Owns a node and releases it through its owner on destruction.

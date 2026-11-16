@@ -192,7 +192,7 @@ Level::Destroy(OwnedNodeHandle<Node2D>& handle)
 }
 
 Result<OwnedNodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(BorrowedHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
+Level::CreateSpriteAnimNode(const BorrowedHandle<Node2D>& node2D, const SpriteAnim::Instance& instance)
 {
     GG_CHECKB(m_SpriteAnimNodes.HasCapacity(), "No capacity for new SpriteAnimNode");
 
@@ -242,6 +242,8 @@ Level::FreeHandleSlot(HandleSlot* handleSlot)
     {
         if(GG_VERIFYB(handleSlot->m_Allocated, "Handle slot not allocated"))
         {
+            GG_ASSERT(handleSlot->m_BorrowCount == 0, "Handle slot is still borrowed");
+            handleSlot->m_BorrowCount = 0;
             handleSlot->m_Allocated = false;
             handleSlot->m_Ptr = nullptr;
             m_FreeHandleSlots.push_back(handleSlot);

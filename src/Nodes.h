@@ -191,7 +191,7 @@ public:
     SpriteAnimNode(const SpriteAnimNode&) = delete;
     SpriteAnimNode& operator=(const SpriteAnimNode&) = delete;
     
-    SpriteAnimNode(BorrowedHandle<Node2D> node, const SpriteAnim::Instance& instance)
+    SpriteAnimNode(const BorrowedHandle<Node2D>& node, const SpriteAnim::Instance& instance)
         : m_Node(node),
           m_CurAnim(instance)
     {

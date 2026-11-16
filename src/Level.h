@@ -74,7 +74,7 @@ public:
 
     Result<OwnedNodeHandle<Node2D>> CreateNode2D();
 
-    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(BorrowedHandle<Node2D> node2D,
+    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(const BorrowedHandle<Node2D>& node2D,
         const SpriteAnim::Instance& instance);
 
     void Destroy(OwnedNodeHandle<Node2D>& handle);
