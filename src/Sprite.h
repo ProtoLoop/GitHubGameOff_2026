@@ -24,22 +24,44 @@ struct Rect
     uint32_t y;
     uint32_t w;
     uint32_t h;
+
+    friend bool operator!=(const Rect& lhs, const Rect& rhs) = default;
+    friend bool operator==(const Rect& lhs, const Rect& rhs) = default;
 };
 
-struct Dimension2d
+struct Dimension2D
 {
     uint32_t w;
     uint32_t h;
+
+    friend bool operator!=(const Dimension2D& lhs, const Dimension2D& rhs) = default;
+    friend bool operator==(const Dimension2D& lhs, const Dimension2D& rhs) = default;
 };
 
+/// Defines frames within a rectangular region of a texture.
+/// Dim specifies each frame's pixel dimensions. Frames advance left to right,
+/// then top to bottom. Incomplete columns or rows at the edges are ignored.
+struct SpriteSequenceDef
+{
+    ResourceName Name;
+    Dimension2D Dim{};
+    FilePath TexturePath;
+    Rect Rect{};
+};
+
+/// Defines an animation's equally spaced facing directions.
+/// SequenceDefs order determines direction: index 0 corresponds to zero turns,
+/// and subsequent indices advance by 1 / SequenceDefs.size() turns.
+/// Playback selects the nearest direction. Each sequence's own frame count
+/// spans one complete animation cycle.
 struct SpriteAnimDef
 {
     ResourceName Name;
-    Dimension2d Dim{};
-    std::vector<FilePath> Textures;
-    uint32_t DirectionCount() const { return static_cast<uint32_t>(Textures.size()); }
+    std::vector<SpriteSequenceDef> SequenceDefs;
 };
 
+/// A lightweight representation of a sprite within a texture atlas.
+/// Intended to be constructed on the fly and returned by value.
 class Sprite
 {
 public:
@@ -51,21 +73,47 @@ public:
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Rect; }
 
-    /// Returns the layer of the sprite within the texture atlas.
-    /// Often different directions of the same sprite are stored in different layers.
-    uint32_t GetLayer() const { return m_Layer; }
+private:
+    friend class SpriteAnimLoader;
+    friend class SpriteSequence;
+
+    /// Constructs a sprite with the given bind group and rectangle.
+    /// bindGroup is the bind group for the sprite's texture.
+    /// rect specifies the portion of the texture to use for the sprite.
+    Sprite(wgpu::BindGroup bindGroup, const Rect& rect);
+
+    wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
+    Rect m_Rect;
+};
+
+class SpriteSequence
+{
+public:
+    SpriteSequence() = delete;
+
+    const ResourceName& GetName() const { return m_Name; }
+
+    const Dimension2D& GetDim() const { return m_Dim; }
+
+    const Rect& GetRect() const { return m_Rect; }
+
+    Result<Sprite> GetSprite(const uint32_t index) const;
+
+    uint32_t GetSpriteCount() const { return m_SpriteCount; }
 
 private:
     friend class SpriteAnimLoader;
 
-    /// Constructs a sprite with the given bind group, rectangle, and layer.
-    /// bindGroup is the bind group for the sprite's texture.
-    /// rect specifies the portion of the texture to use for the sprite.
-    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer);
+    SpriteSequence(const ResourceName& name,
+        wgpu::BindGroup bindGroup,
+        const Dimension2D& dim,
+        const Rect& rect);
 
-    wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
+    ResourceName m_Name;
+    wgpu::BindGroup m_BindGroup;
+    Dimension2D m_Dim;
     Rect m_Rect;
-    uint32_t m_Layer; // Layer in the texture array.
+    uint32_t m_SpriteCount;
 };
 
 class SpriteAnim;
@@ -92,14 +140,16 @@ public:
     Result<SpriteAnim> Take();
 
 private:
-    SpriteAnimLoader(const ResourceName& Name,
-        TextureLoader&& m_TextureLoader,
-        const Dimension2d& m_Dim,
-        Renderer* m_Renderer);
+    SpriteAnimLoader(const ResourceName& name,
+        BoundedVector<TextureLoader>&& textureLoaders,
+        BoundedVector<size_t>&& sequenceToTextureMap,
+        BoundedVector<SpriteSequence>&& spriteSequences,
+        Renderer* renderer);
 
     ResourceName m_Name;
-    TextureLoader m_TextureLoader;
-    Dimension2d m_Dim;
+    BoundedVector<TextureLoader> m_TextureLoaders;
+    BoundedVector<size_t> m_SequenceToTextureMap;
+    BoundedVector<SpriteSequence> m_SpriteSequences;
     Renderer* m_Renderer;
 
     bool m_Taken{ false };
@@ -130,25 +180,15 @@ public:
     /// Returns the sprite frame corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    const Sprite& GetFrame(const float phase, const Angle& angle) const;
+    Sprite GetFrame(const float phase, const Angle& angle) const;
 
 private:
     friend class SpriteAnimLoader;
 
-    ResourceName Name;
-    wgpu::Texture m_Texture;
-    BoundedVector<Sprite> m_Sprites;
-    uint32_t m_FramesPerDirection{ 0 };
+    SpriteAnim(const ResourceName& name, BoundedVector<SpriteSequence>&& spriteSeqs);
 
-    uint32_t GetDirectionCount() const
-    {
-        return m_Texture.GetDepthOrArrayLayers();
-    }
-
-    SpriteAnim(const ResourceName& Name,
-        wgpu::Texture&& m_Texture,
-        BoundedVector<Sprite>&& m_Sprites,
-        const uint32_t m_FramesPerDirection);
+    ResourceName m_Name;
+    BoundedVector<SpriteSequence> m_SpriteSequences;
 };
 
 /// Represents an instance of a sprite animation.
@@ -181,7 +221,7 @@ public:
     const Angle& GetAngle() const;
 
     /// Returns the sprite frame corresponding to the current animation phase and angle.
-    const Sprite& GetFrame() const;
+    Sprite GetFrame() const;
 
 private:
     friend SpriteAnim;

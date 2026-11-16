@@ -38,7 +38,7 @@ SpriteAnimNode::GetCurrentAnim() const
     return m_CurAnim;
 }
 
-const Sprite&
+Sprite
 SpriteAnimNode::GetCurrentSprite() const
 {
     const SpriteAnim::Instance& animInstance = GetCurrentAnim();

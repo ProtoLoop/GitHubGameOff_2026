@@ -2,25 +2,60 @@
 
 #include "Angle.h"
 #include "Renderer.h"
+#include "WebGpu.h"
+
+#include <webgpu/webgpu_cpp.h>
 
 /// Sprite
 
-Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const uint32_t layer)
+Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect)
     : m_TextureBindGroup(std::move(bindGroup)),
-      m_Rect(rect),
-      m_Layer(layer)
+      m_Rect(rect)
 {
+}
+
+/// SpriteSequence
+
+SpriteSequence::SpriteSequence(
+    const ResourceName& name, wgpu::BindGroup bindGroup, const Dimension2D& dim, const Rect& rect)
+    : m_Name(name),
+      m_BindGroup(std::move(bindGroup)),
+      m_Dim(dim),
+      m_Rect(rect),
+      m_SpriteCount((rect.w / dim.w) * (rect.h / dim.h))
+{
+}
+
+Result<Sprite>
+SpriteSequence::GetSprite(const uint32_t index) const
+{
+    GG_CHECKB(index < m_SpriteCount, "Index out of bounds");
+
+    const uint32_t spritesPerRow = m_Rect.w / m_Dim.w;
+    const uint32_t row = index / spritesPerRow;
+    const uint32_t col = index % spritesPerRow;
+    const Rect rect //
+        {
+            .x = m_Rect.x + (col * m_Dim.w),
+            .y = m_Rect.y + (row * m_Dim.h),
+            .w = m_Dim.w,
+            .h = m_Dim.h,
+        };
+
+    return Sprite(m_BindGroup, rect);
 }
 
 /// SpriteAnimLoader
 
 SpriteAnimLoader::SpriteAnimLoader(const ResourceName& name,
-    TextureLoader&& textureLoader,
-    const Dimension2d& dim,
+    BoundedVector<TextureLoader>&& textureLoaders,
+    BoundedVector<size_t>&& sequenceToTextureMap,
+    BoundedVector<SpriteSequence>&& spriteSequences,
     Renderer* renderer)
     : m_Name(name),
-      m_TextureLoader(std::move(textureLoader)),
-      m_Dim(dim),
+      m_TextureLoaders(std::move(textureLoaders)),
+      m_SequenceToTextureMap(std::move(sequenceToTextureMap)),
+      m_SpriteSequences(std::move(spriteSequences)),
       m_Renderer(renderer)
 {
 }
@@ -29,16 +64,79 @@ Result<SpriteAnimLoader>
 SpriteAnimLoader::Load(
     const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu)
 {
-    GG_CHECKB(!animDef.Textures.empty(), "Animation textures must not be empty");
-    GG_CHECKB(animDef.Dim.w > 0 && animDef.Dim.h > 0,
-        "Invalid animation dimensions: {}x{}",
-        animDef.Dim.w,
-        animDef.Dim.h);
+    GG_CHECKB(!animDef.SequenceDefs.empty(),
+        "Animation sequences must not be empty: {}",
+        animDef.Name);
 
-    auto texLoadResult = TextureLoader::Load(animDef.Textures, fileFetcher, webGpu, "Anim");
-    GG_CHECKB(texLoadResult, "Failed to start anim texture load");
+    const wgpu::Texture defaultTexture = webGpu.GetDefaultTexture();
+    GG_TRYB(defaultBindGroup, renderer.CreateSpriteTextureBindGroup(defaultTexture));
 
-    return SpriteAnimLoader(animDef.Name, std::move(*texLoadResult), animDef.Dim, &renderer);
+    std::vector<FilePath> uniqueTexPaths;
+    BoundedVector<size_t> sequenceToTextureMap(animDef.SequenceDefs.size());
+    BoundedVector<SpriteSequence> spriteSequences(animDef.SequenceDefs.size());
+    uniqueTexPaths.reserve(animDef.SequenceDefs.size());
+
+    // Collect unique texture paths and create sprite sequences
+    // using the default texture, which will be replaced later when
+    // texture loading completes.
+    for(const SpriteSequenceDef& seqDef : animDef.SequenceDefs)
+    {
+        GG_CHECKB(seqDef.Dim.w > 0 && seqDef.Dim.h > 0,
+            "Invalid animation dimensions: {} : {} -  {}x{}",
+            animDef.Name,
+            seqDef.Name,
+            seqDef.Dim.w,
+            seqDef.Dim.h);
+
+        GG_CHECKB(seqDef.Dim.w <= seqDef.Rect.w && seqDef.Dim.h <= seqDef.Rect.h,
+            "Sequence dimensions exceed rect dimensions: {} : {} : {}x{} > {}x{}",
+            animDef.Name,
+            seqDef.Name,
+            seqDef.Dim.w,
+            seqDef.Dim.h,
+            seqDef.Rect.w,
+            seqDef.Rect.h);
+
+        GG_CHECKB(!seqDef.TexturePath.empty(),
+            "Animation texture path must not be empty: {} : {}",
+            animDef.Name,
+            seqDef.Name);
+
+        // In cases where multiple sequences share the same texture,
+        // we avoid loading the same texture multiple times by maintaining
+        // a list of unique texture paths and mapping sequences to them.
+        auto it = std::ranges::find(uniqueTexPaths, seqDef.TexturePath);
+        if(uniqueTexPaths.end() == it)
+        {
+            GG_CHECKB(sequenceToTextureMap.push_back(uniqueTexPaths.size()));
+            uniqueTexPaths.push_back(seqDef.TexturePath);
+        }
+        else
+        {
+            const size_t index = static_cast<size_t>(std::distance(uniqueTexPaths.begin(), it));
+            GG_CHECKB(sequenceToTextureMap.push_back(index));
+        }
+
+        SpriteSequence spriteSeq(seqDef.Name, defaultBindGroup, seqDef.Dim, seqDef.Rect);
+
+        GG_CHECKB(spriteSequences.push_back(std::move(spriteSeq)), "Failed to add sprite sequence");
+    }
+
+    // Load the textures.
+    BoundedVector<TextureLoader> textureLoaders(uniqueTexPaths.size());
+    for(const FilePath& texPath : uniqueTexPaths)
+    {
+        auto texLoadResult = TextureLoader::Load(texPath, fileFetcher, webGpu, "Anim");
+        GG_CHECKB(texLoadResult, "Failed to start texture load: {}", texPath);
+        GG_CHECKB(textureLoaders.push_back(std::move(*texLoadResult)),
+            "Failed to add texture loader");
+    }
+
+    return SpriteAnimLoader(animDef.Name,
+        std::move(textureLoaders),
+        std::move(sequenceToTextureMap),
+        std::move(spriteSequences),
+        &renderer);
 }
 
 const ResourceName&
@@ -50,13 +148,24 @@ SpriteAnimLoader::GetName() const
 bool
 SpriteAnimLoader::IsPending() const
 {
-    return m_TextureLoader.IsPending();
+    for(const auto& texLoader : m_TextureLoaders)
+    {
+        if(texLoader.IsPending())
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 Result<>
 SpriteAnimLoader::Update()
 {
-    return m_TextureLoader.Update();
+    for(auto& texLoader : m_TextureLoaders)
+    {
+        GG_CHECKB(texLoader.Update(), "Failed to update texture loader");
+    }
+    return Result<>::Ok;
 }
 
 Result<SpriteAnim>
@@ -67,75 +176,78 @@ SpriteAnimLoader::Take()
 
     m_Taken = true;
 
-    auto texResult = m_TextureLoader.Take();
-    GG_CHECKB(texResult, "Failed to load anim texture");
+    std::vector<wgpu::BindGroup> bindGroups;
+    std::vector<wgpu::Texture> textures;
+    bindGroups.reserve(m_TextureLoaders.size());
+    textures.reserve(m_TextureLoaders.size());
 
-    wgpu::Texture texture = *texResult;
-    const uint32_t texW = texture.GetWidth();
-    const uint32_t texH = texture.GetHeight();
-
-    GG_CHECKB(texW % m_Dim.w == 0 && texH % m_Dim.h == 0,
-        "Texture dimensions must be divisible by sprite dimensions: tex({},{}) sprite({},{})",
-        texW,
-        texH,
-        m_Dim.w,
-        m_Dim.h);
-
-    const uint32_t spriteRows = texH / m_Dim.h;
-    const uint32_t spriteCols = texW / m_Dim.w;
-    const uint32_t framesPerDir = spriteRows * spriteCols;
-
-    // Each layer in the texture corresponds to a direction.
-    const uint32_t directionCount = texResult->GetDepthOrArrayLayers();
-    const uint32_t spriteCount = directionCount * framesPerDir;
-
-    GG_CHECKB(directionCount > 0, "Sprite animation has no directions");
-
-    BoundedVector<Sprite> sprites(spriteCount);
-
-    auto bgResult = m_Renderer->CreateSpriteTextureBindGroup(texture);
-    GG_CHECKB(bgResult, "Failed to create bind group for sprite texture");
-
-    for(uint32_t layer = 0; layer < directionCount; ++layer)
+    // Create the bind groups.
+    for(TextureLoader& texLoader : m_TextureLoaders)
     {
-        for(uint32_t row = 0; row < spriteRows; ++row)
-        {
-            for(uint32_t col = 0; col < spriteCols; ++col)
-            {
-                const Rect rect //
-                    {
-                        .x = col * m_Dim.w,
-                        .y = row * m_Dim.h,
-                        .w = m_Dim.w,
-                        .h = m_Dim.h,
-                    };
+        GG_TRYB(tex, texLoader.Take(), "Failed to load texture");
+        GG_TRYB(bindGroup,
+            m_Renderer->CreateSpriteTextureBindGroup(tex),
+            "Failed to get bind group from texture");
 
-                GG_CHECKB(sprites.push_back(Sprite(*bgResult, rect, layer)),
-                    "Failed to add sprite");
-            }
-        }
+        bindGroups.push_back(std::move(bindGroup));
+        textures.push_back(std::move(tex));
     }
 
-    return SpriteAnim(m_Name, std::move(texture), std::move(sprites), framesPerDir);
+    // For each sequence replace its bind group with a bindgroup containing the loaded texture.
+    for(size_t i = 0; i < m_SpriteSequences.size(); ++i)
+    {
+        GG_TRYB(seq, m_SpriteSequences[i]);
+        GG_TRYB(texIndex, m_SequenceToTextureMap[i]);
+        const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
+        const wgpu::Texture& texture = textures[texIndex];
+
+        const Rect& seqRect = seq.GetRect();
+        const Dimension2D texDims{ .w = texture.GetWidth(), .h = texture.GetHeight() };
+
+        GG_CHECKB(seqRect.w <= texDims.w
+                && seqRect.h <= texDims.h
+                && seqRect.x < texDims.w
+                && seqRect.y < texDims.h,
+            "Sprite sequence rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
+            seq.GetName(),
+            seqRect.x,
+            seqRect.y,
+            seqRect.w,
+            seqRect.h,
+            texDims.w,
+            texDims.h);
+
+        GG_CHECKB(texDims.w - seqRect.x >= seqRect.w && texDims.h - seqRect.y >= seqRect.h,
+            "Sprite sequence rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
+            seq.GetName(),
+            seqRect.x,
+            seqRect.y,
+            seqRect.w,
+            seqRect.h,
+            texDims.w - seqRect.x,
+            texDims.h - seqRect.y);
+
+        // Create a new sequence and replace the old one.
+        SpriteSequence newSeq(seq.GetName(), bindGroup, seq.GetDim(), seq.GetRect());
+
+        seq = std::move(newSeq);
+    }
+
+    return SpriteAnim(m_Name, std::move(m_SpriteSequences));
 }
 
 /// SpriteAnim
 
-SpriteAnim::SpriteAnim(const ResourceName& Name,
-    wgpu::Texture&& m_Texture,
-    BoundedVector<Sprite>&& m_Sprites,
-    const uint32_t m_FramesPerDirection)
-    : Name(Name),
-      m_Texture(std::move(m_Texture)),
-      m_Sprites(std::move(m_Sprites)),
-      m_FramesPerDirection(m_FramesPerDirection)
+SpriteAnim::SpriteAnim(const ResourceName& name, BoundedVector<SpriteSequence>&& spriteSeqs)
+    : m_Name(name),
+      m_SpriteSequences(std::move(spriteSeqs))
 {
 }
 
 const ResourceName&
 SpriteAnim::GetName() const
 {
-    return Name;
+    return m_Name;
 }
 
 Result<SpriteAnim::Instance>
@@ -144,22 +256,22 @@ SpriteAnim::CreateInstance() const
     return Instance(*this);
 }
 
-const Sprite&
+Sprite
 SpriteAnim::GetFrame(const float phase, const Angle& angle) const
 {
-    const uint32_t directionCount = m_Texture.GetDepthOrArrayLayers();
+    const size_t dirCount = m_SpriteSequences.size();
+    const float fdir = angle.ToTurns() * static_cast<float>(dirCount);
+    const size_t direction = static_cast<size_t>(std::round(fdir)) % dirCount;
 
-    const float fdir = angle.ToTurns() * static_cast<float>(directionCount);
-    const size_t direction = static_cast<size_t>(std::round(fdir)) % directionCount;
-    const size_t framesPerDirection = m_FramesPerDirection;
+    const SpriteSequence& sequence = *m_SpriteSequences.TryGet(direction);
+
+    const uint32_t framesPerDirection = sequence.GetSpriteCount();
     const float normalizedPhase = phase - std::floor(phase);
-    const size_t frame =
-        static_cast<size_t>(normalizedPhase * static_cast<float>(framesPerDirection))
+    const uint32_t frame =
+        static_cast<uint32_t>(normalizedPhase * static_cast<float>(framesPerDirection))
         % framesPerDirection;
 
-    const size_t index = (direction * framesPerDirection) + frame;
-
-    return *m_Sprites.TryGet(index);
+    return *sequence.GetSprite(frame);
 }
 
 /// SpriteAnim::Instance
@@ -209,7 +321,7 @@ SpriteAnim::Instance::GetAngle() const
     return m_Angle;
 }
 
-const Sprite&
+Sprite
 SpriteAnim::Instance::GetFrame() const
 {
     return m_Anim->GetFrame(m_Phase, m_Angle);

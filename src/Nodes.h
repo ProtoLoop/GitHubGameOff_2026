@@ -210,7 +210,7 @@ public:
 
     const SpriteAnim::Instance& GetCurrentAnim() const;
 
-    const Sprite& GetCurrentSprite() const;
+    Sprite GetCurrentSprite() const;
 
     void Tick(const float deltaTime);
 

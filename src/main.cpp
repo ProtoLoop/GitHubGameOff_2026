@@ -20,90 +20,559 @@
 
 namespace
 {
-constexpr const ResourceName kCtAnimName_Idle = "CtIdle";
-constexpr const ResourceName kCtAnimName_Run = "CtRun";
-constexpr const ResourceName kCtAnimName_Walk = "CtWalk";
+constexpr const ResourceName kCT_AnimName_Idle = "CT_Idle";
+constexpr const ResourceName kCT_AnimName_Run = "CT_Run";
+constexpr const ResourceName kCT_AnimName_Walk = "CT_Walk";
 
-const SpriteAnimDef kCtAnimDef_Idle //
+constexpr const ResourceName kSH_AnimName_Walk = "SH_Walk";
+
+const SpriteSequenceDef kSH_Walk_SW //
     {
-        .Name = kCtAnimName_Idle,
-        .Dim{ .w = 180, .h = 180 },
-        .Textures //
+        .Name = "SH_Walk_SW",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 0, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_S //
+    {
+        .Name = "SH_Walk_S",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 144, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_SE //
+    {
+        .Name = "SH_Walk_SE",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 288, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_E //
+    {
+        .Name = "SH_Walk_E",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 432, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_NE //
+    {
+        .Name = "SH_Walk_NE",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 576, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_N //
+    {
+        .Name = "SH_Walk_N",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 720, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_NW //
+    {
+        .Name = "SH_Walk_NW",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 864, .w = 1728, .h = 144 } // NOLINT
+    };
+
+const SpriteSequenceDef kSH_Walk_W //
+    {
+        .Name = "SH_Walk_W",
+        .Dim{ .w = 144, .h = 144 }, // NOLINT
+        .TexturePath = "/assets/shadow_hunter_walk.png",
+        .Rect = Rect{ .x = 0, .y = 1008, .w = 1728, .h = 144 } // NOLINT
+    };
+
+/// Caretaker Idle
+
+const SpriteSequenceDef kCT_Idle_000 //
+    {
+        .Name = "CT_Idle_000",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_000.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_022 //
+    {
+        .Name = "CT_Idle_022",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_022.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_045 //
+    {
+        .Name = "CT_Idle_045",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_045.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_067 //
+    {
+        .Name = "CT_Idle_067",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_067.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_090 //
+    {
+        .Name = "CT_Idle_090",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_090.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_112 //
+    {
+        .Name = "CT_Idle_112",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_112.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_135 //
+    {
+        .Name = "CT_Idle_135",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_135.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_157 //
+    {
+        .Name = "CT_Idle_157",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_157.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_180 //
+    {
+        .Name = "CT_Idle_180",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_180.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_202 //
+    {
+        .Name = "CT_Idle_202",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_202.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_225 //
+    {
+        .Name = "CT_Idle_225",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_225.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_247 //
+    {
+        .Name = "CT_Idle_247",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_247.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_270 //
+    {
+        .Name = "CT_Idle_270",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_270.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_292 //
+    {
+        .Name = "CT_Idle_292",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_292.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_315 //
+    {
+        .Name = "CT_Idle_315",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_315.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Idle_337 //
+    {
+        .Name = "CT_Idle_337",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_337.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+/// Caretaker Walk
+
+const SpriteSequenceDef kCT_Walk_000 //
+    {
+        .Name = "CT_Walk_000",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_000.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_022 //
+    {
+        .Name = "CT_Walk_022",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_022.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_045 //
+    {
+        .Name = "CT_Walk_045",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_045.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_067 //
+    {
+        .Name = "CT_Walk_067",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_067.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_090 //
+    {
+        .Name = "CT_Walk_090",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_090.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_112 //
+    {
+        .Name = "CT_Walk_112",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_112.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_135 //
+    {
+        .Name = "CT_Walk_135",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_135.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_157 //
+    {
+        .Name = "CT_Walk_157",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_157.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_180 //
+    {
+        .Name = "CT_Walk_180",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_180.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_202 //
+    {
+        .Name = "CT_Walk_202",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_202.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_225 //
+    {
+        .Name = "CT_Walk_225",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_225.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_247 //
+    {
+        .Name = "CT_Walk_247",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_247.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_270 //
+    {
+        .Name = "CT_Walk_270",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_270.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_292 //
+    {
+        .Name = "CT_Walk_292",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_292.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_315 //
+    {
+        .Name = "CT_Walk_315",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_315.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Walk_337 //
+    {
+        .Name = "CT_Walk_337",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_337.png",
+        .Rect{ .x = 0, .y = 0, .w = 720, .h = 720 }, // NOLINT
+    };
+
+/// Caretaker Run
+
+const SpriteSequenceDef kCT_Run_000 //
+    {
+        .Name = "CT_Run_000",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_000.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_022 //
+    {
+        .Name = "CT_Run_022",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_022.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_045 //
+    {
+        .Name = "CT_Run_045",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_045.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_067 //
+    {
+        .Name = "CT_Run_067",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_067.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_090 //
+    {
+        .Name = "CT_Run_090",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_090.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_112 //
+    {
+        .Name = "CT_Run_112",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_112.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_135 //
+    {
+        .Name = "CT_Run_135",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_135.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_157 //
+    {
+        .Name = "CT_Run_157",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_157.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_180 //
+    {
+        .Name = "CT_Run_180",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_180.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_202 //
+    {
+        .Name = "CT_Run_202",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_202.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_225 //
+    {
+        .Name = "CT_Run_225",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_225.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_247 //
+    {
+        .Name = "CT_Run_247",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_247.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_270 //
+    {
+        .Name = "CT_Run_270",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_270.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_292 //
+    {
+        .Name = "CT_Run_292",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_292.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_315 //
+    {
+        .Name = "CT_Run_315",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_315.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteSequenceDef kCT_Run_337 //
+    {
+        .Name = "CT_Run_337",
+        .Dim{ .w = 180, .h = 180 }, // NOLINT
+        .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_337.png",
+        .Rect{ .x = 0, .y = 0, .w = 1080, .h = 720 }, // NOLINT
+    };
+
+const SpriteAnimDef kSH_Walk //
+{
+    .Name = kSH_AnimName_Walk,
+    .SequenceDefs //
+    {
+        kSH_Walk_N,
+        kSH_Walk_NE,
+        kSH_Walk_E,
+        kSH_Walk_SE,
+        kSH_Walk_S,
+        kSH_Walk_SW,
+        kSH_Walk_W,
+        kSH_Walk_NW,
+    },
+};
+
+const SpriteAnimDef kCtAnimDef2_Idle //
+    {
+        .Name = kCT_AnimName_Idle,
+        .SequenceDefs //
         {
-            "/assets/Anims/Caretaker/Idle/Idle_Body_337.png", // 337 actually points north
-            "/assets/Anims/Caretaker/Idle/Idle_Body_000.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_022.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_045.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_067.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_090.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_112.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_135.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_157.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_180.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_202.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_225.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_247.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_270.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_292.png",
-            "/assets/Anims/Caretaker/Idle/Idle_Body_315.png",
+            kCT_Idle_337,
+            kCT_Idle_000,
+            kCT_Idle_022,
+            kCT_Idle_045,
+            kCT_Idle_067,
+            kCT_Idle_090,
+            kCT_Idle_112,
+            kCT_Idle_135,
+            kCT_Idle_157,
+            kCT_Idle_180,
+            kCT_Idle_202,
+            kCT_Idle_225,
+            kCT_Idle_247,
+            kCT_Idle_270,
+            kCT_Idle_292,
+            kCT_Idle_315,
         },
     };
 
-const SpriteAnimDef kCtAnimDef_Walk //
+const SpriteAnimDef kCtAnimDef2_Walk //
     {
-        .Name = kCtAnimName_Walk,
-        .Dim{ .w = 180, .h = 180 },
-        .Textures //
+        .Name = kCT_AnimName_Walk,
+        .SequenceDefs //
         {
-            "/assets/Anims/Caretaker/Walk/Walk_Body_000.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_022.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_045.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_067.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_090.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_112.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_135.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_157.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_180.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_202.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_225.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_247.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_270.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_292.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_315.png",
-            "/assets/Anims/Caretaker/Walk/Walk_Body_337.png",
+            kCT_Walk_000,
+            kCT_Walk_022,
+            kCT_Walk_045,
+            kCT_Walk_067,
+            kCT_Walk_090,
+            kCT_Walk_112,
+            kCT_Walk_135,
+            kCT_Walk_157,
+            kCT_Walk_180,
+            kCT_Walk_202,
+            kCT_Walk_225,
+            kCT_Walk_247,
+            kCT_Walk_270,
+            kCT_Walk_292,
+            kCT_Walk_315,
+            kCT_Walk_337,
         },
     };
 
-const SpriteAnimDef kCtAnimDef_Run //
+const SpriteAnimDef kCtAnimDef2_Run //
     {
-        .Name = kCtAnimName_Run,
-        .Dim{ .w = 180, .h = 180 },
-        .Textures //
+        .Name = kCT_AnimName_Run,
+        .SequenceDefs //
         {
-            "/assets/Anims/Caretaker/Run/Run_Body_000.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_022.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_045.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_067.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_090.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_112.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_135.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_157.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_180.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_202.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_225.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_247.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_270.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_292.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_315.png",
-            "/assets/Anims/Caretaker/Run/Run_Body_337.png",
+            kCT_Run_000,
+            kCT_Run_022,
+            kCT_Run_045,
+            kCT_Run_067,
+            kCT_Run_090,
+            kCT_Run_112,
+            kCT_Run_135,
+            kCT_Run_157,
+            kCT_Run_180,
+            kCT_Run_202,
+            kCT_Run_225,
+            kCT_Run_247,
+            kCT_Run_270,
+            kCT_Run_292,
+            kCT_Run_315,
+            kCT_Run_337,
         },
     };
 
-const SpriteAnimDef kCtSpriteAnimDefs[] //
+const SpriteAnimDef kAnimDefs2[] //
     {
-        kCtAnimDef_Idle,
-        kCtAnimDef_Walk,
-        kCtAnimDef_Run,
+        kCtAnimDef2_Idle,
+        kCtAnimDef2_Walk,
+        kCtAnimDef2_Run,
     };
 
 /// Number of cells along each axis of the cell map.
@@ -185,7 +654,7 @@ struct App
             : Renderer(std::move(renderer)),
               LevelFetcher(LevelFetcher::Fetch(levelPath, FileFetcher)),
               LevelLoader(
-                  LevelLoader::Load(kCtSpriteAnimDefs, kCellMapDef, FileFetcher, *Renderer, webGpu))
+                  LevelLoader::Load(kAnimDefs2, kCellMapDef, FileFetcher, *Renderer, webGpu))
         {
             GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
             GG_ASSERT(LevelLoader, "Failed to initialize level loader");

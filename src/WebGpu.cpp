@@ -246,6 +246,60 @@ CreateSampler(const wgpu::Device& gpuDevice)
 
     return gpuDevice.CreateSampler(&desc);
 }
+
+wgpu::Texture
+CreateTexture(const wgpu::Device& gpuDevice,
+    const uint32_t width,
+    const uint32_t height,
+    std::span<const std::byte> data,
+    const std::string_view name)
+{
+    GG_ASSERT(width > 0 && height > 0);
+    GG_ASSERT(4uz * width * height == data.size(),
+        "Texture data size does not match width * height * 4");
+
+    const wgpu::TextureDescriptor desc //
+        {
+            .label = name,
+            .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
+            .dimension = wgpu::TextureDimension::e2D,
+            .size //
+            {
+                .width = width,
+                .height = height,
+                .depthOrArrayLayers = 1,
+            },
+            .format = kDefaultTextureFormat,
+            .mipLevelCount = 1,
+            .sampleCount = 1,
+        };
+
+    const wgpu::Texture texture = gpuDevice.CreateTexture(&desc);
+    GG_ASSERT(texture);
+
+    if(!data.empty())
+    {
+        const wgpu::TexelCopyTextureInfo dest //
+            { .texture = texture, .mipLevel = 0, .origin = { .x = 0, .y = 0, .z = 0 } };
+
+        const wgpu::TexelCopyBufferLayout layout //
+            {
+                .bytesPerRow = width * 4,
+                .rowsPerImage = height,
+            };
+
+        const wgpu::Extent3D copyExtent //
+            {
+                .width = width,
+                .height = height,
+                .depthOrArrayLayers = 1,
+            };
+
+        gpuDevice.GetQueue().WriteTexture(&dest, data.data(), data.size(), &layout, &copyExtent);
+    }
+
+    return texture;
+}
 } // namespace
 
 WebGpu::~WebGpu()
@@ -361,6 +415,34 @@ WebGpu::Update()
             m_DefaultSampler = CreateSampler(m_Device);
             GG_CHECK(m_DefaultSampler, "Failed to create default sampler");
 
+            static constexpr std::byte kDefaultTextureData[] //
+                {
+                    // Magenta
+                    std::byte{ 255 },
+                    std::byte{ 0 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                    // Cyan
+                    std::byte{ 0 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                    // Cyan
+                    std::byte{ 0 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                    // Magenta
+                    std::byte{ 255 },
+                    std::byte{ 0 },
+                    std::byte{ 255 },
+                    std::byte{ 255 },
+                };
+
+            m_DefaultTexture =
+                ::CreateTexture(m_Device, 2, 2, kDefaultTextureData, "DefaultTexture");
+            GG_CHECK(m_DefaultTexture, "Failed to create default texture");
+
             m_Stage = Stage::Ready;
         }
         break;
@@ -410,51 +492,7 @@ WebGpu::CreateTexture(const uint32_t width,
 {
     GG_ASSERT(IsReady());
 
-    GG_ASSERT(width > 0 && height > 0);
-    GG_ASSERT(4uz * width * height == data.size(),
-        "Texture data size does not match width * height * 4");
-
-    const wgpu::TextureDescriptor desc //
-        {
-            .label = name,
-            .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
-            .dimension = wgpu::TextureDimension::e2D,
-            .size //
-            {
-                .width = width,
-                .height = height,
-                .depthOrArrayLayers = 1,
-            },
-            .format = kDefaultTextureFormat,
-            .mipLevelCount = 1,
-            .sampleCount = 1,
-        };
-
-    const wgpu::Texture texture = m_Device.CreateTexture(&desc);
-    GG_ASSERT(texture);
-
-    if(!data.empty())
-    {
-        const wgpu::TexelCopyTextureInfo dest //
-            { .texture = texture, .mipLevel = 0, .origin = { .x = 0, .y = 0, .z = 0 } };
-
-        const wgpu::TexelCopyBufferLayout layout //
-            {
-                .bytesPerRow = width * 4,
-                .rowsPerImage = height,
-            };
-
-        const wgpu::Extent3D copyExtent //
-            {
-                .width = width,
-                .height = height,
-                .depthOrArrayLayers = 1,
-            };
-
-        m_Queue.WriteTexture(&dest, data.data(), data.size(), &layout, &copyExtent);
-    }
-
-    return texture;
+    return ::CreateTexture(m_Device, width, height, data, name);
 }
 
 wgpu::Texture
@@ -490,10 +528,13 @@ WebGpu::CreateTexture(const uint32_t width,
     for(size_t i = 0; i < data.size(); ++i)
     {
         GG_ASSERT(4uz * width * height == data[i].size(),
-            "Texture data size does not match width * height * 4 at layer: {}", i);
+            "Texture data size does not match width * height * 4 at layer: {}",
+            i);
 
         const wgpu::TexelCopyTextureInfo dest //
-            { .texture = texture, .mipLevel = 0, .origin = { .x = 0, .y = 0, .z = scast<uint32_t>(i) } };
+            { .texture = texture,
+                .mipLevel = 0,
+                .origin = { .x = 0, .y = 0, .z = scast<uint32_t>(i) } };
 
         const wgpu::TexelCopyBufferLayout layout //
             {
@@ -553,6 +594,13 @@ WebGpu::GetDefaultSampler() const
 {
     GG_ASSERT(IsReady());
     return m_DefaultSampler;
+}
+
+wgpu::Texture
+WebGpu::GetDefaultTexture() const
+{
+    GG_ASSERT(IsReady());
+    return m_DefaultTexture;
 }
 
 wgpu::TextureFormat

@@ -9,8 +9,8 @@
 
 namespace
 {
-constexpr const ResourceName kAnimName_Idle = "CtIdle";
-constexpr const ResourceName kAnimName_Run = "CtRun";
+constexpr const ResourceName kAnimName_Idle = "CT_Idle";
+constexpr const ResourceName kAnimName_Run = "CT_Run";
 
 constexpr float kTurnsPerSec = 1;
 constexpr float kMoveSpeed = 2.0f;
