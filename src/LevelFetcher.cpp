@@ -113,7 +113,7 @@ ParseLayers(const JsonArray& jsonLayers)
 }
 
 Result<>
-Parse(std::vector<std::byte> data)
+Parse(std::vector<std::byte>&& data)
 {
     auto docResult = JsonDocument::Create(std::move(data));
     GG_CHECK(docResult, "Failed to create JSON parser");

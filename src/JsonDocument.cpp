@@ -353,7 +353,7 @@ JsonObject::end() const
 /// JsonDocument
 
 Result<JsonDocument>
-JsonDocument::Create(std::vector<std::byte> data)
+JsonDocument::Create(std::vector<std::byte>&& data)
 {
     jsmn_parser parser;
 

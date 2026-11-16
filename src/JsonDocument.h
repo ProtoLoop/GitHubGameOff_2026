@@ -186,7 +186,7 @@ public:
     JsonDocument(JsonDocument&&) = default;
     JsonDocument& operator=(JsonDocument&&) = default;
 
-    static Result<JsonDocument> Create(std::vector<std::byte> data);
+    static Result<JsonDocument> Create(std::vector<std::byte>&& data);
 
     JsonObject GetRootObject() const;
 

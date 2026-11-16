@@ -104,10 +104,9 @@ Level::Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims)
     : m_CellMap(std::move(cellMap)),
       m_SpriteAnims(std::move(spriteAnims))
 {
-    m_FreeHandleSlots.reserve(m_HandleSlots.size());
-
-    for(HandleSlot& slot : m_HandleSlots)
+    for(size_t i = 0; i < m_HandleSlots.capacity(); i++)
     {
+        HandleSlot& slot = m_HandleSlots.emplace_back();
         m_FreeHandleSlots.push_back(&slot);
     }
 }

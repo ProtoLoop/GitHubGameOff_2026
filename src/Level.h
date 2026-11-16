@@ -148,6 +148,6 @@ private:
     BoundedVector<SpriteAnim> m_SpriteAnims;
     BoundedVector<Node2D> m_Nodes{kMaxNodes};
     BoundedVector<SpriteAnimNode> m_SpriteAnimNodes{kMaxSpriteAnimNodes};
-    std::vector<HandleSlot> m_HandleSlots{kMaxNodes + kMaxSpriteAnimNodes};
-    std::vector<HandleSlot*> m_FreeHandleSlots;
+    BoundedVector<HandleSlot> m_HandleSlots{kMaxNodes + kMaxSpriteAnimNodes};
+    BoundedVector<HandleSlot*> m_FreeHandleSlots{kMaxNodes + kMaxSpriteAnimNodes};
 };

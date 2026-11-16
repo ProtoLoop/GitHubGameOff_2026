@@ -71,10 +71,9 @@ SpriteAnimLoader::Load(
     const wgpu::Texture defaultTexture = webGpu.GetDefaultTexture();
     GG_TRYB(defaultBindGroup, renderer.CreateSpriteTextureBindGroup(defaultTexture));
 
-    std::vector<FilePath> uniqueTexPaths;
+    BoundedVector<FilePath> uniqueTexPaths(animDef.SequenceDefs.size());
     BoundedVector<size_t> sequenceToTextureMap(animDef.SequenceDefs.size());
     BoundedVector<SpriteSequence> spriteSequences(animDef.SequenceDefs.size());
-    uniqueTexPaths.reserve(animDef.SequenceDefs.size());
 
     // Collect unique texture paths and create sprite sequences
     // using the default texture, which will be replaced later when
@@ -175,10 +174,8 @@ SpriteAnimLoader::Take()
 
     m_Taken = true;
 
-    std::vector<wgpu::BindGroup> bindGroups;
-    std::vector<wgpu::Texture> textures;
-    bindGroups.reserve(m_TextureLoaders.size());
-    textures.reserve(m_TextureLoaders.size());
+    BoundedVector<wgpu::BindGroup> bindGroups(m_TextureLoaders.size());
+    BoundedVector<wgpu::Texture> textures(m_TextureLoaders.size());
 
     // Create the bind groups.
     for(TextureLoader& texLoader : m_TextureLoaders)
