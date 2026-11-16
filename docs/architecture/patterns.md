@@ -36,16 +36,23 @@ use them.
 
 ## Owned and borrowed handles
 
-An owned handle carries responsibility for releasing a node. Moving it
-transfers that responsibility. A borrowed handle provides access without
-responsibility for release.
+An owned handle releases its node through its owner when destroyed. Moving it
+transfers ownership and leaves the source empty. Move assignment releases the
+destination's node before taking ownership, except for self-assignment.
+Explicit early release through `Level` clears the handle so its destructor
+does not release the node again.
 
-Nodes are released explicitly through `Level`. Destroying an owned handle
-without first releasing or transferring ownership is a programming error.
-Borrowed handles must not be used after the node is released.
+The owner must remain at a stable address and outlive its active owned handles.
+`Level` cannot be copied or moved. `Game` owns it through `std::unique_ptr` and
+destroys its entities before destroying the level. Dependent nodes must be
+released before the nodes they borrow.
+
+Use `.Borrow()` to obtain access without transferring ownership. A borrowed
+handle does not extend the lifetime of the node or its owner and must not be
+used after either is destroyed.
 
 See the handle types in [Nodes.h](../../src/Nodes.h) and the
-[ownership decision](decisions.md#game-entities-and-level-owned-node-storage).
+[ownership decision](decisions.md#raii-node-handles-and-stable-level-ownership).
 
 ## Valid Construction
 

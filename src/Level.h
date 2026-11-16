@@ -4,6 +4,7 @@
 #include "Nodes.h"
 #include "Sprite.h"
 
+#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -31,7 +32,7 @@ public:
 
     Result<> Update();
 
-    Result<Level> Take();
+    Result<std::unique_ptr<Level>> Take();
 
 private:
     LevelLoader(CellMapLoader&& cellMapLoader, BoundedVector<SpriteAnimLoader>&& spriteAnimLoaders)
@@ -46,6 +47,10 @@ private:
     bool m_Taken{ false };
 };
 
+/// Owns the cell map, sprite animations, and node storage.
+/// Level cannot be copied or moved because owned node handles retain its address.
+/// Transfer ownership through std::unique_ptr<Level>.
+/// All owned node handles must be released before the level is destroyed.
 class Level
 {
 public:
@@ -56,8 +61,8 @@ public:
     ~Level();
     Level(const Level&) = delete;
     Level& operator=(const Level&) = delete;
-    Level(Level&&) = default;
-    Level& operator=(Level&&) = default;
+    Level(Level&&) = delete;
+    Level& operator=(Level&&) = delete;
 
     void Tick(const float deltaTime);
 
@@ -69,12 +74,12 @@ public:
 
     Result<OwnedNodeHandle<Node2D>> CreateNode2D();
 
-    void DestroyNode2D(OwnedNodeHandle<Node2D>& handle);
-
-    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(BorrowedNodeHandle<Node2D> node2D,
+    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(BorrowedHandle<Node2D> node2D,
         const SpriteAnim::Instance& instance);
 
-    void DestroySpriteAnimNode(OwnedNodeHandle<SpriteAnimNode>& handle);
+    void Destroy(OwnedNodeHandle<Node2D>& handle);
+
+    void Destroy(OwnedNodeHandle<SpriteAnimNode>& handle);
 
     std::span<const SpriteAnimNode> GetSpriteAnimNodes() const;
 
@@ -111,7 +116,7 @@ private:
 
         // Find the handle slot corresponding to the node at the back.
         // so we can fix up its pointer after moving the node.
-        auto it = std::ranges::find(m_HandleSlots, back, &NodeHandleSlot::m_Ptr);
+        auto it = std::ranges::find(m_HandleSlots, back, &HandleSlot::m_Ptr);
         if(!GG_VERIFYB(it != m_HandleSlots.end(), "Handle slot not found"))
         {
             return;
@@ -131,18 +136,18 @@ private:
 
         FreeHandleSlot(handle.m_Slot);
 
+        handle.m_Owner = nullptr;
         handle.m_Slot = nullptr;
         handle.m_Generation = 0;
     }
 
-    Result<NodeHandleSlot*> AllocateHandleSlot();
-    void FreeHandleSlot(NodeHandleSlot* handleSlot);
+    Result<HandleSlot*> AllocateHandleSlot();
+    void FreeHandleSlot(HandleSlot* handleSlot);
 
     CellMap m_CellMap;
     BoundedVector<SpriteAnim> m_SpriteAnims;
     BoundedVector<Node2D> m_Nodes{kMaxNodes};
     BoundedVector<SpriteAnimNode> m_SpriteAnimNodes{kMaxSpriteAnimNodes};
-    std::vector<NodeHandleSlot> m_HandleSlots{kMaxNodes + kMaxSpriteAnimNodes};
-    std::vector<NodeHandleSlot*> m_FreeHandleSlots;
-
+    std::vector<HandleSlot> m_HandleSlots{kMaxNodes + kMaxSpriteAnimNodes};
+    std::vector<HandleSlot*> m_FreeHandleSlots;
 };

@@ -13,7 +13,7 @@ class WebGpu;
 
 struct SpriteDrawRecord
 {
-    BorrowedNodeHandle<const Node2D> Node;
+    BorrowedHandle<const Node2D> Node;
     const Sprite* Sprite;
 };
 

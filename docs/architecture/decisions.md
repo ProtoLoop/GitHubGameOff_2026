@@ -276,7 +276,8 @@ See [Coverage masks](../COVERAGE_MASKS.md) for the relationship between the grid
 
 ## Game entities and level-owned node storage
 
-Date: 2026-11-15. Status: Accepted.
+Date: 2026-11-15. Status: Superseded by
+[RAII node handles and stable level ownership](#raii-node-handles-and-stable-level-ownership).
 
 Entities need to create and release nodes, while the level keeps node storage
 and shared resources together for animation and rendering. `Level` should not
@@ -304,3 +305,42 @@ This follows [clear responsibility](principles.md#make-it-clear-who-is-responsib
 and the [owned and borrowed handles pattern](patterns.md#owned-and-borrowed-handles).
 See [Game](../../src/Game.h), [Level](../../src/Level.h), and the
 [runtime boundary](../development.md#runtime-boundary).
+
+## RAII node handles and stable level ownership
+
+Date: 2026-11-16. Status: Accepted.
+
+Explicit node release required coordination across entity destruction,
+replacement, and partial construction failure. Owned handles tracked release
+responsibility but could only diagnose missing cleanup. Automatic release needs
+the node owner to remain at a stable address.
+
+`Game` now owns `Level` through `std::unique_ptr`. `Level` cannot be copied or
+moved, so transferring the pointer preserves its address. Owned node handles
+retain an owner pointer and release their nodes through that owner on
+destruction. Moving a handle transfers ownership and leaves the source empty.
+Move assignment first releases the destination's node, except for
+self-assignment. Explicit early release clears the handle.
+
+Gameplay entities remain owned by `Game`, and `Level` remains independent of
+game-specific entity types. `Game` destroys its entities before the level.
+Entity members release dependent nodes before the nodes they borrow. Borrowed
+handles provide access without extending node or owner lifetimes.
+
+We considered retaining explicit cleanup and extracting a separately allocated
+node-storage owner. Retaining explicit cleanup would preserve movable levels
+but keep the manual release obligations. Separate storage would provide a stable
+address but split responsibilities already held by `Level`. Keeping `Level`
+itself stable enables RAII without introducing another storage owner.
+
+Automatic cleanup covers scope exit, replacement, and partial construction
+failure. It adds an owner pointer to each owned handle and requires the owner
+to outlive every active handle. Dependency order still matters, and moving a
+level's ownership now requires moving its pointer rather than the level itself.
+
+This supersedes
+[Game entities and level-owned node storage](#game-entities-and-level-owned-node-storage).
+It follows [clear responsibility](principles.md#make-it-clear-who-is-responsible)
+and the [owned and borrowed handles pattern](patterns.md#owned-and-borrowed-handles).
+See [Nodes](../../src/Nodes.h), [Level](../../src/Level.h),
+[Game](../../src/Game.h), and the [runtime boundary](../development.md#runtime-boundary).

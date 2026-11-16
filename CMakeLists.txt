@@ -81,6 +81,7 @@ set(GAMEOFF_SOURCES
     src/FileFetcher.cpp
     src/Game.h
     src/Game.cpp
+    src/Handle.h
     src/InlineString.h
     src/InlineVector.h
     src/Input.h

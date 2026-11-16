@@ -1,6 +1,5 @@
 #include "Entities.h"
 
-#include "Defer.h"
 #include "Input.h"
 #include "Level.h"
 #include "Nodes.h"
@@ -27,11 +26,6 @@ Caretaker::Caretaker(OwnedNodeHandle<Node2D>&& node2D, OwnedNodeHandle<SpriteAni
     , m_AnimNode(std::move(animNode))
 {
     m_AnimNode->SetPeriod(kAnimPeriod);
-}
-
-Caretaker::~Caretaker()
-{
-    GG_ASSERT(!m_Node2D && !m_AnimNode, "Forgot to call Destroy()?");
 }
 
 Result<>
@@ -105,23 +99,10 @@ Caretaker::Create(Level& level)
         kAnimName_Idle);
 
     GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
-    auto onFail = GG_DEFER
-    {
-        level.DestroyNode2D(node2D);
-    };
 
     GG_TRYB(animNode,
         level.CreateSpriteAnimNode(node2D.Borrow(), animInstance),
         "Failed to create sprite animation node");
 
-    onFail.cancel();
-
     return Caretaker(std::move(node2D), std::move(animNode));
-}
-
-void 
-Caretaker::Destroy(Level& level)
-{
-    level.DestroySpriteAnimNode(m_AnimNode);
-    level.DestroyNode2D(m_Node2D);
 }

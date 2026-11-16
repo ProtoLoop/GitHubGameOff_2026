@@ -10,7 +10,7 @@ class Caretaker : public Node2DLike<Caretaker>
 {
 public:
     Caretaker() = delete;
-    ~Caretaker();
+    ~Caretaker() = default;
     Caretaker(const Caretaker&) = delete;
     Caretaker& operator=(const Caretaker&) = delete;
     Caretaker(Caretaker&&) = default;
@@ -18,9 +18,9 @@ public:
 
     Result<> Tick(const float deltaTime, const Input& input, const Level& level);
 
-    BorrowedNodeHandle<Node2D> GetNode() { return m_Node2D.Borrow(); }
+    BorrowedHandle<Node2D> GetNode() { return m_Node2D.Borrow(); }
 
-    BorrowedNodeHandle<const Node2D> GetNode() const { return m_Node2D.Borrow(); }
+    BorrowedHandle<const Node2D> GetNode() const { return m_Node2D.Borrow(); }
 
 private:
     friend class Game;
@@ -28,8 +28,6 @@ private:
     static Result<Caretaker> Create(Level& level);
 
     Caretaker(OwnedNodeHandle<Node2D>&& node2D, OwnedNodeHandle<SpriteAnimNode>&& animNode);
-
-    void Destroy(Level& level);
 
     OwnedNodeHandle<Node2D> m_Node2D;
     OwnedNodeHandle<SpriteAnimNode> m_AnimNode;

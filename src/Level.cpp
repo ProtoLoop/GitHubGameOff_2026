@@ -78,7 +78,7 @@ LevelLoader::Update()
     return Result<>::Ok;
 }
 
-Result<Level>
+Result<std::unique_ptr<Level>>
 LevelLoader::Take()
 {
     GG_CHECKB(!IsPending(), "Level is still loading");
@@ -99,7 +99,7 @@ LevelLoader::Take()
     auto cellMapResult = m_CellMapLoader.Take();
     GG_CHECK(cellMapResult, "Failed to load cell map");
 
-    return Level(std::move(*cellMapResult), std::move(spriteAnims));
+    return std::unique_ptr<Level>(new Level(std::move(*cellMapResult), std::move(spriteAnims)));
 }
 
 /// Level
@@ -110,7 +110,7 @@ Level::Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims)
 {
     m_FreeHandleSlots.reserve(m_HandleSlots.size());
 
-    for(NodeHandleSlot& slot : m_HandleSlots)
+    for(HandleSlot& slot : m_HandleSlots)
     {
         m_FreeHandleSlots.push_back(&slot);
     }
@@ -181,23 +181,23 @@ Level::CreateNode2D()
     auto handleSlotResult = AllocateHandleSlot();
     GG_CHECKB(handleSlotResult, "Failed to get handle slot");
 
-    NodeHandleSlot* handleSlot = *handleSlotResult;
+    HandleSlot* handleSlot = *handleSlotResult;
 
     onFail.cancel();
 
     handleSlot->m_Ptr = &node2d;
 
-    return OwnedNodeHandle<Node2D>(*handleSlot);
+    return OwnedNodeHandle<Node2D>(*this, *handleSlot);
 }
 
 void
-Level::DestroyNode2D(OwnedNodeHandle<Node2D>& handle)
+Level::Destroy(OwnedNodeHandle<Node2D>& handle)
 {
     DestroyNode(m_Nodes, handle);
 }
 
 Result<OwnedNodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(BorrowedNodeHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
+Level::CreateSpriteAnimNode(BorrowedHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
 {
     GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
 
@@ -215,11 +215,11 @@ Level::CreateSpriteAnimNode(BorrowedNodeHandle<Node2D> node2D, const SpriteAnim:
 
     slot->m_Ptr = &animNode;
 
-    return OwnedNodeHandle<SpriteAnimNode>(*slot);
+    return OwnedNodeHandle<SpriteAnimNode>(*this, *slot);
 }
 
 void
-Level::DestroySpriteAnimNode(OwnedNodeHandle<SpriteAnimNode>& handle)
+Level::Destroy(OwnedNodeHandle<SpriteAnimNode>& handle)
 {
     DestroyNode(m_SpriteAnimNodes, handle);
 }
@@ -232,12 +232,12 @@ Level::GetSpriteAnimNodes() const
 
 // private:
 
-Result<NodeHandleSlot*>
+Result<HandleSlot*>
 Level::AllocateHandleSlot()
 {
     GG_CHECKB(!m_FreeHandleSlots.empty(), "No free handle slots available");
 
-    NodeHandleSlot* handleSlot = m_FreeHandleSlots.back();
+    HandleSlot* handleSlot = m_FreeHandleSlots.back();
     m_FreeHandleSlots.pop_back();
 
     handleSlot->m_Ptr = nullptr;
@@ -248,7 +248,7 @@ Level::AllocateHandleSlot()
 }
 
 void
-Level::FreeHandleSlot(NodeHandleSlot* handleSlot)
+Level::FreeHandleSlot(HandleSlot* handleSlot)
 {
     if(GG_VERIFYB(handleSlot >= m_HandleSlots.data() && handleSlot <= &m_HandleSlots.back(),
            "Invalid handle slot"))
