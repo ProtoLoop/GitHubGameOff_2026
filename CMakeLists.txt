@@ -69,6 +69,8 @@ endif()
 
 set(GAMEOFF_SOURCES
     src/Angle.h
+    src/AnimData.h
+    src/AnimData.cpp
     src/BoundedVector.h
     src/CellMap.h
     src/CellMap.cpp

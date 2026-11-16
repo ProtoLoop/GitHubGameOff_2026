@@ -5,7 +5,7 @@
 #include "InlineString.h"
 #include "TextureLoader.h"
 
-#include <vector>
+#include <span>
 #include <webgpu/webgpu_cpp.h>
 
 class WebGpu;
@@ -57,7 +57,9 @@ struct SpriteSequenceDef
 struct SpriteAnimDef
 {
     ResourceName Name;
-    std::vector<SpriteSequenceDef> SequenceDefs;
+    /// Borrows sequence storage, which must remain valid whenever this definition
+    /// is read. SpriteAnimLoader::Load copies the data it needs before returning.
+    std::span<const SpriteSequenceDef> SequenceDefs;
 };
 
 /// A lightweight representation of a sprite within a texture atlas.
