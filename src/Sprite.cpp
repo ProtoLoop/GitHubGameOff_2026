@@ -108,18 +108,18 @@ SpriteAnimLoader::Load(
         auto it = std::ranges::find(uniqueTexPaths, seqDef.TexturePath);
         if(uniqueTexPaths.end() == it)
         {
-            GG_CHECKB(sequenceToTextureMap.push_back(uniqueTexPaths.size()));
+            sequenceToTextureMap.push_back(uniqueTexPaths.size());
             uniqueTexPaths.push_back(seqDef.TexturePath);
         }
         else
         {
             const size_t index = static_cast<size_t>(std::distance(uniqueTexPaths.begin(), it));
-            GG_CHECKB(sequenceToTextureMap.push_back(index));
+            sequenceToTextureMap.push_back(index);
         }
 
         SpriteSequence spriteSeq(seqDef.Name, defaultBindGroup, seqDef.Dim, seqDef.Rect);
 
-        GG_CHECKB(spriteSequences.push_back(std::move(spriteSeq)), "Failed to add sprite sequence");
+        spriteSequences.push_back(std::move(spriteSeq));
     }
 
     // Load the textures.
@@ -128,8 +128,7 @@ SpriteAnimLoader::Load(
     {
         auto texLoadResult = TextureLoader::Load(texPath, fileFetcher, webGpu, "Anim");
         GG_CHECKB(texLoadResult, "Failed to start texture load: {}", texPath);
-        GG_CHECKB(textureLoaders.push_back(std::move(*texLoadResult)),
-            "Failed to add texture loader");
+        textureLoaders.push_back(std::move(*texLoadResult));
     }
 
     return SpriteAnimLoader(animDef.Name,
@@ -196,8 +195,8 @@ SpriteAnimLoader::Take()
     // For each sequence replace its bind group with a bindgroup containing the loaded texture.
     for(size_t i = 0; i < m_SpriteSequences.size(); ++i)
     {
-        GG_TRYB(seq, m_SpriteSequences[i]);
-        GG_TRYB(texIndex, m_SequenceToTextureMap[i]);
+        const SpriteSequence& seq = m_SpriteSequences[i];
+        const size_t texIndex = m_SequenceToTextureMap[i];
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
 
@@ -230,7 +229,7 @@ SpriteAnimLoader::Take()
         // Create a new sequence and replace the old one.
         SpriteSequence newSeq(seq.GetName(), bindGroup, seq.GetDim(), seq.GetRect());
 
-        seq = std::move(newSeq);
+        m_SpriteSequences[i] = std::move(newSeq);
     }
 
     return SpriteAnim(m_Name, std::move(m_SpriteSequences));
@@ -263,7 +262,7 @@ SpriteAnim::GetFrame(const float phase, const Angle& angle) const
     const float fdir = angle.ToTurns() * static_cast<float>(dirCount);
     const size_t direction = static_cast<size_t>(std::round(fdir)) % dirCount;
 
-    const SpriteSequence& sequence = *m_SpriteSequences.TryGet(direction);
+    const SpriteSequence& sequence = m_SpriteSequences[direction];
 
     const uint32_t framesPerDirection = sequence.GetSpriteCount();
     const float normalizedPhase = phase - std::floor(phase);

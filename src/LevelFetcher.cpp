@@ -83,7 +83,7 @@ ParseLayer(const JsonObject& layer)
 
         GG_CHECKB(cell.TryGetUint32(cellValue));
 
-        GG_CHECKB(cells.push_back(cellValue));
+        cells.push_back(cellValue);
     }
 
     return Layer{ *sheetIndex, std::move(cells) };
@@ -106,7 +106,7 @@ ParseLayers(const JsonArray& jsonLayers)
 
         auto layerResult = ParseLayer(layer);
         GG_CHECKB(layerResult, "Failed to parse layer");
-        GG_CHECKB(layers.push_back(std::move(*layerResult)));
+        layers.push_back(std::move(*layerResult));
     }
 
     return std::move(layers);
@@ -162,7 +162,7 @@ Parse(std::vector<std::byte> data)
             {
                 std::string_view str;
                 GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
-                GG_CHECKB(tileSheets->push_back(str));
+                tileSheets->push_back(str);
             }
         }
         else if(key == "maskSheets")
@@ -180,7 +180,7 @@ Parse(std::vector<std::byte> data)
             {
                 std::string_view str;
                 GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
-                GG_CHECKB(maskSheets->push_back(str));
+                maskSheets->push_back(str);
             }
         }
         else if(key == "layers")

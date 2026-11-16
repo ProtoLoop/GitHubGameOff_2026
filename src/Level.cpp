@@ -29,9 +29,7 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
 
         GG_CHECK(loadResult, "Failed to load sprite anim: {}", def.Name);
 
-        GG_CHECK(spriteAnimLoaders.push_back(std::move(*loadResult)),
-            "Failed to add sprite anim: {}",
-            def.Name);
+        spriteAnimLoaders.push_back(std::move(*loadResult));
     }
 
     auto cellResult = CellMapLoader::Load(cellMapDef, renderer, fileFetcher, webGpu);
@@ -91,9 +89,7 @@ LevelLoader::Take()
     {
         auto animResult = loader.Take();
         GG_CHECK(animResult, "Failed to load sprite anim: {}", loader.GetName());
-        GG_CHECK(spriteAnims.push_back(std::move(*animResult)),
-            "Failed to add sprite anim: {}",
-            loader.GetName());
+        spriteAnims.push_back(std::move(*animResult));
     }
 
     auto cellMapResult = m_CellMapLoader.Take();
@@ -168,9 +164,9 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
 Result<OwnedNodeHandle<Node2D>>
 Level::CreateNode2D()
 {
-    auto node2dResult = m_Nodes.emplace_back();
-    GG_CHECKB(node2dResult, "Failed to create Node2D");
-    Node2D& node2d = *node2dResult;
+    GG_CHECKB(m_Nodes.HasCapacity(), "No capacity for new Node2D");
+
+    Node2D& node2d = m_Nodes.emplace_back();
 
     auto onFail = GG_DEFER
     {
@@ -199,19 +195,11 @@ Level::Destroy(OwnedNodeHandle<Node2D>& handle)
 Result<OwnedNodeHandle<SpriteAnimNode>>
 Level::CreateSpriteAnimNode(BorrowedHandle<Node2D> node2D, const SpriteAnim::Instance& instance)
 {
+    GG_CHECKB(m_SpriteAnimNodes.HasCapacity(), "No capacity for new SpriteAnimNode");
+
     GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
 
-    auto onFail = GG_DEFER
-    {
-        // On failure deallocate the handle slot.
-        FreeHandleSlot(slot);
-    };
-
-    GG_TRYB(animNode,
-        m_SpriteAnimNodes.emplace_back(node2D, instance),
-        "Failed to create SpriteAnimNode");
-
-    onFail.cancel();
+    SpriteAnimNode& animNode = m_SpriteAnimNodes.emplace_back(node2D, instance);
 
     slot->m_Ptr = &animNode;
 

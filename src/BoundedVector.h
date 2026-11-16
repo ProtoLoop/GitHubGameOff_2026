@@ -55,34 +55,33 @@ public:
         return *this;
     }
 
-    Result<> push_back(const T& value)
+    bool HasCapacity() const { return size() < capacity(); }
+
+    void push_back(const T& value)
     {
-        GG_CHECKB(size() < capacity())
+        if(!GG_VERIFYB(size() < capacity()))
+        {
+            return;
+        }
         allocator_traits::construct(m_Allocator, AsPointer(m_Size++), value);
-        return Result<>::Ok;
     }
 
-    Result<> push_back(T&& value)
+    void push_back(T&& value)
     {
-        GG_CHECKB(size() < capacity())
+        if(!GG_VERIFYB(size() < capacity()))
+        {
+            return;
+        }
         allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::move(value));
-        return Result<>::Ok;
     }
 
     template<typename... Args>
-    Result<T&> emplace_back(Args&&... args)
+    T& emplace_back(Args&&... args)
     {
-        GG_CHECKB(size() < capacity())
+        GG_ASSERT(size() < capacity());
         T* ptr = AsPointer(m_Size++);
         allocator_traits::construct(m_Allocator, ptr, std::forward<Args>(args)...);
         return *ptr;
-    }
-
-    T* TryGet(const size_t index) { return index < size() ? AsPointer(index) : nullptr; }
-
-    const T* TryGet(const size_t index) const
-    {
-        return index < size() ? AsPointer(index) : nullptr;
     }
 
     constexpr size_t capacity() const { return m_Capacity; }
@@ -108,51 +107,51 @@ public:
         }
     }
 
-    Result<T&> at(const size_t index)
+    T& at(const size_t index)
     {
-        GG_CHECKB(index < size(), "Index out of bounds");
+        GG_ASSERT(index < size(), "Index out of bounds");
         return *AsPointer(index);
     }
 
-    Result<const T&> at(const size_t index) const
+    const T& at(const size_t index) const
     {
-        GG_CHECKB(index < size(), "Index out of bounds");
+        GG_ASSERT(index < size(), "Index out of bounds");
         return *AsPointer(index);
     }
 
-    Result<T&> operator[](const size_t index)
+    T& operator[](const size_t index)
     {
-        GG_CHECKB(index < size(), "Index out of bounds");
+        GG_ASSERT(index < size(), "Index out of bounds");
         return *AsPointer(index);
     }
 
-    Result<const T&> operator[](const size_t index) const
+    const T& operator[](const size_t index) const
     {
-        GG_CHECKB(index < size(), "Index out of bounds");
+        GG_ASSERT(index < size(), "Index out of bounds");
         return *AsPointer(index);
     }
 
-    Result<T&> front()
+    T& front()
     {
-        GG_CHECKB(!empty(), "Vector is empty");
+        GG_ASSERT(!empty(), "Vector is empty");
         return *AsPointer(0);
     }
 
-    Result<const T&> front() const
+    const T& front() const
     {
-        GG_CHECKB(!empty(), "Vector is empty");
+        GG_ASSERT(!empty(), "Vector is empty");
         return *AsPointer(0);
     }
 
-    Result<T&> back()
+    T& back()
     {
-        GG_CHECKB(!empty(), "Vector is empty");
+        GG_ASSERT(!empty(), "Vector is empty");
         return *AsPointer(size() - 1);
     }
 
-    Result<const T&> back() const
+    const T& back() const
     {
-        GG_CHECKB(!empty(), "Vector is empty");
+        GG_ASSERT(!empty(), "Vector is empty");
         return *AsPointer(size() - 1);
     }
 

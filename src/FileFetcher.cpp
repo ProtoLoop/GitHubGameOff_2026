@@ -119,16 +119,11 @@ FileFetcher::FileFetcher()
 {
     for(size_t i = 0; i < m_RequestHeap.capacity(); ++i)
     {
-        auto result = m_RequestHeap.emplace_back(FileFetchRequest::PassKey(this));
-        if(!GG_VERIFYB(result))
-        {
-            continue;
-        }
+        FileFetchRequest& request = m_RequestHeap.emplace_back(FileFetchRequest::PassKey(this));
 
-        result->AddToList(m_FreeList);
+        request.AddToList(m_FreeList);
     }
 }
-
 
 FileFetcher::~FileFetcher()
 {
