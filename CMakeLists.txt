@@ -83,7 +83,6 @@ set(GAMEOFF_SOURCES
     src/FileFetcher.cpp
     src/Game.h
     src/Game.cpp
-    src/Handle.h
     src/InlineString.h
     src/InlineVector.h
     src/Input.h
@@ -96,8 +95,6 @@ set(GAMEOFF_SOURCES
     src/LevelFetcher.h
     src/LevelFetcher.cpp
     src/main.cpp
-    src/Nodes.h
-    src/Nodes.cpp
     src/Renderer.h
     src/Renderer.cpp
     src/Result.h
@@ -106,6 +103,7 @@ set(GAMEOFF_SOURCES
     src/Sprite.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
+    src/Transform2D.h
     src/stb_image.cpp
     src/WebGpu.h
     src/WebGpu.cpp

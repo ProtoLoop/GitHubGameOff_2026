@@ -388,15 +388,16 @@ targets. WebGPU handles rendering and presentation. `App` manages the SDL
 lifecycle, initializes WebGPU asynchronously, and advances loading before
 starting `Game`.
 
-`Game` owns the running level through `std::unique_ptr`, keeping the nonmovable
-`Level` at a stable address. It also owns the renderer and gameplay entities.
-Entities hold owned node handles that release nodes through `Level` automatically
-when destroyed. During shutdown, `Game` destroys its entities before the level
-so the handles' owner remains alive throughout cleanup. `App` then destroys the
-window before SDL shuts down.
+`Game` owns the level, renderer, and gameplay entities. Entities own their
+transforms and animation playback state. `Level` owns the cell map and shared
+animation resources. Entities are destroyed before the level so those resources
+remain valid.
+
+Each frame, `Game` updates entities and queues their sprites. `App` then calls
+the renderer and presents the frame.
 
 The ownership choice is recorded in
-[RAII node handles and stable level ownership](architecture/decisions.md#raii-node-handles-and-stable-level-ownership).
+[Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission).
 
 Rendering uses an 800×600 logical canvas, scaled to fit the window while
 preserving its aspect ratio. Unused space forms black borders.

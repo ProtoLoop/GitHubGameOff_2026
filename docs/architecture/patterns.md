@@ -34,46 +34,14 @@ releasing their targets or leave those targets with an owner that outlives
 the callbacks. Borrowed dependencies must outlive all work and resources that
 use them.
 
-## Owned and borrowed handles
+## Entity state and rendering
 
-An owned handle releases its node through its owner when destroyed. Moving it
-transfers ownership and leaves the source empty. Move assignment releases the
-destination's node before taking ownership, except for self-assignment.
-Explicit early release through `Level` clears the handle so its destructor
-does not release the node again.
+Entities own their transforms and animation playback state. `Level` owns shared
+animation resources, which must outlive the instances that borrow them.
 
-The owner must remain at a stable address and outlive its active owned handles.
-`Level` cannot be copied or moved. `Game` owns it through `std::unique_ptr` and
-destroys its entities before destroying the level. Dependent nodes must be
-released before the nodes they borrow.
-
-Use `.Borrow()` to obtain access without transferring ownership. Each non-empty
-borrowed handle contributes to the slot's borrow count. Copying adds a borrow,
-moving transfers it, and destruction releases it. Moving leaves the source empty.
-
-All borrows must be released before destroying the referenced node. Merely
-stopping access is insufficient because destroying a borrowed handle accesses
-its slot. The slot's owner must remain alive through that destruction. Borrow
-counting diagnoses lifetime violations. It does not keep nodes alive or defer
-their destruction.
-
-See the handle types in [Handle.h](../../src/Handle.h), their node aliases in
-[Nodes.h](../../src/Nodes.h), and the
-[ownership decision](decisions.md#raii-node-handles-and-stable-level-ownership).
-
-## Parent transforms
-
-A `Node2D` may borrow a parent node. Its stored transform, position, rotation,
-direction getters, and movement methods use the parent's coordinate space.
-Without a parent, that space is world space. `GetWorldTransform()` composes
-ancestor transforms with the node's local transform.
-
-Parent links affect transforms but do not transfer ownership or cascade
-destruction. Destroy children before their parents. Release other outstanding
-borrows before destroying each node. Destroying a child releases its stored
-borrow of the parent.
-
-See [Node2D](../../src/Nodes.h).
+Entities submit sprites to `Renderer`, which copies their state for the next
+render attempt. Submissions are cleared when that attempt ends, including on
+failure.
 
 ## Valid Construction
 

@@ -113,33 +113,29 @@ public:
         return *this;
     }
 
-    Result<> push_back(const T& value)
+    void push_back(const T& value)
     {
-        GG_CHECKB(m_Size < N)
-        std::construct_at(AsPointer(m_Size++), value);
-        return Result<>::Ok;
+        if(GG_VERIFYB(m_Size < N, "Exceeded InlineVector capacity"))
+        {
+            std::construct_at(AsPointer(m_Size++), value);
+        }
     }
 
-    Result<> push_back(T&& value)
+    void push_back(T&& value)
     {
-        GG_CHECKB(m_Size < N)
-        std::construct_at(AsPointer(m_Size++), std::move(value));
-        return Result<>::Ok;
+        if(GG_VERIFYB(m_Size < N, "Exceeded InlineVector capacity"))
+        {
+            std::construct_at(AsPointer(m_Size++), std::move(value));
+        }
     }
 
     template<typename... Args>
-    Result<> emplace_back(Args&&... args)
+    reference emplace_back(Args&&... args)
     {
-        GG_CHECKB(m_Size < N)
-        std::construct_at(AsPointer(m_Size++), std::forward<Args>(args)...);
-        return Result<>::Ok;
-    }
-
-    T* TryGet(const size_t index) { return index < size() ? AsPointer(index) : nullptr; }
-
-    const T* TryGet(const size_t index) const
-    {
-        return index < size() ? AsPointer(index) : nullptr;
+        GG_ASSERT(m_Size < N, "Exceeded InlineVector capacity");
+        T* ptr = AsPointer(m_Size++);
+        std::construct_at(ptr, std::forward<Args>(args)...);
+        return *ptr;
     }
 
     constexpr size_t capacity() const { return N; }

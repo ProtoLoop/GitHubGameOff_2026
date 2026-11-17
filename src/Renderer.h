@@ -1,26 +1,21 @@
 #pragma once
 
-#include "Nodes.h"
-#include "Result.h"
+#include "Sprite.h"
+#include "Transform2D.h"
 
 #include <webgpu/webgpu_cpp.h>
 
 class CellMap;
-class Node2D;
 class Level;
 class Sprite;
 class WebGpu;
 
-struct SpriteDrawRecord
-{
-    Transform2D Transform;
-    Sprite Sprite;
-    size_t SortTieBreaker{};
-};
-
 class Renderer
 {
 public:
+
+    static constexpr size_t kMaxSpritesPerFrame = 1024;
+
     struct Params
     {
         uint32_t LogicalDisplayWidth;  // Logical width of the display in pixels
@@ -38,12 +33,20 @@ public:
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
 
+    /// Copies a sprite and its world position for the next Render() call.
+    /// Transform rotation does not rotate the sprite.
+    /// Returns an error if the sprite queue is full.
+    Result<> QueueSprite(const Sprite& sprite, const Transform2D& transform);
+
     Result<wgpu::BindGroup> CreateSpriteTextureBindGroup(const wgpu::Texture& texture);
 
     Result<wgpu::BindGroup> CreateTileSetTextureBindGroup(const wgpu::Texture& texture);
 
     void SetView(const float viewX, const float viewY);
 
+    /// Draws the level and queued sprites.
+    /// Clears queued sprites on return, including on failure.
+    /// Submit sprites again before the next call.
     Result<> Render(const Level& level);
 
 private:
@@ -62,6 +65,13 @@ private:
         uint32_t pad1{ 0 };
     };
 
+    struct SpriteDrawRecord
+    {
+        Transform2D Transform;
+        Sprite Sprite;
+        size_t SortTieBreaker{};
+    };
+
     Renderer(const Params& params, const WebGpu& webGpu);
 
     Result<> RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
@@ -76,8 +86,12 @@ private:
     Result<> EnsureSpriteBindGroups();
     Result<> EnsureCellMapBindGroups();
 
-    std::vector<SpriteState> m_SpriteStates;
-    std::vector<SpriteDrawRecord> m_SpriteDrawRecords;
+    /// Backing storage for GPU sprite state data.
+    InlineVector<SpriteState, kMaxSpritesPerFrame> m_SpriteStates;
+
+    /// Queue of sprites to be drawn this frame.
+    InlineVector<SpriteDrawRecord, kMaxSpritesPerFrame> m_SpriteDrawQueue;
+    
     CellMapParams m_CellMapParams;
 
     Params m_Params;

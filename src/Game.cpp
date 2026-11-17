@@ -27,7 +27,7 @@ Game::Tick(float deltaSec)
     GG_CHECKB(m_Stage == Stage::Running, "Game is not running");
 
     GG_CHECK(m_Caretaker->Tick(deltaSec, *m_Input, *m_Level));
-    m_Level->Tick(deltaSec);
+    GG_CHECK(m_Caretaker->Render(*m_Renderer));
 
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 

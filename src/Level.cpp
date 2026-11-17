@@ -1,6 +1,5 @@
 #include "Level.h"
 
-#include "Defer.h"
 #include "Renderer.h"
 #include "Sprite.h"
 
@@ -104,26 +103,6 @@ Level::Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims)
     : m_CellMap(std::move(cellMap)),
       m_SpriteAnims(std::move(spriteAnims))
 {
-    for(size_t i = 0; i < m_HandleSlots.capacity(); i++)
-    {
-        HandleSlot& slot = m_HandleSlots.emplace_back();
-        m_FreeHandleSlots.push_back(&slot);
-    }
-}
-
-Level::~Level()
-{
-    GG_ASSERT(m_FreeHandleSlots.size() == m_HandleSlots.size(),
-        "Not all handle slots have been freed");
-}
-
-void
-Level::Tick(const float deltaTime)
-{
-    for(SpriteAnimNode& node : m_SpriteAnimNodes)
-    {
-        node.Tick(deltaTime);
-    }
 }
 
 const CellMap&
@@ -158,109 +137,4 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
     const auto& anim = *animResult;
 
     return anim.CreateInstance();
-}
-
-Result<OwnedNodeHandle<Node2D>>
-Level::CreateNode2D()
-{
-    return CreateNode2D(BorrowedHandle<Node2D>{});
-}
-
-Result<OwnedNodeHandle<Node2D>>
-Level::CreateNode2D(const BorrowedHandle<Node2D>& parent)
-{
-    GG_CHECKB(m_Nodes.HasCapacity(), "No capacity for new Node2D");
-
-    Node2D& node2d = m_Nodes.emplace_back(parent, Node2D::PassKey{});
-
-    auto onFail = GG_DEFER
-    {
-        // On failure deallocate the node.
-        m_Nodes.pop_back();
-    };
-
-    auto handleSlotResult = AllocateHandleSlot();
-    GG_CHECKB(handleSlotResult, "Failed to get handle slot");
-
-    HandleSlot* handleSlot = *handleSlotResult;
-
-    onFail.cancel();
-
-    handleSlot->m_Ptr = &node2d;
-
-    return OwnedNodeHandle<Node2D>(*this, *handleSlot);
-}
-
-void
-Level::Destroy(OwnedNodeHandle<Node2D>& handle)
-{
-    DestroyNode(m_Nodes, handle);
-}
-
-Result<OwnedNodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
-{
-    return CreateSpriteAnimNode(BorrowedHandle<Node2D>{}, instance);
-}
-
-Result<OwnedNodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(const BorrowedHandle<Node2D>& parent, const SpriteAnim::Instance& instance)
-{
-    GG_TRYB(node2D, CreateNode2D(parent), "Failed to create Node2D");
-
-    GG_CHECKB(m_SpriteAnimNodes.HasCapacity(), "No capacity for new SpriteAnimNode");
-
-    GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
-
-    SpriteAnimNode& animNode = m_SpriteAnimNodes.emplace_back(std::move(node2D), instance);
-
-    slot->m_Ptr = &animNode;
-
-    return OwnedNodeHandle<SpriteAnimNode>(*this, *slot);
-}
-
-void
-Level::Destroy(OwnedNodeHandle<SpriteAnimNode>& handle)
-{
-    DestroyNode(m_SpriteAnimNodes, handle);
-}
-
-std::span<const SpriteAnimNode>
-Level::GetSpriteAnimNodes() const
-{
-    return m_SpriteAnimNodes;
-}
-
-// private:
-
-Result<HandleSlot*>
-Level::AllocateHandleSlot()
-{
-    GG_CHECKB(!m_FreeHandleSlots.empty(), "No free handle slots available");
-
-    HandleSlot* handleSlot = m_FreeHandleSlots.back();
-    m_FreeHandleSlots.pop_back();
-
-    handleSlot->m_Ptr = nullptr;
-    handleSlot->m_Allocated = true;
-    ++handleSlot->m_Generation;
-
-    return handleSlot;
-}
-
-void
-Level::FreeHandleSlot(HandleSlot* handleSlot)
-{
-    if(GG_VERIFYB(handleSlot >= m_HandleSlots.data() && handleSlot <= &m_HandleSlots.back(),
-           "Invalid handle slot"))
-    {
-        if(GG_VERIFYB(handleSlot->m_Allocated, "Handle slot not allocated"))
-        {
-            GG_ASSERT(handleSlot->m_BorrowCount == 0, "Handle slot is still borrowed");
-            handleSlot->m_BorrowCount = 0;
-            handleSlot->m_Allocated = false;
-            handleSlot->m_Ptr = nullptr;
-            m_FreeHandleSlots.push_back(handleSlot);
-        }
-    }
 }

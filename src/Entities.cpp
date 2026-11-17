@@ -2,10 +2,7 @@
 
 #include "Input.h"
 #include "Level.h"
-#include "Nodes.h"
-#include "Result.h"
-
-#include <glm/vec2.hpp>
+#include "Renderer.h"
 
 namespace
 {
@@ -21,26 +18,33 @@ const Angle kIsoAngleOffset(0.125f);
 
 } // namespace
 
-Caretaker::Caretaker(OwnedNodeHandle<Node2D>&& node2D, OwnedNodeHandle<SpriteAnimNode>&& animNode)
-    : m_Node2D(std::move(node2D))
-    , m_AnimNode(std::move(animNode))
+Caretaker::Caretaker(const SpriteAnim::Instance& initialAnim)
+    : m_CurAnim(initialAnim)
 {
-    m_AnimNode->SetPeriod(kAnimPeriod);
+}
+
+Result<Caretaker>
+Caretaker::Create(Level& level)
+{
+    GG_TRY(initialAnim,
+        level.CreateSpriteAnimInstance(kAnimName_Idle),
+        "Failed to create sprite anim instance for {}",
+        kAnimName_Idle);
+
+    return Caretaker(initialAnim);
 }
 
 Result<>
 Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
 {
-    const float dturn = kTurnsPerSec * deltaTime;
-
     float value{};
     if(input.IsTriggered(Input::ActionId::RotateLeft, value))
     {
-        RotateBy(Angle(-dturn));
+        RotateBy(Angle(-kTurnsPerSec * deltaTime));
     }
     if(input.IsTriggered(Input::ActionId::RotateRight, value))
     {
-        RotateBy(Angle(dturn));
+        RotateBy(Angle(kTurnsPerSec * deltaTime));
     }
 
     const glm::vec2& forward = GetForward();
@@ -72,37 +76,26 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
 
     const std::string_view desiredAnimName = isMoving ? kAnimName_Run : kAnimName_Idle;
 
-    if(m_AnimNode->WhatsPlaying() != desiredAnimName)
+    if(m_CurAnim.GetName() != desiredAnimName)
     {
-        GG_TRYB(animInstance,
+        GG_TRYB(nextAnim,
             level.CreateSpriteAnimInstance(desiredAnimName),
             "Failed to create sprite anim instance for {}",
             desiredAnimName);
-
-        m_AnimNode->Play(animInstance);
-        m_AnimNode->SetPeriod(kAnimPeriod);
+        m_CurAnim = nextAnim;
     }
 
-    m_AnimNode->FaceDirection(GetRot() + kIsoAngleOffset);
+    m_CurAnim.SetPeriod(kAnimPeriod);
+    m_CurAnim.SetAngle(GetRot() + kIsoAngleOffset);
+    m_CurAnim.Tick(deltaTime);
 
     return Result<>::Ok;
 }
 
-// private:
-
-Result<Caretaker>
-Caretaker::Create(Level& level)
+Result<>
+Caretaker::Render(Renderer& renderer)
 {
-    GG_TRY(animInstance,
-        level.CreateSpriteAnimInstance(kAnimName_Idle),
-        "Failed to create sprite anim instance for {}",
-        kAnimName_Idle);
+    GG_CHECKB(renderer.QueueSprite(m_CurAnim.GetFrame(), GetTransform()), "Failed to queue sprite");
 
-    GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
-
-    GG_TRYB(animNode,
-        level.CreateSpriteAnimNode(node2D.Borrow(), animInstance),
-        "Failed to create sprite animation node");
-
-    return Caretaker(std::move(node2D), std::move(animNode));
+    return Result<>::Ok;
 }

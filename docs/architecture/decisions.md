@@ -302,13 +302,14 @@ interface or type-erased storage. Keeping that ownership in `Game` avoids both
 requirements, at the cost of explicit cleanup and a required destruction order.
 
 This follows [clear responsibility](principles.md#make-it-clear-who-is-responsible)
-and the [owned and borrowed handles pattern](patterns.md#owned-and-borrowed-handles).
+and the former owned and borrowed handles pattern.
 See [Game](../../src/Game.h), [Level](../../src/Level.h), and the
 [runtime boundary](../development.md#runtime-boundary).
 
 ## RAII node handles and stable level ownership
 
-Date: 2026-11-16. Status: Accepted.
+Date: 2026-11-16. Status: Superseded by
+[Entity-owned state and sprite submission](#entity-owned-state-and-sprite-submission).
 
 Explicit node release required coordination across entity destruction,
 replacement, and partial construction failure. Owned handles tracked release
@@ -341,6 +342,27 @@ level's ownership now requires moving its pointer rather than the level itself.
 This supersedes
 [Game entities and level-owned node storage](#game-entities-and-level-owned-node-storage).
 It follows [clear responsibility](principles.md#make-it-clear-who-is-responsible)
-and the [owned and borrowed handles pattern](patterns.md#owned-and-borrowed-handles).
-See [Nodes](../../src/Nodes.h), [Level](../../src/Level.h),
-[Game](../../src/Game.h), and the [runtime boundary](../development.md#runtime-boundary).
+and the former owned and borrowed handles pattern.
+The node implementation described here was later removed. See
+[Entity-owned state and sprite submission](#entity-owned-state-and-sprite-submission)
+for its replacement.
+
+## Entity-owned state and sprite submission
+
+Date: 2026-11-17. Status: Accepted.
+
+The scene graph required node storage, handles, borrow tracking, and ordered
+cleanup for state that entities can own directly.
+
+Entities now own transforms and animation playback state. `Level` keeps shared
+resources. Entities queue sprites, and `Renderer` sorts and draws them.
+
+Keeping the scene graph would preserve automatic parent transforms, but retain
+its lifetime machinery. Direct ownership is simpler. Attached parts must compose
+their transforms explicitly, and sprites must be submitted for each render
+attempt.
+
+This supersedes
+[RAII node handles and stable level ownership](#raii-node-handles-and-stable-level-ownership).
+It follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
+See [Entity state and rendering](patterns.md#entity-state-and-rendering).

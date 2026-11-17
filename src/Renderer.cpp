@@ -2,7 +2,6 @@
 
 #include "Defer.h"
 #include "Level.h"
-#include "Nodes.h"
 #include "WebGpu.h"
 
 #include <webgpu/webgpu_cpp.h>
@@ -212,6 +211,21 @@ Renderer::Renderer(const Params& params, const WebGpu& webGpu)
       m_WebGpu(&webGpu)
 {
 }
+Result<>
+Renderer::QueueSprite(const Sprite& sprite, const Transform2D& transform)
+{
+    GG_CHECKB(m_SpriteDrawQueue.size() < m_SpriteDrawQueue.capacity(),
+        "Exceeded sprite draw queue");
+
+    m_SpriteDrawQueue.push_back( //
+        {
+            .Transform = transform,
+            .Sprite = sprite,
+            .SortTieBreaker = m_SpriteDrawQueue.size(),
+        });
+
+    return Result<>::Ok;
+}
 
 Result<wgpu::BindGroup>
 Renderer::CreateSpriteTextureBindGroup(const wgpu::Texture& texture)
@@ -289,6 +303,11 @@ Renderer::SetView(const float viewX, const float viewY)
 Result<>
 Renderer::Render(const Level& level)
 {
+    auto cleanup = GG_DEFER
+    {
+        m_SpriteDrawQueue.clear();
+    };
+
     const wgpu::CommandEncoder cmdEncoder = m_WebGpu->GetDevice().CreateCommandEncoder();
     GG_CHECKB(cmdEncoder, "Failed to create command encoder");
 
@@ -302,23 +321,6 @@ Renderer::Render(const Level& level)
     GG_CHECK(SetViewport(renderTarget, renderPass), "Failed to set viewport");
 
     GG_CHECK(EnsurePipelines(), "Failed to ensure pipeline");
-
-    const std::span<const SpriteAnimNode> animNodes = level.GetSpriteAnimNodes();
-    m_SpriteDrawRecords.reserve(animNodes.size());
-
-    auto cleanup = GG_DEFER
-    {
-        m_SpriteDrawRecords.clear();
-    };
-
-    size_t sortTieBreaker = 0;
-    for(const SpriteAnimNode& animNode : animNodes)
-    {
-        SpriteDrawRecord& record =
-            m_SpriteDrawRecords.emplace_back(animNode.GetNode()->GetWorldTransform(),
-                animNode.GetCurrentSprite());
-        record.SortTieBreaker = sortTieBreaker++;
-    }
 
     GG_CHECK(RenderMap(level.GetCellMap(), renderPass), "Failed to render map");
     GG_CHECK(RenderSprites(renderPass), "Failed to render sprites");
@@ -362,7 +364,7 @@ Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& rende
 Result<>
 Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 {
-    if(m_SpriteDrawRecords.empty())
+    if(m_SpriteDrawQueue.empty())
     {
         return Result<>::Ok;
     }
@@ -373,7 +375,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
     };
 
     // Sort so that sprites render in the correct order for an isometric projection.
-    std::ranges::sort(m_SpriteDrawRecords,
+    std::ranges::sort(m_SpriteDrawQueue,
         [](const SpriteDrawRecord& a, const SpriteDrawRecord& b)
         {
             const float aval = a.Transform.Pos.y - a.Transform.Pos.x;
@@ -386,7 +388,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
             return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
         });
 
-    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawRecords)
+    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawQueue)
     {
         const Sprite& sprite = spriteNode.Sprite;
         SpriteState& spriteState = m_SpriteStates.emplace_back();
@@ -416,7 +418,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
     uint32_t instanceIndex = 0;
 
-    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawRecords)
+    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawQueue)
     {
         const Sprite& sprite = spriteNode.Sprite;
         renderPass.SetBindGroup(1, sprite.GetTextureBindGroup());

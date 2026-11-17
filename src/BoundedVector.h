@@ -57,20 +57,18 @@ public:
 
     void push_back(const T& value)
     {
-        if(!GG_VERIFYB(size() < capacity()))
+        if(GG_VERIFYB(size() < capacity()))
         {
-            return;
+            allocator_traits::construct(m_Allocator, AsPointer(m_Size++), value);
         }
-        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), value);
     }
 
     void push_back(T&& value)
     {
-        if(!GG_VERIFYB(size() < capacity()))
+        if(GG_VERIFYB(size() < capacity()))
         {
-            return;
+            allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::move(value));
         }
-        allocator_traits::construct(m_Allocator, AsPointer(m_Size++), std::move(value));
     }
 
     template<typename... Args>

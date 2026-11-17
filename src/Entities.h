@@ -1,12 +1,13 @@
 #pragma once
 
-#include "Nodes.h"
+#include "Sprite.h"
+#include "Transform2D.h"
 
 class Level;
 class Input;
 class SpriteAnimNode;
 
-class Caretaker : public Node2DLike<Caretaker>
+class Caretaker : public Transform2DLike<Caretaker>
 {
 public:
     Caretaker() = delete;
@@ -16,19 +17,21 @@ public:
     Caretaker(Caretaker&&) = default;
     Caretaker& operator=(Caretaker&&) = default;
 
+    static Result<Caretaker> Create(Level& level);
+
     Result<> Tick(const float deltaTime, const Input& input, const Level& level);
 
-    BorrowedHandle<Node2D> GetNode() { return m_Node2D.Borrow(); }
+    Result<> Render(Renderer& renderer);
 
-    BorrowedHandle<const Node2D> GetNode() const { return m_Node2D.Borrow(); }
+    Transform2D& GetTransform() { return m_Transform; }
+    const Transform2D& GetTransform() const { return m_Transform; }
 
 private:
     friend class Game;
 
-    static Result<Caretaker> Create(Level& level);
+    explicit Caretaker(const SpriteAnim::Instance& initialAnim);
 
-    Caretaker(OwnedNodeHandle<Node2D>&& node2D, OwnedNodeHandle<SpriteAnimNode>&& animNode);
+    Transform2D m_Transform;
 
-    OwnedNodeHandle<Node2D> m_Node2D;
-    OwnedNodeHandle<SpriteAnimNode> m_AnimNode;
+    SpriteAnim::Instance m_CurAnim;
 };

@@ -64,11 +64,10 @@ TextureLoader::Load(const FilePath& path,
     GG_CHECK(fetchResult, "Failed to fetch file: {}", path);
 
     InlineVector<FilePath, TextureLoader::kMaxArrayLayers> paths;
-    GG_CHECKB(paths.push_back(path), "Failed to add path to InlineVector");
+    paths.push_back(path);
 
     InlineVector<FetchRequestPtr, TextureLoader::kMaxArrayLayers> fetchRequests;
-    GG_CHECKB(fetchRequests.push_back(std::move(*fetchResult)),
-        "Failed to add fetch request to InlineVector");
+    fetchRequests.push_back(std::move(*fetchResult));
 
     return TextureLoader(std::move(paths), std::move(fetchRequests), webGpu, label);
 }
@@ -86,14 +85,13 @@ TextureLoader::Load(const std::span<const FilePath> paths,
     {
         auto fetchResult = fileFetcher.Fetch(path);
         GG_CHECK(fetchResult, "Failed to fetch file: {}", path);
-        GG_CHECKB(fetchRequests.push_back(std::move(*fetchResult)),
-            "Failed to add fetch request to InlineVector");
+        fetchRequests.push_back(std::move(*fetchResult));
     }
 
     InlineVector<FilePath, TextureLoader::kMaxArrayLayers> inlinePaths;
     for(const FilePath& path : paths)
     {
-        GG_CHECKB(inlinePaths.push_back(path), "Failed to add path to InlineVector");
+        inlinePaths.push_back(path);
     }
 
     return TextureLoader(std::move(inlinePaths), std::move(fetchRequests), webGpu, label);
@@ -170,10 +168,10 @@ TextureLoader::Take()
         const std::span<const std::byte> imageSpan(imageBytes, size);
 
         // Borrow the image data...
-        GG_CHECKB(imageData.push_back(imageSpan), "Failed to add image data to InlineVector");
+        imageData.push_back(imageSpan);
 
         // ...and hold onto the stbi image to maintain its lifetime.
-        GG_CHECKB(stbiImages.push_back(std::move(*imageResult)), "Failed to add stbi image to InlineVector");
+        stbiImages.push_back(std::move(*imageResult));
     }
 
     return m_WebGpu->CreateTexture(width, height, imageData, m_Label);
