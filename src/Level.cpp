@@ -163,9 +163,15 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
 Result<OwnedNodeHandle<Node2D>>
 Level::CreateNode2D()
 {
+    return CreateNode2D(BorrowedHandle<Node2D>{});
+}
+
+Result<OwnedNodeHandle<Node2D>>
+Level::CreateNode2D(const BorrowedHandle<Node2D>& parent)
+{
     GG_CHECKB(m_Nodes.HasCapacity(), "No capacity for new Node2D");
 
-    Node2D& node2d = m_Nodes.emplace_back();
+    Node2D& node2d = m_Nodes.emplace_back(parent, Node2D::PassKey{});
 
     auto onFail = GG_DEFER
     {
@@ -194,7 +200,13 @@ Level::Destroy(OwnedNodeHandle<Node2D>& handle)
 Result<OwnedNodeHandle<SpriteAnimNode>>
 Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
 {
-    GG_TRYB(node2D, CreateNode2D(), "Failed to create Node2D");
+    return CreateSpriteAnimNode(BorrowedHandle<Node2D>{}, instance);
+}
+
+Result<OwnedNodeHandle<SpriteAnimNode>>
+Level::CreateSpriteAnimNode(const BorrowedHandle<Node2D>& parent, const SpriteAnim::Instance& instance)
+{
+    GG_TRYB(node2D, CreateNode2D(parent), "Failed to create Node2D");
 
     GG_CHECKB(m_SpriteAnimNodes.HasCapacity(), "No capacity for new SpriteAnimNode");
 

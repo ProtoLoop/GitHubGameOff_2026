@@ -4,7 +4,6 @@ struct VSOut
     @builtin(position) pos : vec4<f32>,
     @location(0)       uv  : vec2<f32>,
     @location(1)       outlineUV : vec2f, // Used to draw outlines
-    @location(2) @interpolate(flat)       texLayer : u32,
 };
 
 struct CellMapParams
@@ -17,8 +16,8 @@ struct CellMapParams
 struct SpriteState
 {
     mapXY: vec2f,   // Map space cell coordinates of the sprite.
-    layer: u32,     // Texture layer in the array
     pad0: u32,
+    pad1: u32,
     srcRect: vec4f, // Source rectangle in the texture (x, y, w, h)
 };
 
@@ -80,7 +79,6 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
         spriteUV[vid],  // outlineUV
-        state.layer,    // texLayer
     );
 }
 
@@ -104,7 +102,7 @@ fn isOnGrid(gridUV: vec2f) -> bool
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = textureSample(texture, smp, i.uv, i.texLayer);
+    let p = textureSample(texture, smp, i.uv, 0);
     //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
     return p;
 }
@@ -113,7 +111,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = linear_to_srgb(textureSample(texture, smp, i.uv, i.texLayer));
+    let p = linear_to_srgb(textureSample(texture, smp, i.uv, 0));
     //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
     return p;
 }

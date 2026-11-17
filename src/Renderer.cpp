@@ -311,9 +311,13 @@ Renderer::Render(const Level& level)
         m_SpriteDrawRecords.clear();
     };
 
+    size_t sortTieBreaker = 0;
     for(const SpriteAnimNode& animNode : animNodes)
     {
-        m_SpriteDrawRecords.emplace_back(animNode.GetNode(), animNode.GetCurrentSprite());
+        SpriteDrawRecord& record =
+            m_SpriteDrawRecords.emplace_back(animNode.GetNode()->GetWorldTransform(),
+                animNode.GetCurrentSprite());
+        record.SortTieBreaker = sortTieBreaker++;
     }
 
     GG_CHECK(RenderMap(level.GetCellMap(), renderPass), "Failed to render map");
@@ -372,14 +376,14 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
     std::ranges::sort(m_SpriteDrawRecords,
         [](const SpriteDrawRecord& a, const SpriteDrawRecord& b)
         {
-            const float aval = a.Node->GetPos().y - a.Node->GetPos().x;
-            const float bval = b.Node->GetPos().y - b.Node->GetPos().x;
+            const float aval = a.Transform.Pos.y - a.Transform.Pos.x;
+            const float bval = b.Transform.Pos.y - b.Transform.Pos.x;
 
             if(aval != bval)
             {
                 return aval > bval;
             }
-            return std::less<>()(a.Node, b.Node);
+            return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
         });
 
     for(const SpriteDrawRecord& spriteNode : m_SpriteDrawRecords)
@@ -387,11 +391,10 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         const Sprite& sprite = spriteNode.Sprite;
         SpriteState& spriteState = m_SpriteStates.emplace_back();
 
-        spriteState.mapXY[0] = spriteNode.Node->GetPos().x;
-        spriteState.mapXY[1] = spriteNode.Node->GetPos().y;
+        spriteState.mapXY[0] = spriteNode.Transform.Pos.x;
+        spriteState.mapXY[1] = spriteNode.Transform.Pos.y;
 
         const Rect& rect = sprite.GetRect();
-        spriteState.layer = 0;
         spriteState.srcRect[0] = static_cast<float>(rect.x);
         spriteState.srcRect[1] = static_cast<float>(rect.y);
         spriteState.srcRect[2] = static_cast<float>(rect.w);

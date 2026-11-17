@@ -28,6 +28,8 @@ template<typename T>
 class BorrowedHandle
 {
 public:
+    BorrowedHandle() = default;
+
     ~BorrowedHandle()
     {
         Release();
@@ -124,8 +126,6 @@ public:
 private:
     template<typename X, typename Y>
     friend class OwnedHandle;
-
-    BorrowedHandle() = default;
 
     BorrowedHandle(HandleSlot& slot, uint32_t generation)
         : m_Slot(&slot),

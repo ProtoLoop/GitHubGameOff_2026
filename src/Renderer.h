@@ -13,8 +13,9 @@ class WebGpu;
 
 struct SpriteDrawRecord
 {
-    BorrowedHandle<const Node2D> Node;
+    Transform2D Transform;
     Sprite Sprite;
+    size_t SortTieBreaker{};
 };
 
 class Renderer
@@ -49,8 +50,8 @@ private:
     struct SpriteState
     {
         float mapXY[2]{};    // Map space cell coordinates of the sprite.
-        uint32_t layer{ 0 }; // Layer of the texture array containing the sprite.
         uint32_t pad0{ 0 };  // Padding to align the structure to 16 bytes.
+        uint32_t pad1{ 0 };  // Padding to align the structure to 16 bytes.
         float srcRect[4]{};  // Source rectangle in the texture (x, y, w, h)
     };
 

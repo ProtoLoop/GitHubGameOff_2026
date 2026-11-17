@@ -61,6 +61,20 @@ See the handle types in [Handle.h](../../src/Handle.h), their node aliases in
 [Nodes.h](../../src/Nodes.h), and the
 [ownership decision](decisions.md#raii-node-handles-and-stable-level-ownership).
 
+## Parent transforms
+
+A `Node2D` may borrow a parent node. Its stored transform, position, rotation,
+direction getters, and movement methods use the parent's coordinate space.
+Without a parent, that space is world space. `GetWorldTransform()` composes
+ancestor transforms with the node's local transform.
+
+Parent links affect transforms but do not transfer ownership or cascade
+destruction. Destroy children before their parents. Release other outstanding
+borrows before destroying each node. Destroying a child releases its stored
+borrow of the parent.
+
+See [Node2D](../../src/Nodes.h).
+
 ## Valid Construction
 
 An object should be valid and ready to use after it is constructed. Delete the

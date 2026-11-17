@@ -35,21 +35,47 @@ public:
     }
 
     /// Returns the forward direction vector of this transform.
-    glm::vec2 GetForward() const { return ForwardFromRotation(Rotation); }
+    glm::vec2 GetForward() const { return ForwardFromRotation(Rot); }
 
     /// Returns the right direction vector of this transform.
-    glm::vec2 GetRight() const { return RightFromRotation(Rotation); }
+    glm::vec2 GetRight() const { return RightFromRotation(Rot); }
+
+    friend Transform2D operator*(const Transform2D& lhs, const Transform2D& rhs)
+    {
+        Transform2D result;
+        result.Pos = lhs.Pos + (lhs.GetRight() * rhs.Pos.x + lhs.GetForward() * rhs.Pos.y);
+        result.Rot = lhs.Rot + rhs.Rot;
+        return result;
+    }
 
     /// The position of this transform.
-    glm::vec2 Position{};
+    glm::vec2 Pos{};
 
     /// The rotation of this transform.
-    Angle Rotation;
+    Angle Rot;
 };
 
+/// Stores a transform relative to an optional parent.
+/// Position, rotation, and direction getters return values local
+/// to the parent's coordinate space.
+/// Movement and rotation methods also operate in local space.
+/// Without a parent local space is the same as world space.
+/// The parent is borrowed and must outlive this node.
 class Node2D
 {
 public:
+    struct PassKey
+    {
+    private:
+        friend class Level;
+        PassKey() = default;
+    };
+
+    explicit Node2D(const BorrowedHandle<Node2D>& parent, const PassKey&)
+        : m_Parent(parent)
+    {
+    }
+
     Node2D() = default;
     ~Node2D() = default;
     Node2D(const Node2D&) = delete;
@@ -58,35 +84,35 @@ public:
     /// Moves the node to the specified position (x, y).
     Node2D& MoveTo(const float x, const float y)
     {
-        m_Transform.Position = glm::vec2(x, y);
+        m_Transform.Pos = glm::vec2(x, y);
         return *this;
     }
 
     /// Moves the node to the specified position vector.
     Node2D& MoveTo(const glm::vec2& pos)
     {
-        m_Transform.Position = pos;
+        m_Transform.Pos = pos;
         return *this;
     }
 
     /// Moves the node by the specified delta vector.
     Node2D& MoveBy(const glm::vec2& delta)
     {
-        m_Transform.Position += delta;
+        m_Transform.Pos += delta;
         return *this;
     }
 
     /// Rotates the node to the specified rotation angle.
     Node2D& RotateTo(const Angle& rot)
     {
-        m_Transform.Rotation = rot;
+        m_Transform.Rot = rot;
         return *this;
     }
 
     /// Rotates the node by the specified delta angle.
     Node2D& RotateBy(const Angle& delta)
     {
-        m_Transform.Rotation += delta;
+        m_Transform.Rot += delta;
         return *this;
     }
 
@@ -94,16 +120,27 @@ public:
     const Transform2D& GetTransform() const { return m_Transform; }
 
     /// Returns the position of this node.
-    const glm::vec2& GetPos() const { return m_Transform.Position; }
+    const glm::vec2& GetPos() const { return m_Transform.Pos; }
 
     /// Returns the rotation of this node.
-    const Angle& GetRot() const { return m_Transform.Rotation; }
+    const Angle& GetRot() const { return m_Transform.Rot; }
 
     /// Returns the forward direction vector of this node.
     glm::vec2 GetForward() const { return m_Transform.GetForward(); }
 
     /// Returns the right direction vector of this node.
     glm::vec2 GetRight() const { return m_Transform.GetRight(); }
+
+    /// Composes ancestor transforms with this node's local transform to return world space.
+    Transform2D GetWorldTransform() const
+    {
+        // FIXME (KB) - optimize by storing transforms in dense arrays in depth first order.
+        if (m_Parent)
+        {
+            return m_Parent->GetWorldTransform() * m_Transform;
+        }
+        return m_Transform;
+    }
 
 private:
     friend class Level;
@@ -113,6 +150,7 @@ private:
     Node2D& operator=(Node2D&&) = default;
 
     Transform2D m_Transform;
+    BorrowedHandle<Node2D> m_Parent;
 };
 
 template<typename T>

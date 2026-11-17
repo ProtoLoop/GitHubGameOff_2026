@@ -85,10 +85,6 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
 
     m_AnimNode->FaceDirection(GetRot() + kIsoAngleOffset);
 
-    // FIXME(KB) - this is dumb
-    m_AnimNode->MoveTo(GetPos());
-    m_AnimNode->RotateTo(GetRot());
-
     return Result<>::Ok;
 }
 
@@ -105,7 +101,7 @@ Caretaker::Create(Level& level)
     GG_TRYB(node2D, level.CreateNode2D(), "Failed to create Node2D");
 
     GG_TRYB(animNode,
-        level.CreateSpriteAnimNode(animInstance),
+        level.CreateSpriteAnimNode(node2D.Borrow(), animInstance),
         "Failed to create sprite animation node");
 
     return Caretaker(std::move(node2D), std::move(animNode));
