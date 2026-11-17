@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Result.h"
+#include "Diag.h"
 
 #include <memory>
 
@@ -54,8 +54,6 @@ public:
         }
         return *this;
     }
-
-    bool HasCapacity() const { return size() < capacity(); }
 
     void push_back(const T& value)
     {
