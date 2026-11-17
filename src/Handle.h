@@ -19,8 +19,11 @@ public:
 template<typename T, typename OwnerType>
 class OwnedHandle;
 
-/// A handle that provides temporary, non-owning access to a node of type T.
-/// Does not extend the lifetime of the node or its owner. Both must outlive its use.
+/// Provides non-owning access to an object through its handle slot.
+/// All borrows must be released before the object is destroyed.
+/// The slot's owner must remain alive through borrowed-handle destruction.
+/// Moving transfers the borrow and leaves the source empty. Empty handles may be
+/// copied, moved, compared, converted to const, or checked for validity, but not dereferenced.
 template<typename T>
 class BorrowedHandle
 {
@@ -152,9 +155,9 @@ private:
     uint32_t m_Generation{ 0 };
 };
 
-/// Owns a node and releases it through its owner on destruction.
+/// Owns a T and releases it through its owner on destruction.
 /// Moving transfers ownership and leaves the source empty. Move assignment first
-/// releases the destination's node, unless assigning the handle to itself.
+/// releases the destination's T, unless assigning the handle to itself.
 /// The owner must remain at a stable address and outlive the handle.
 template<typename T, typename OwnerType>
 class OwnedHandle

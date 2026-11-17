@@ -179,6 +179,7 @@ private:
 };
 
 /// Represents an animated sprite node.
+/// Owns a separate Node2D and releases it when destroyed.
 /// The node's position defines where it is drawn in the world.
 /// The node's rotation can be used by game code to set the facing direction of the sprite.
 /// Rotation is NOT used for drawing; sprite images will not be rotated based
@@ -187,15 +188,11 @@ class SpriteAnimNode : public Node2DLike<SpriteAnimNode>
 {
 public:
     SpriteAnimNode() = delete;
-    ~SpriteAnimNode() = default;
+    ~SpriteAnimNode();
     SpriteAnimNode(const SpriteAnimNode&) = delete;
     SpriteAnimNode& operator=(const SpriteAnimNode&) = delete;
     
-    SpriteAnimNode(const BorrowedHandle<Node2D>& node, const SpriteAnim::Instance& instance)
-        : m_Node(node),
-          m_CurAnim(instance)
-    {
-    }
+    SpriteAnimNode(OwnedNodeHandle<Node2D>&& node, const SpriteAnim::Instance& instance);
 
     void Play(const SpriteAnim::Instance& instance);
 
@@ -222,9 +219,9 @@ private:
     friend class Level;
 
     // Only Level can move.
-    SpriteAnimNode(SpriteAnimNode&&) = default;
-    SpriteAnimNode& operator=(SpriteAnimNode&&) = default;
+    SpriteAnimNode(SpriteAnimNode&&) noexcept;
+    SpriteAnimNode& operator=(SpriteAnimNode&&) noexcept;
 
-    BorrowedHandle<Node2D> m_Node;
+    OwnedNodeHandle<Node2D> m_Node;
     SpriteAnim::Instance m_CurAnim;
 };

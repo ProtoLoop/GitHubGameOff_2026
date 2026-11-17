@@ -192,13 +192,15 @@ Level::Destroy(OwnedNodeHandle<Node2D>& handle)
 }
 
 Result<OwnedNodeHandle<SpriteAnimNode>>
-Level::CreateSpriteAnimNode(const BorrowedHandle<Node2D>& node2D, const SpriteAnim::Instance& instance)
+Level::CreateSpriteAnimNode(const SpriteAnim::Instance& instance)
 {
+    GG_TRYB(node2D, CreateNode2D(), "Failed to create Node2D");
+
     GG_CHECKB(m_SpriteAnimNodes.HasCapacity(), "No capacity for new SpriteAnimNode");
 
     GG_TRYB(slot, AllocateHandleSlot(), "Failed to get handle slot");
 
-    SpriteAnimNode& animNode = m_SpriteAnimNodes.emplace_back(node2D, instance);
+    SpriteAnimNode& animNode = m_SpriteAnimNodes.emplace_back(std::move(node2D), instance);
 
     slot->m_Ptr = &animNode;
 

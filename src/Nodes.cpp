@@ -1,5 +1,20 @@
 #include "Nodes.h"
 
+// Level.h is needed in order to instantiate OwnedNodeHandle<Node2D> and related types.
+// But clang-tidy/IWYU might complain if we don't include it explicitly.
+#include "Level.h" // IWYU pragma: keep
+
+SpriteAnimNode::SpriteAnimNode(OwnedNodeHandle<Node2D>&& node, const SpriteAnim::Instance& instance)
+    : m_Node(std::move(node)),
+      m_CurAnim(instance)
+{
+}
+
+SpriteAnimNode::~SpriteAnimNode() = default;
+
+SpriteAnimNode::SpriteAnimNode(SpriteAnimNode&&) noexcept = default;
+SpriteAnimNode& SpriteAnimNode::operator=(SpriteAnimNode&&) noexcept = default;
+
 void
 SpriteAnimNode::Play(const SpriteAnim::Instance& instance)
 {
@@ -54,11 +69,11 @@ SpriteAnimNode::Tick(const float deltaTime)
 BorrowedHandle<Node2D>
 SpriteAnimNode::GetNode()
 {
-    return m_Node;
+    return m_Node.Borrow();
 }
 
 BorrowedHandle<const Node2D>
 SpriteAnimNode::GetNode() const
 {
-    return m_Node;
+    return m_Node.Borrow();
 }

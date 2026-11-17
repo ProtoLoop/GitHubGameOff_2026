@@ -7,9 +7,7 @@
 #include <memory>
 #include <span>
 #include <string_view>
-#include <vector>
 
-struct SpriteDrawRecord;
 class Level;
 
 class LevelLoader
@@ -55,7 +53,7 @@ class Level
 {
 public:
     static constexpr size_t kMaxNodes = 1024;
-    static constexpr size_t kMaxSpriteAnimNodes = 1024;
+    static constexpr size_t kMaxSpriteAnimNodes = 128;
 
     Level() = delete;
     ~Level();
@@ -74,8 +72,7 @@ public:
 
     Result<OwnedNodeHandle<Node2D>> CreateNode2D();
 
-    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(const BorrowedHandle<Node2D>& node2D,
-        const SpriteAnim::Instance& instance);
+    Result<OwnedNodeHandle<SpriteAnimNode>> CreateSpriteAnimNode(const SpriteAnim::Instance& instance);
 
     void Destroy(OwnedNodeHandle<Node2D>& handle);
 

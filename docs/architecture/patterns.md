@@ -47,11 +47,18 @@ The owner must remain at a stable address and outlive its active owned handles.
 destroys its entities before destroying the level. Dependent nodes must be
 released before the nodes they borrow.
 
-Use `.Borrow()` to obtain access without transferring ownership. A borrowed
-handle does not extend the lifetime of the node or its owner and must not be
-used after either is destroyed.
+Use `.Borrow()` to obtain access without transferring ownership. Each non-empty
+borrowed handle contributes to the slot's borrow count. Copying adds a borrow,
+moving transfers it, and destruction releases it. Moving leaves the source empty.
 
-See the handle types in [Nodes.h](../../src/Nodes.h) and the
+All borrows must be released before destroying the referenced node. Merely
+stopping access is insufficient because destroying a borrowed handle accesses
+its slot. The slot's owner must remain alive through that destruction. Borrow
+counting diagnoses lifetime violations. It does not keep nodes alive or defer
+their destruction.
+
+See the handle types in [Handle.h](../../src/Handle.h), their node aliases in
+[Nodes.h](../../src/Nodes.h), and the
 [ownership decision](decisions.md#raii-node-handles-and-stable-level-ownership).
 
 ## Valid Construction
