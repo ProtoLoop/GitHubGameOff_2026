@@ -1,14 +1,12 @@
-#include "Entities.h"
+#include "Caretaker.h"
 
+#include "AnimData.h"
 #include "Input.h"
-#include "Level.h"
+#include "Game.h"
 #include "Renderer.h"
 
 namespace
 {
-constexpr const ResourceName kAnimName_Idle = "CT_Idle";
-constexpr const ResourceName kAnimName_Run = "CT_Run";
-
 constexpr float kTurnsPerSec = 1;
 constexpr float kMoveSpeed = 2.0f;
 constexpr float kAnimPeriod = 0.66f;
@@ -24,19 +22,21 @@ Caretaker::Caretaker(const SpriteAnim::Instance& initialAnim)
 }
 
 Result<Caretaker>
-Caretaker::Create(Level& level)
+Caretaker::Create(Game& game)
 {
     GG_TRY(initialAnim,
-        level.CreateSpriteAnimInstance(kAnimName_Idle),
+        game.GetLevel().CreateSpriteAnimInstance(AnimData::kCT_AnimName_Idle),
         "Failed to create sprite anim instance for {}",
-        kAnimName_Idle);
+        AnimData::kCT_AnimName_Idle);
 
     return Caretaker(initialAnim);
 }
 
 Result<>
-Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
+Caretaker::Tick(const float deltaTime, Game& game)
 {
+    const Input& input = game.GetInput();
+
     float value{};
     if(input.IsTriggered(Input::ActionId::RotateLeft, value))
     {
@@ -74,12 +74,13 @@ Caretaker::Tick(const float deltaTime, const Input& input, const Level& level)
         isMoving = true;
     }
 
-    const std::string_view desiredAnimName = isMoving ? kAnimName_Run : kAnimName_Idle;
+    const std::string_view desiredAnimName =
+        isMoving ? AnimData::kCT_AnimName_Run : AnimData::kCT_AnimName_Idle;
 
     if(m_CurAnim.GetName() != desiredAnimName)
     {
         GG_TRYB(nextAnim,
-            level.CreateSpriteAnimInstance(desiredAnimName),
+            game.GetLevel().CreateSpriteAnimInstance(desiredAnimName),
             "Failed to create sprite anim instance for {}",
             desiredAnimName);
         m_CurAnim = nextAnim;

@@ -4,6 +4,20 @@ Notices for libraries and bundled runtime code used by this application.
 Keep this file with distributed builds. Development-only tools and test assets
 are excluded.
 
+PCG32 (Apache 2.0)
+==================
+
+PCG32 XSH-RR, adapted from the PCG minimal C implementation.
+Source: https://github.com/imneme/pcg-c-basic
+
+Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>
+
+Changes: C++ class API, std::rotr, checked bounds, and binary32 float conversion.
+
+Licensed under the Apache License, Version 2.0. The full license text is
+included below in the "Abseil bundled with Dawn (Apache 2.0)" section and
+also applies to this code.
+
 OpenGL Mathematics (GLM) (MIT)
 ==============================
 

@@ -393,8 +393,14 @@ transforms and animation playback state. `Level` owns the cell map and shared
 animation resources. Entities are destroyed before the level so those resources
 remain valid.
 
-Each frame, `Game` updates entities and queues their sprites. `App` then calls
-the renderer and presents the frame.
+Each frame, `Game` accumulates elapsed time and advances entities in fixed
+1/60-second simulation steps. A frame can run zero or more steps. Elapsed time
+contributed by one frame is capped at 0.25 seconds, discarding excess time
+after long pauses to bound catch-up work. Any remainder smaller than one step
+carries into the next frame.
+
+After simulation, `Game` updates the camera and queues entity sprites once
+per frame. `App` then calls the renderer and presents the frame.
 
 The ownership choice is recorded in
 [Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission).

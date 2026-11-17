@@ -14,22 +14,67 @@ Game::Begin()
 {
     GG_CHECKB(m_Stage == Stage::None, "Game has already begun");
 
-    GG_TRYB(caretaker, Caretaker::Create(*m_Level), "Failed to create caretaker");
+    GG_TRYB(caretaker, Caretaker::Create(*this), "Failed to create caretaker");
 
     m_Caretaker = std::move(caretaker);
+
+    for(size_t i = 0; i < kMaxLostSouls; ++i)
+    {
+        GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
+        m_LostSouls.push_back(std::move(lostSoul));
+    }
+
     m_Stage = Stage::Running;
     return Result<>::Ok;
 }
 
 Result<>
-Game::Tick(float deltaSec)
+Game::Tick(const float deltaSec)
 {
     GG_CHECKB(m_Stage == Stage::Running, "Game is not running");
 
-    GG_CHECK(m_Caretaker->Tick(deltaSec, *m_Input, *m_Level));
-    GG_CHECK(m_Caretaker->Render(*m_Renderer));
+    if(deltaSec > kMaxDeltaSec)
+    {
+        m_TimeAccum += kMaxDeltaSec;
+    }
+    else
+    {
+        m_TimeAccum += deltaSec;
+    }
+
+    while(m_TimeAccum >= kSecondsPerTick)
+    {
+        m_TimeAccum -= kSecondsPerTick;
+        GG_CHECK(TickEntities(kSecondsPerTick));
+    }
 
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 
+    GG_CHECK(RenderEntities(*m_Renderer));
+
+    return Result<>::Ok;
+}
+
+// private:
+
+Result<>
+Game::TickEntities(float deltaSec)
+{
+    GG_CHECK(m_Caretaker->Tick(deltaSec, *this));
+    for(auto& lostSoul : m_LostSouls)
+    {
+        GG_CHECK(lostSoul.Tick(deltaSec, *this));
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+Game::RenderEntities(Renderer& renderer)
+{
+    GG_CHECK(m_Caretaker->Render(renderer));
+    for(auto& lostSoul : m_LostSouls)
+    {
+        GG_CHECK(lostSoul.Render(renderer));
+    }
     return Result<>::Ok;
 }

@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Entities.h"
+#include "Actors/Caretaker.h"
+#include "Actors/LostSoul.h"
 #include "Level.h"
+#include "Random.h"
 
 #include <memory>
 
@@ -10,6 +12,9 @@ class Input;
 class Game
 {
 public:
+    static constexpr float kSecondsPerTick = 1.0f / 60.0f;
+    static constexpr float kMaxDeltaSec = 0.25f;
+
     Game() = delete;
     ~Game() = default;
     Game(const Game&) = delete;
@@ -21,34 +26,33 @@ public:
 
     Result<> Begin();
 
+    Input& GetInput() { return *m_Input; }
+    const Input& GetInput() const { return *m_Input; }
+
     Renderer& GetRenderer() { return *m_Renderer; }
     const Renderer& GetRenderer() const { return *m_Renderer; }
 
     Level& GetLevel() { return *m_Level; }
     const Level& GetLevel() const { return *m_Level; }
 
-    Caretaker& GetCaretaker()
-    {
-        GG_ASSERT(IsRunning(), "Game is not running");
-        return *m_Caretaker;
-    }
+    Random& GetEntityRng() { return m_EntityRng; }
 
-    const Caretaker& GetCaretaker() const
-    {
-        GG_ASSERT(IsRunning(), "Game is not running");
-        return *m_Caretaker;
-    }
-
-    Result<> Tick(float deltaSec);
+    Result<> Tick(const float deltaSec);
 
     bool IsRunning() const { return m_Stage == Stage::Running; }
 
 private:
+    static constexpr size_t kMaxLostSouls = 10;
+
     enum class Stage
     {
         None,
         Running,
     };
+
+    Result<> TickEntities(float deltaSec);
+
+    Result<> RenderEntities(Renderer& renderer);
 
     Stage m_Stage{Stage::None};
 
@@ -57,4 +61,12 @@ private:
     std::unique_ptr<Renderer> m_Renderer;
 
     std::optional<Caretaker> m_Caretaker;
+
+    InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
+
+    float m_TimeAccum{ 0.0f };
+
+    static constexpr uint64_t EntityRngSeed = 42;
+    static constexpr uint64_t EntityRngStream = 54;
+    Random m_EntityRng{EntityRngSeed, EntityRngStream};
 };

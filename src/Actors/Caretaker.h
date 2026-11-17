@@ -3,7 +3,7 @@
 #include "Sprite.h"
 #include "Transform2D.h"
 
-class Level;
+class Game;
 class Input;
 
 class Caretaker : public Transform2DLike<Caretaker>
@@ -16,9 +16,9 @@ public:
     Caretaker(Caretaker&&) = default;
     Caretaker& operator=(Caretaker&&) = default;
 
-    static Result<Caretaker> Create(Level& level);
+    static Result<Caretaker> Create(Game& game);
 
-    Result<> Tick(const float deltaTime, const Input& input, const Level& level);
+    Result<> Tick(const float deltaTime, Game& game);
 
     Result<> Render(Renderer& renderer);
 

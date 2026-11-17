@@ -68,6 +68,10 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 set(GAMEOFF_SOURCES
+    src/Actors/Caretaker.h
+    src/Actors/Caretaker.cpp
+    src/Actors/LostSoul.h
+    src/Actors/LostSoul.cpp
     src/Angle.h
     src/AnimData.h
     src/AnimData.cpp
@@ -77,8 +81,6 @@ set(GAMEOFF_SOURCES
     src/Defer.h
     src/Diag.h
     src/Diag.cpp
-    src/Entities.h
-    src/Entities.cpp
     src/FileFetcher.h
     src/FileFetcher.cpp
     src/Game.h
@@ -98,11 +100,15 @@ set(GAMEOFF_SOURCES
     src/Renderer.h
     src/Renderer.cpp
     src/Result.h
+    src/Random.h
+    src/Random.cpp
     src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
+    src/Timer.h
+    src/Timer.cpp
     src/Transform2D.h
     src/stb_image.cpp
     src/WebGpu.h
@@ -110,6 +116,9 @@ set(GAMEOFF_SOURCES
 )
 
 add_executable(gameoff2026 ${GAMEOFF_SOURCES})
+target_include_directories(gameoff2026 PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
 target_link_libraries(gameoff2026 PRIVATE glm::glm-header-only)
 if(EMSCRIPTEN)
