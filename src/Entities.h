@@ -5,7 +5,6 @@
 
 class Level;
 class Input;
-class SpriteAnimNode;
 
 class Caretaker : public Transform2DLike<Caretaker>
 {
@@ -27,7 +26,6 @@ public:
     const Transform2D& GetTransform() const { return m_Transform; }
 
 private:
-    friend class Game;
 
     explicit Caretaker(const SpriteAnim::Instance& initialAnim);
 

@@ -388,13 +388,14 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
             return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
         });
 
-    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawQueue)
+    // Copy sprite data to GPU
+    for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
-        const Sprite& sprite = spriteNode.Sprite;
+        const Sprite& sprite = rec.Sprite;
         SpriteState& spriteState = m_SpriteStates.emplace_back();
 
-        spriteState.mapXY[0] = spriteNode.Transform.Pos.x;
-        spriteState.mapXY[1] = spriteNode.Transform.Pos.y;
+        spriteState.mapXY[0] = rec.Transform.Pos.x;
+        spriteState.mapXY[1] = rec.Transform.Pos.y;
 
         const Rect& rect = sprite.GetRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
@@ -418,9 +419,9 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
     uint32_t instanceIndex = 0;
 
-    for(const SpriteDrawRecord& spriteNode : m_SpriteDrawQueue)
+    for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
-        const Sprite& sprite = spriteNode.Sprite;
+        const Sprite& sprite = rec.Sprite;
         renderPass.SetBindGroup(1, sprite.GetTextureBindGroup());
         renderPass.Draw(kVerticesPerQuad, 1, 0, instanceIndex);
         ++instanceIndex;
