@@ -5,7 +5,7 @@ namespace
 
 #define SPRITE_PATH(name) "/assets/Sprites/Haunted-Cemetery-1-Free-24-Assets/" #name ".png"
 #define SPRITE_PATH2(dir, name)                                                                    \
-    "/assets/Sprites/Haunted-Cemetery-1-Free-24-Assets/" #dir "/" #name ".png"
+    "/assets/Props/Haunted-Cemetery-1-Free-24-Assets/" #dir "/" #name ".png"
 #define SPRITE_NAME(name) SpriteResources::kSprite_##name
 #define SPRITE_DEF(name)                                                                           \
     {                                                                                              \
