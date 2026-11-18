@@ -1,8 +1,7 @@
 {
   "format": "mosaic",
-  "version": 6,
+  "version": 7,
   "gridSize": 64,
-  "tileSize": 256,
   "tileSheets": [
     "assets/tiles/dirt_tiles_4x4_256.png",
     "assets/tiles/grass_tiles_4x4_256.png",
@@ -24,12 +23,29 @@
     {
       "sheet": 0,
       "cells": [
+        68,
+        69,
+        70,
+        71,
+        130,
+        131,
+        135,
+        136,
+        137,
+        194,
+        197,
+        198,
+        199,
         200,
         201,
         258,
+        259,
+        260,
+        261,
         262,
         263,
         264,
+        265,
         322,
         323,
         325,
@@ -39,8 +55,12 @@
         387,
         388,
         389,
+        392,
+        393,
         453,
-        454
+        454,
+        456,
+        520
       ]
     },
     {
@@ -60,7 +80,6 @@
         459,
         513,
         519,
-        520,
         521,
         522,
         523,
@@ -70,9 +89,9 @@
     }
   ],
   "editor": {
-    "activeLayer": 0,
+    "activeLayer": 2,
     "view": {
-      "zoom": 0.9477110347284867,
+      "zoom": 0.24324025050087164,
       "scrollLeft": 0,
       "scrollTop": 0,
       "showGrid": false

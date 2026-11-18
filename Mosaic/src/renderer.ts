@@ -1,5 +1,5 @@
 import { type ProjectDocument, type MaskPlacement } from "./document.ts";
-import { automaticTile, cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
+import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
 import { kGridSize, kCellSize, kHalfCellSize } from "./grid.ts";
 
 /// Rendering consumes a validated document and integer cell bounds.
@@ -43,9 +43,8 @@ export function drawTerrainRegion(project: ProjectDocument, canvas: HTMLCanvasEl
         for(let tileX = startX; tileX < endX; tileX++)
         {
             const cell = tileY * kGridSize + tileX;
-            // Equal atlas dimensions and a shared tile size give every layer the same source offset.
-            const tile = automaticTile(project, base, cell);
-            const start = terrainSourceOffset(project, base, tile, 0, 0);
+            // Equal texture dimensions give every layer the same source offset.
+            const start = terrainSourceOffset(project, base, cell, 0, 0);
             const layers = overlays.map((layer) => {
                 return { pixels: layer.sheet.pixels, masks: cellMasks(project, layer, cell) };
             });

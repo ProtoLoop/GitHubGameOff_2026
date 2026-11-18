@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { createDocument, type ImageAsset } from "./document.ts";
 import { readProject, writeProject } from "./project-file.ts";
-import { automaticTile, cellMasks } from "./placement.ts";
+import { cellMasks, terrainSourceOffset } from "./placement.ts";
 
 function image(kind: "tile" | "mask", filename: string): ImageAsset
 {
@@ -26,10 +26,10 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 6,'));
+    assert(text.includes('\n  "version": 7,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
-    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSize", "tileSheets", "maskSheets", "maskMode", "layers", "editor"]);
+    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "layers", "editor"]);
     assert.deepEqual(data.tileSheets, [tile.id]);
     assert.deepEqual(data.maskSheets, [mask.id]);
     assert.deepEqual(data.layers[0], { sheet: 0, cells: [] });
@@ -43,7 +43,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     assert.equal(loaded.layers[1].painted[100], true);
     for(let cell = 0; cell < 4096; cell++)
     {
-        assert.deepEqual(automaticTile(loaded, loaded.layers[1], cell), automaticTile(project, project.layers[1], cell));
+        assert.deepEqual(terrainSourceOffset(loaded, loaded.layers[1], cell, 17, 29), terrainSourceOffset(project, project.layers[1], cell, 17, 29));
         assert.deepEqual(cellMasks(loaded, loaded.layers[1], cell), cellMasks(project, project.layers[1], cell));
     }
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
@@ -78,16 +78,12 @@ Deno.test("invalid sparse records and missing assets fail before installation", 
     type File = typeof original;
     const changes: ((data: File) => void)[] = [
         (data) => { data.version = 2; },
-        (data) => { data.version = 1; },
         (data) => { data.editor = null; },
         (data) => { data.maskSheets.push(mask.id); },
         (data) => { data.tileSheets.push(tile.id); },
         (data) => { data.tileSheets = [mask.id]; },
         (data) => { data.maskSheets = [tile.id]; },
         (data) => { data.gridSize = 32; },
-        (data) => { data.version = 3; },
-        (data) => { data.version = 4; },
-        (data) => { data.version = 5; },
         (data) => { data.layers[0].cells = [0]; },
         (data) => { data.layers[1].sheet = 1; },
         (data) => { data.layers[1].cells.push(data.layers[1].cells[0]); },
@@ -133,7 +129,7 @@ Deno.test("session IDs are omitted and reordered layers retain rendering and sel
         assert.deepEqual(loaded.layers[index].painted, project.layers[index].painted);
         for(let cell = 0; cell < 4096; cell++)
         {
-            assert.deepEqual(automaticTile(loaded, loaded.layers[index], cell), automaticTile(project, project.layers[index], cell));
+            assert.deepEqual(terrainSourceOffset(loaded, loaded.layers[index], cell, 17, 29), terrainSourceOffset(project, project.layers[index], cell, 17, 29));
             if(index !== 0)
             {
                 assert.deepEqual(cellMasks(loaded, loaded.layers[index], cell), cellMasks(project, project.layers[index], cell));
@@ -143,25 +139,20 @@ Deno.test("session IDs are omitted and reordered layers retain rendering and sel
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
 });
 
-Deno.test("global terrain sizes round-trip and incompatible discovered atlases fail", async () => {
-    const large = { ...tile, dimension: 4096 };
-    for(const size of [64, 128, 4096])
+Deno.test("whole-texture dimensions are derived and discovered textures must match", async () => {
+    for(const dimension of [64, 192, 256, 1024, 4096])
     {
-        const project = createDocument([large], [mask]);
-        project.tileSize = size;
+        const material = { ...tile, dimension };
+        const project = createDocument([material], [mask]);
         project.layers[1].painted[65] = true;
         const blob = await writeProject(project);
-        const loaded = await readProject(blob, [large, mask]);
-        assert.equal(loaded.tileSize, size);
+        assert.equal("tileSize" in JSON.parse(await blob.text()), false);
+        const loaded = await readProject(blob, [material, mask]);
         assert.deepEqual(loaded.layers, project.layers);
-        assert.deepEqual(automaticTile(loaded, loaded.layers[1], 4095), automaticTile(project, project.layers[1], 4095));
-        const extra = { ...tile, id: "assets/tiles/small.png", label: "small.png" };
-        await assert.rejects(() => readProject(blob, [large, mask, extra]), /small.png.*4096×4096/);
-        const data = JSON.parse(await blob.text());
-        for(const invalid of [0, 32, 65, 192, 8192])
-        {
-            data.tileSize = invalid;
-            await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [large, mask]));
-        }
+        const extra = { ...tile, id: "assets/tiles/extra.png", label: "extra.png", dimension };
+        const expanded = await readProject(blob, [material, mask, extra]);
+        assert.deepEqual(expanded.tileSheets, [material, extra]);
+        await assert.rejects(() => readProject(blob, [material, mask,
+            { ...extra, dimension: dimension === 256 ? 512 : 256 }]), /extra.png/);
     }
 });

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { createDocument, type ImageAsset } from "./document.ts";
-import { automaticTile, cellMasks, terrainSourceOffset } from "./placement.ts";
+import { cellMasks, terrainSourceOffset } from "./placement.ts";
 import { History } from "./history.ts";
 
 function fixture()
@@ -65,26 +65,27 @@ Deno.test("history preserves redo for no-ops, drops it for edits, and retains im
     assert.equal(tiny.undoLabel, null);
 });
 
-Deno.test("undo and redo restore the global terrain size and sampling without changing occupancy", () => {
+Deno.test("undo and redo restore terrain materials without changing occupancy or masks", () => {
     let project = fixture();
-    project.tileSize = 64;
     project.layers[1].painted[65] = true;
     const history = new History(100, 64 * 1024 * 1024);
-    const sample = () => terrainSourceOffset(project, project.layers[1], automaticTile(project, project.layers[1], 65), 17, 29);
-    const original = sample();
+    const sample = () => terrainSourceOffset(project, project.layers[1], 65, 17, 29);
+    const original = project.layers[1].sheet;
+    const offset = sample();
+    const replacement = { ...original, id: "assets/tiles/replacement.png", label: "replacement.png" };
+    project.tileSheets = [...project.tileSheets, replacement];
     const masks = cellMasks(project, project.layers[1], 65);
-    history.begin(project, "Change terrain tile size");
-    project.tileSize = 128;
+    history.begin(project, "Change material");
+    project.layers[1].sheet = replacement;
     assert(history.commit(project));
-    const changed = sample();
-    assert.notEqual(changed, original);
+    assert.equal(sample(), offset);
     project = history.undo(project)!;
-    assert.equal(project.tileSize, 64);
-    assert.equal(sample(), original);
+    assert.equal(project.layers[1].sheet, original);
+    assert.equal(sample(), offset);
     assert(project.layers[1].painted[65]);
     project = history.redo(project)!;
-    assert.equal(project.tileSize, 128);
-    assert.equal(sample(), changed);
+    assert.equal(project.layers[1].sheet, replacement);
+    assert.equal(sample(), offset);
     assert(project.layers[1].painted[65]);
     assert.deepEqual(cellMasks(project, project.layers[1], 65), masks);
 });

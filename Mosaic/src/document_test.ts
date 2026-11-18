@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { cellMasks } from "./placement.ts";
-import { atlasGridSize, cloneDocument, createDocument, sameContent, validateDocument, type ImageAsset } from "./document.ts";
+import { cloneDocument, createDocument, sameContent, validateDocument, type ImageAsset } from "./document.ts";
 
 function asset(kind: "tile" | "mask"): ImageAsset
 {
@@ -35,7 +35,6 @@ Deno.test("document validation rejects invalid IDs, cells, masks, and view setti
         (p: typeof original) => { p.activeLayerId = 999; },
         (p: typeof original) => { p.maskMode = 1; },
         (p: typeof original) => { p.view.zoom = NaN; },
-        (p: typeof original) => { p.tileSize = 63; },
         (p: typeof original) => { p.masks = []; }
     ])
     {
@@ -43,8 +42,6 @@ Deno.test("document validation rejects invalid IDs, cells, masks, and view setti
         corrupt(project);
         assert.throws(() => validateDocument(project));
     }
-    assert.equal(atlasGridSize(256, 64), 4);
-    assert.equal(atlasGridSize(192, 64), 3);
     validateDocument(original);
 });
 
@@ -67,21 +64,15 @@ Deno.test("snapshots preserve occupancy and reproduce mask choices", () => {
     assert(project.layers[1].painted[65]);
 });
 
-Deno.test("terrain atlases share dimensions and support any integral square grid including 1×1", () => {
-    for(const [dimension, size, expected] of [[64, 64, 1], [128, 64, 2], [192, 64, 3],
-        [4096, 4096, 1], [4096, 128, 32], [4096, 64, 64]])
+Deno.test("terrain textures share dimensions and use multiples of 64 up to 4096", () => {
+    for(const dimension of [64, 128, 192, 256, 1024, 4096])
     {
         const sheet = { ...asset("tile"), dimension };
-        const project = createDocument([sheet], [asset("mask")]);
-        assert.equal(project.tileSize, dimension);
-        project.tileSize = size;
-        assert.equal(atlasGridSize(dimension, size), expected);
-        validateDocument(project);
+        validateDocument(createDocument([sheet], [asset("mask")]));
     }
-    for(const [dimension, size] of [[4096, 192], [256, 32], [256, 0], [256, 512],
-        [256, 65], [8192, 64], [255, 64], [256, NaN], [NaN, 64]])
+    for(const dimension of [0, 32, 65, 255, 4097, 8192, NaN, Infinity])
     {
-        assert.equal(atlasGridSize(dimension, size), 0);
+        assert.throws(() => createDocument([{ ...asset("tile"), dimension }], [asset("mask")]));
     }
     const other = { ...asset("tile"), id: "assets/tiles/other.png", label: "other.png", dimension: 512 };
     assert.throws(() => createDocument([asset("tile"), other], [asset("mask")]), /other.png.*256×256/);

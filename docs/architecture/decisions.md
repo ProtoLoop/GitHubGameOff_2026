@@ -238,7 +238,8 @@ are not supported. See [File formats](../../Mosaic/docs/FILE_FORMATS.md).
 
 ## Mosaic terrain tiles and cell coverage
 
-Date: 2026-11-11. Status: Accepted.
+Date: 2026-11-11. Status: Superseded by
+[Mosaic whole-texture terrain repetition](#mosaic-whole-texture-terrain-repetition).
 
 Terrain material detail and terrain boundaries need independent spatial scales.
 A level uses 64×64-pixel cells for occupancy and 64×64-pixel junction masks for
@@ -366,3 +367,34 @@ This supersedes
 [RAII node handles and stable level ownership](#raii-node-handles-and-stable-level-ownership).
 It follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
 See [Entity state and rendering](patterns.md#entity-state-and-rendering).
+
+
+## Mosaic whole-texture terrain repetition
+
+Date: 2026-11-18. Status: Accepted.
+
+Terrain artwork now supplies one seamless tile per image. Version 7 removes the
+level-wide terrain tile-size setting and procedural atlas selection. Each layer
+repeats its entire texture from the map origin at one source pixel per world
+pixel. Source coordinates are world coordinates modulo the texture dimension.
+Occupancy, junction masks, mask orientations, and compositing remain unchanged.
+
+All terrain textures in a project catalog have identical square dimensions,
+from 64 through 4096 pixels per side in multiples of 64. Equal dimensions match
+the game's texture-array constraint. Multiples of 64 align texture repeats with
+occupancy cells and allow contiguous source rows within each cell. Dimensions
+come from the images and are not serialized.
+
+We considered independently sized layer textures and arbitrary image dimensions.
+Shared dimensions preserve texture-array compatibility. Restricting dimensions
+to multiples of 64 keeps cell sampling simple. This gives up independent material
+scales and requires matching, seamless artwork. Whole-texture repetition removes
+atlas variation and its selection algorithm.
+
+Mosaic reads and writes version 7 only, without a compatibility loader. The
+Mosaic sample adopts the new format. The existing game atlas shader remains
+separate runtime work and does not yet implement this contract.
+
+This supersedes [Mosaic terrain tiles and cell coverage](#mosaic-terrain-tiles-and-cell-coverage).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection)
+and [Coverage masks](../COVERAGE_MASKS.md).

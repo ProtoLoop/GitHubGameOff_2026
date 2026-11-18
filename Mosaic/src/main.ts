@@ -1,5 +1,5 @@
 import { listDirectory, loadProject } from "./project-http.ts";
-import { atlasGridSize, documentAssets,
+import { documentAssets,
     validateDocument, type ProjectDocument, type Layer, type ImageAsset as TileAtlas } from "./document.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
@@ -30,7 +30,6 @@ interface Controls
     readonly addLayer: HTMLButtonElement;
     readonly activeMask: HTMLSelectElement;
     readonly showGrid: HTMLInputElement;
-    readonly mapTileSize: HTMLSelectElement;
 }
 
 function required<T extends Element>(id: string, type: { new(): T }): T
@@ -53,8 +52,7 @@ const controls: Controls = {
     palette : required("material-palette", HTMLDivElement),
     addLayer : required("add-layer", HTMLButtonElement),
     activeMask : required("active-mask", HTMLSelectElement),
-    showGrid : required("show-grid", HTMLInputElement),
-    mapTileSize : required("map-tile-size", HTMLSelectElement)
+    showGrid : required("show-grid", HTMLInputElement)
 };
 
 function getLayer(id: number): Layer
@@ -347,8 +345,7 @@ function renderPalette(): void
         swatch.className = "material-preview";
         swatch.setAttribute("aria-hidden", "true");
         swatch.style.backgroundImage = `url(${JSON.stringify(layer.sheet.url)})`;
-        const grid = layer.sheet.dimension / project.tileSize;
-        swatch.style.backgroundSize = `${grid * 100}% ${grid * 100}%`;
+        swatch.style.backgroundSize = "100% 100%";
         const filename = layer.sheet.label;
         button.title = layer.sheet.id.split("/").slice(-2).join("/");
         button.setAttribute("aria-label", filename);
@@ -377,25 +374,9 @@ function addSheetInfo(layer: Layer, card: HTMLDivElement): void
 {
     const info = document.createElement("span");
     info.className = "hint sheet-info";
-    const grid = layer.sheet.dimension / project.tileSize;
-    const cells = project.tileSize / kCellSize;
-    info.textContent = `${layer.sheet.label} · ${layer.sheet.dimension}×${layer.sheet.dimension} px atlas · ${grid}×${grid} terrain tiles of ${project.tileSize} px · each covers ${cells}×${cells} cells`;
+    const cells = layer.sheet.dimension / kCellSize;
+    info.textContent = `${layer.sheet.label} · ${layer.sheet.dimension}×${layer.sheet.dimension} px texture · repeats every ${cells}×${cells} cells`;
     card.append(info);
-}
-
-function updateMapTileSize(): void
-{
-    const requestedSize = Number(controls.mapTileSize.value);
-    const valid = atlasGridSize(project.tileSheets[0].dimension, requestedSize) > 0;
-    if(!valid)
-    {
-        controls.mapTileSize.value = String(project.tileSize);
-        controls.status.value = "Choose a multiple of 64 that divides the shared atlas dimension exactly.";
-        return;
-    }
-    edit("Change tile size", () => {
-        project.tileSize = requestedSize;
-    });
 }
 
 function renderLayers(): void
@@ -528,7 +509,6 @@ controls.activeMask.addEventListener("change", () => edit("Change mask mode", ()
 }));
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
 controls.mapViewport.addEventListener("scroll", saveView);
-controls.mapTileSize.addEventListener("change", updateMapTileSize);
 required("reset", HTMLButtonElement).addEventListener("click", resetSample);
 
 function renderMaskChoices(): void
@@ -597,17 +577,6 @@ function collectAssets(): void
 
 function refreshDocument(): void
 {
-    const tileSizes: HTMLOptionElement[] = [];
-    const dimension = project.tileSheets[0].dimension;
-    for(let size = kCellSize; size <= dimension; size += kCellSize)
-    {
-        if(atlasGridSize(dimension, size) > 0)
-        {
-            tileSizes.push(new Option(String(size), String(size)));
-        }
-    }
-    controls.mapTileSize.replaceChildren(...tileSizes);
-    controls.mapTileSize.value = String(project.tileSize);
     controls.showGrid.checked = project.view.showGrid;
     const size = kGridSize * kCellSize * project.view.zoom;
     controls.map.style.width = `${size}px`;

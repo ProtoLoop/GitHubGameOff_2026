@@ -16,7 +16,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 6`. Only version 6 is supported.
+The container has `format: "mosaic"` and `version: 7`. Only version 7 is supported.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
 algorithms below are part of the versioned format contract.
@@ -24,17 +24,16 @@ algorithms below are part of the versioned format contract.
 | Field | Meaning |
 | --- | --- |
 | `gridSize` | `64` painted cells along each map axis |
-| `tileSize` | Level-wide terrain tile size in source and world pixels |
 | `tileSheets` | Ordered project-relative terrain-sheet paths |
 | `maskSheets` | Ordered project-relative mask-sheet paths |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
 | `editor` | Editor settings described below |
 
-Layer `sheet` indexes `tileSheets`. Catalog indices and atlas tile indices are
-zero-based. The zero-based layer array index participates in mask selection.
-Reordering or removing layers can change mask choices. Terrain selection depends
-only on world terrain tile coordinates and the shared atlas layout.
+Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
+layer array index participates in mask selection.
+Reordering or removing layers can change mask choices. Terrain sampling depends
+only on world pixel coordinates and the texture dimensions.
 `maskMode` belongs to runtime data because it determines mask-sheet selection.
 
 ### Painted cells
@@ -60,72 +59,19 @@ reveals it. Occupancy does not clip rendering at cell boundaries.
 
 ### Terrain dimensions and selection
 
-Every terrain atlas in `tileSheets` must have the same square pixel dimensions,
-including atlases not currently assigned to a layer. The level has one `tileSize`,
-shared by every layer. It must be a positive multiple of 64 and divide the atlas
-dimension exactly. `atlasGridSize = imageWidth / tileSize` is the number of terrain
-tiles along either atlas axis. Any positive integral N×N layout is valid, including
-1×1. Atlas dimensions and `atlasGridSize` are derived, not serialized.
+Every terrain texture in `tileSheets` must have the same square pixel dimensions,
+including textures not currently assigned to a layer. Dimensions must be from
+64 through 4096 pixels per side, in multiples of 64. Each entire texture is one
+seamless repeating tile. Dimensions are derived from the images, not serialized.
+There is no terrain tile-size setting or procedural terrain selection.
 
-A cell covers 64×64 world pixels. A terrain tile covers
-`tileCellSize = tileSize / 64` cells along each axis. One source pixel covers one
-world pixel, without rescaling. For a 4096×4096 atlas:
+A cell covers 64×64 world pixels. One source pixel covers one world pixel,
+without rescaling. A 256×256 texture repeats every 4×4 cells. A 1024×1024 texture
+repeats every 16×16 cells, covering 16 times the area per repeat.
 
-| `tileSize` | `atlasGridSize` | Cells covered by one terrain tile |
-| --- | --- | --- |
-| 64 | 64 | 1×1 |
-| 128 | 32 | 2×2 |
-| 4096 | 1 | 64×64 |
-
-The world terrain tile grid starts at the map origin. For a cell at
-`(worldCellCol, worldCellRow)`:
-
-```text
-worldTerrainCol = floor(worldCellCol / tileCellSize)
-worldTerrainRow = floor(worldCellRow / tileCellSize)
-terrainColumnCount = ceil(gridSize / tileCellSize)
-worldTerrainIndex = worldTerrainRow * terrainColumnCount + worldTerrainCol
-```
-
-Ceiling division includes a partially visible terrain tile at the map boundary.
-Clip terrain tiles to the map bounds. The row-major index includes the map width,
-so consumers must use the level's width, not the viewport width.
-
-Terrain selection uses the shader's `lowbias32` hash. All arithmetic is unsigned
-32-bit. In TypeScript, `Math.imul` multiplies modulo 2^32 and `>>>` is unsigned
-right shift. Convert the final result to unsigned before taking a remainder:
-
-```js
-function terrainHash(value) {
-    let h = value >>> 0;
-    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-    return (h ^ (h >>> 16)) >>> 0;
-}
-```
-
-Select the atlas tile using the hash result:
-
-```text
-hashVal = terrainHash(worldTerrainIndex)
-tileIndex = hashVal % (atlasGridSize * atlasGridSize)
-```
-
-Every cell within a world terrain tile shares its selection, including
-unpainted cells. No layer identity or occupancy enters the hash.
-Each layer samples its own `sheet`, with the same terrain choices at the same
-world coordinates. Terrain sheets are not selected procedurally.
-
-Reference values for a 4×4 atlas:
-
-| `worldTerrainIndex` | Hash | `tileIndex` |
-| --- | --- | --- |
-| 0 | `0x00000000` | 0 |
-| 1 | `0x688990c0` | 0 |
-| 2 | `0xd1132181` | 1 |
-| 3 | `0x53f1e9dd` | 13 |
-| 64 | `0xdce420ba` | 10 |
-| 65 | `0x15e7abd3` | 3 |
+Every layer repeats its texture from the map origin, including in unpainted
+cells. Masks determine overlay visibility. Clip rendering to map bounds.
+Opposite texture edges must be seamless. Terrain textures have no flips or rotations.
 
 ### Junction mask selection
 
@@ -176,34 +122,27 @@ Identity always qualifies. The ordering above is part of the format contract.
 
 ### Sampling and compositing
 
-For an integer map pixel `(x, y)`, find its world terrain tile and resolve the
-atlas selection as above. Find the source pixel within that tile:
+For an integer map pixel `(x, y)` and texture dimension `size`:
 
 ```text
-localX = x % tileSize
-localY = y % tileSize
-atlasX = (tileIndex % atlasGridSize) * tileSize + localX
-atlasY = floor(tileIndex / atlasGridSize) * tileSize + localY
+sourceX = x % size
+sourceY = y % size
 ```
 
-Read RGB from the layer's atlas at `(atlasX, atlasY)`. Source material alpha is
-ignored.
+Read RGB from the layer's texture at `(sourceX, sourceY)`. Source material alpha
+is ignored. All layers share the same dimensions and source coordinates.
 
-For rendering with one quad per cell, the equivalent normalized coordinates are:
+For rendering with one quad per cell, equivalent normalized coordinates are:
 
 ```text
-cellWithinTile = (worldCellCol % tileCellSize, worldCellRow % tileCellSize)
-terrainUV = (cellWithinTile + localCellUV) / tileCellSize
-atlasTileOffset = (tileIndex % atlasGridSize, floor(tileIndex / atlasGridSize))
-atlasUV = (terrainUV + atlasTileOffset) / atlasGridSize
+cellsPerTexture = size / 64
+cellWithinTexture = (worldCellCol % cellsPerTexture, worldCellRow % cellsPerTexture)
+textureUV = (cellWithinTexture + localCellUV) / cellsPerTexture
 ```
 
 `localCellUV` runs from 0 to 1 across each cell. Nearest sampling at pixel centers
-matches the integer lookup. For a 128-pixel terrain tile, the four cells cover
-the four half-width UV regions. For a 4096-pixel tile, the first pixel
-of cell `(1, 0)` reads source pixel `(64, 0)`.
-
-Adjacent terrain tiles require compatible edge artwork.
+matches the integer lookup. Texture boundaries align with cell boundaries because
+dimensions are multiples of 64. A partially visible repeat at the map edge is clipped.
 
 Mask sheets are 4×4 atlases of 64×64 masks. Coverage comes from their red channel,
 not PNG alpha. A junction mask is centered at `(jx * 64, jy * 64)` and begins
@@ -253,8 +192,8 @@ consumers can ignore `editor` but must implement the selection rules above.
 Painting sets a cell's occupancy. Erasing clears it. Painting a lower layer
 also clears that cell in higher layers. This changes four adjoining junction
 patterns, so both previews redraw a 3×3 neighborhood. Changing mask selection
-redraws coverage with the new setting. Tile-size or material changes recalculate
-texture selection and preserve painted cells. Undo and redo restore occupancy
+redraws coverage with the new setting. Material changes preserve painted cells.
+Undo and redo restore occupancy
 and settings, reproducing the corresponding rendering choices.
 
 ### Assets and limits
@@ -266,13 +205,13 @@ referenced image requires updating its catalog path.
 
 At most 256 layers, 256 tile sheets, and 64 mask sheets are supported. Images
 are square and at most 4096 pixels wide. There is no encoded image file-size
-limit. Terrain atlases must share the same dimensions and divide into the same
-N×N grid at the level-wide terrain tile size. Mask sheets must be 256×256,
-independent of the terrain atlas dimensions. Level JSON has no file-size cap on
+limit. Terrain textures must share the same dimensions, from 64 through 4096 pixels
+per side in multiples of 64. Mask sheets must be 256×256,
+independent of the terrain texture dimensions. Level JSON has no file-size cap on
 read or write.
 
-Catalog order is preserved on load. Newly discovered terrain atlases must match
-the shared dimensions and tile size. Compatible sheets append without
+Catalog order is preserved on load. Newly discovered terrain textures must match
+the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
 selection because the sheet count participates in the algorithm. Fixed mask
 selection is unaffected. Missing catalog assets, duplicate cells,

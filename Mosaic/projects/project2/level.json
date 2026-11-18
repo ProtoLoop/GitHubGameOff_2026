@@ -1,0 +1,69 @@
+{
+  "format": "mosaic",
+  "version": 7,
+  "gridSize": 64,
+  "tileSheets": [
+    "assets/tiles/brown_mud_leaves_01_diff_1k.png",
+    "assets/tiles/coast_sand_rocks_02_diff_1k.png",
+    "assets/tiles/dry_decay_leaves_diff_1k.png",
+    "assets/tiles/forest_ground_06_diff_1k.png"
+  ],
+  "maskSheets": [
+    "assets/masks/alpha-set-a.png",
+    "assets/masks/alpha-set-b.png",
+    "assets/masks/alpha-set-c.png",
+    "assets/masks/alpha-set-d.png"
+  ],
+  "maskMode": "random",
+  "layers": [
+    {
+      "sheet": 1,
+      "cells": []
+    },
+    {
+      "sheet": 0,
+      "cells": []
+    },
+    {
+      "sheet": 3,
+      "cells": [
+        133,
+        134,
+        135,
+        136,
+        137,
+        195,
+        196,
+        197,
+        199,
+        200,
+        258,
+        259,
+        262,
+        263,
+        264,
+        265,
+        322,
+        326,
+        327,
+        328,
+        386,
+        387,
+        388,
+        452,
+        453,
+        454,
+        518
+      ]
+    }
+  ],
+  "editor": {
+    "activeLayer": 2,
+    "view": {
+      "zoom": 0.8269591339433636,
+      "scrollLeft": 1424,
+      "scrollTop": 807,
+      "showGrid": true
+    }
+  }
+}

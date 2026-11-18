@@ -4,12 +4,12 @@ Coverage masks are centered on the junctions where four cells meet.
 Each mask covers a 64×64-pixel square, offset by half a cell in both axes from
 the cell grid. Its four quadrants overlap the four adjoining cells.
 
-Terrain tiles use a separate grid anchored at the map origin. The level-wide
-terrain tile size is a multiple of 64 pixels. A 64×64 terrain tile covers one
-cell, while a 4096×4096 terrain tile covers 64×64 cells. One source pixel covers
-one world pixel. Mask dimensions and placement do not depend on terrain tile size.
-All terrain atlases share one square pixel dimension and one N×N tile layout.
-Mask atlases have their own fixed 256×256 dimensions.
+Terrain textures repeat from the map origin, with each whole texture used as one
+tile. All terrain textures share the same square dimensions, from 64 through
+4096 pixels per side in multiples of 64. One source pixel covers one world pixel.
+A 256×256 texture repeats every 4×4 cells and a 1024×1024 texture every 16×16 cells.
+Opposite texture edges must be seamless. Mask dimensions and placement do not
+depend on terrain texture dimensions. Mask atlases remain fixed at 256×256 pixels.
 
 ## Pattern bits
 
@@ -96,14 +96,13 @@ A candidate is eligible only if it preserves all four pattern bits. Identity
 is always eligible. Returning to the same pattern restores the same automatic
 orientation.
 
-Terrain selection uses the `lowbias32` hash of the world terrain tile's row-major
-index. The hash result selects the atlas tile. All cells it covers share the
-same selection. Terrain choices do not depend on occupancy or layer identity. The exact
-algorithm and reference values are in the
+Terrain sampling repeats each whole texture without procedural selection or
+transformations. Source coordinates are world pixel coordinates modulo the
+texture dimension, independent of occupancy or layer identity. See the
 [terrain rendering contract](../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection).
 
-Only painted cells and rendering settings are saved. Terrain indices, mask
-patterns, sheet choices, and orientations are derived by both editor and runtime.
+Only painted cells and rendering settings are saved. Mask patterns, mask-sheet
+choices, and orientations are derived by both editor and runtime.
 Painting or erasing changes the four affected junction patterns. Undo and redo
 restore occupancy and settings, which reproduce the rendering choices.
 
