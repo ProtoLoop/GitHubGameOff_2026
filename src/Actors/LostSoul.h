@@ -47,7 +47,7 @@ private:
     struct Anims
     {
         SpriteAnim::Instance Idle;
-        SpriteAnim::Instance Run;
+        SpriteAnim::Instance Walk;
     };
 
     explicit LostSoul(const Anims& anims);

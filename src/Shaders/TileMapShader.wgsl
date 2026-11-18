@@ -78,15 +78,14 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
 
     // Coords of the cell in cell map space
     let mapCellXY = vec2u(layerCellIndex % cellMapParams.cellMapCellsPerSide, layerCellIndex / cellMapParams.cellMapCellsPerSide);
-    // Coords in camera space
-    let camXY = vec2f(f32(mapCellXY.x) - halfMapGridSize, halfMapGridSize - f32(mapCellXY.y)) - cellMapParams.viewXY;
 
-    // Vertex position in screen space
-    //Iso
-    let screenVertXY = iso * (cellVtx + camXY) * f32(cellPixelsPerSide);
-    // Non-iso
-    //let screenVertXY = (cellVtx + camXY) * f32(cellPixelsPerSide);
-
+    // Round to the nearest pixel in camera space.
+    // This duplicates the rounding logic used for sprites to ensure pixel-perfect alignment.
+    let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
+    // Coords of the cell in world space.
+    let worldXY = vec2f(f32(mapCellXY.x) - halfMapGridSize, halfMapGridSize - f32(mapCellXY.y));
+    // Position of the vertex (corner of the cell) in screen space.
+    let screenVertXY = iso * (cellVtx + worldXY) * f32(cellPixelsPerSide) - cameraPixels;
     let ndc = (screenVertXY / vec2f(logicalTargetWidth, logicalTargetHeight)) * vec2f(2.0, 2.0);
 
     // Dimensions of the tile sheet in pixels.

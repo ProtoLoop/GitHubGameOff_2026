@@ -22,18 +22,20 @@ Game::Begin()
     for(size_t i = 0; i < kMaxLostSouls; ++i)
     {
         GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
+        // NOLINTNEXTLINE
+        lostSoul.MoveTo(m_PropRng.NextInRange(-14.0f, 14.0f), m_PropRng.NextInRange(-14.0f, 14.0f));
         m_LostSouls.push_back(std::move(lostSoul));
     }
 
     for(size_t i = 0; i < kMaxProps; ++i)
     {
-        //auto spriteResult = m_Level->GetSprite(SpriteResources::kSprite_Forgotten_Headstone_004);
-        auto spriteResult = m_Level->GetSprite(SpriteResources::kCemetery_Ancient_Tree_004);
+        auto spriteResult =
+            m_Level->GetSprite(SpriteResources::kSprite_Gothic_Necropolis_Gate_004);
         GG_CHECKB(spriteResult, "Failed to get prop sprite");
 
         Transform2D transform{};
         // NOLINTNEXTLINE
-        transform.MoveTo(m_PropRng.NextInRange(-7.0f, 7.0f), m_PropRng.NextInRange(-7.0f, 7.0f));
+        transform.MoveTo(m_PropRng.NextInRange(-14.0f, 14.0f), m_PropRng.NextInRange(-14.0f, 14.0f));
 
         m_Props.push_back(Prop(*spriteResult, transform));
     }

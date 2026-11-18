@@ -60,18 +60,22 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
 {
     let logicalTargetSize = vec2f(logicalTargetWidth, logicalTargetHeight);
 
-    let state = spriteStates[spriteId];
+    let sprite = spriteStates[spriteId];
 
     let spriteVtx = spriteVerts[vid];
 
-    let camXY = state.mapXY - cellMapParams.viewXY;
-    //let screenVertXY = (camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
-    let screenVertXY = (iso * camXY * f32(cellPixelsPerSide)) + (spriteVtx * state.srcRect.zw);
+    // Round to the nearest pixel in camera space.
+    // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment.
+    let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
+    // Coords of the sprite in world space (in pixels).
+    let worldPixels = iso * sprite.mapXY * f32(cellPixelsPerSide);
+    // Position of the vertex (corner of the sprite) in screen space.
+    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.srcRect.zw;
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 
     let texDims = vec2f(textureDimensions(texture, 0).xy);
-    let uvOffset = state.srcRect.xy / texDims;
-    let uvDims = state.srcRect.zw / texDims;
+    let uvOffset = sprite.srcRect.xy / texDims;
+    let uvDims = sprite.srcRect.zw / texDims;
 
     let uv = uvOffset + (spriteUV[vid] * uvDims);
 

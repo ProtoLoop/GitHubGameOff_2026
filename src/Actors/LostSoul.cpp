@@ -6,9 +6,9 @@
 
 namespace
 {
-constexpr float kTurnsPerSec = 1;
-constexpr float kMoveSpeed = 2.0f;
-constexpr float kAnimPeriod = 0.66f;
+constexpr float kTurnsPerSec = 0.5;
+constexpr float kMoveSpeed = 0.75f;
+constexpr float kAnimPeriod = 2.0f;
 
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
@@ -31,12 +31,12 @@ LostSoul::Create(Game& game)
         "Failed to create sprite anim instance for {}",
         AnimResources::kLS_AnimName_Idle);
 
-    GG_TRY(runAnim,
-        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Run),
+    GG_TRY(walkAnim,
+        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Walk),
         "Failed to create sprite anim instance for {}",
-        AnimResources::kLS_AnimName_Run);
+        AnimResources::kLS_AnimName_Walk);
 
-    return LostSoul(Anims{ .Idle = idleAnim, .Run = runAnim });
+    return LostSoul(Anims{ .Idle = idleAnim, .Walk = walkAnim });
 }
 
 Result<>
@@ -99,7 +99,7 @@ LostSoul::EnterMoving(Game& game)
 
     m_State = State::Moving;
     m_Timer.Start(moveTime);
-    m_CurAnim = m_Anims.Run;
+    m_CurAnim = m_Anims.Walk;
 }
 
 void
