@@ -2,14 +2,11 @@
 
 #include "Angle.h"
 #include "BoundedVector.h"
+#include "FileFetcher.h"
 #include "InlineString.h"
-#include "TextureLoader.h"
 
 #include <span>
 #include <webgpu/webgpu_cpp.h>
-
-class WebGpu;
-class Renderer;
 
 namespace detail
 {
@@ -71,43 +68,6 @@ struct SpriteAnimDef
     std::span<const SpriteSequenceDef> SequenceDefs;
 };
 
-class NamedSprite;
-
-class SpriteLoader
-{
-public:
-    SpriteLoader() = delete;
-    ~SpriteLoader() = default;
-    SpriteLoader(const SpriteLoader&) = delete;
-    SpriteLoader& operator=(const SpriteLoader&) = delete;
-    SpriteLoader(SpriteLoader&&) = default;
-    SpriteLoader& operator=(SpriteLoader&&) = default;
-
-    static Result<SpriteLoader> Load(const std::span<const SpriteDef> spriteDefs,
-        FileFetcher& fileFetcher,
-        Renderer& renderer,
-        WebGpu& webGpu);
-
-    bool IsPending() const;
-
-    Result<> Update();
-
-    Result<BoundedVector<NamedSprite>> Take();
-
-private:
-    SpriteLoader(BoundedVector<TextureLoader>&& textureLoaders,
-        BoundedVector<size_t>&& spriteToTextureMap,
-        BoundedVector<NamedSprite>&& sprites,
-        Renderer& renderer);
-
-    BoundedVector<TextureLoader> m_TextureLoaders;
-    BoundedVector<size_t> m_SpriteToTextureMap;
-    BoundedVector<NamedSprite> m_Sprites;
-    Renderer* m_Renderer;
-
-    bool m_Taken{ false };
-};
-
 /// A lightweight representation of a sprite within a texture atlas.
 /// Intended to be constructed on the fly and returned by value.
 class Sprite
@@ -135,6 +95,7 @@ private:
     Rect m_Rect;
 };
 
+/// Associates a name with a sprite.
 class NamedSprite
 {
 public:
@@ -189,45 +150,6 @@ private:
     Dimension2D m_Dim;
     Rect m_Rect;
     uint32_t m_SpriteCount;
-};
-
-class SpriteAnim;
-
-class SpriteAnimLoader
-{
-public:
-    SpriteAnimLoader() = delete;
-    ~SpriteAnimLoader() = default;
-    SpriteAnimLoader(const SpriteAnimLoader&) = delete;
-    SpriteAnimLoader& operator=(const SpriteAnimLoader&) = delete;
-    SpriteAnimLoader(SpriteAnimLoader&&) = default;
-    SpriteAnimLoader& operator=(SpriteAnimLoader&&) = default;
-
-    static Result<SpriteAnimLoader> Load(
-        const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu);
-
-    const ResourceName& GetName() const;
-
-    bool IsPending() const;
-
-    Result<> Update();
-
-    Result<SpriteAnim> Take();
-
-private:
-    SpriteAnimLoader(const ResourceName& name,
-        BoundedVector<TextureLoader>&& textureLoaders,
-        BoundedVector<size_t>&& sequenceToTextureMap,
-        BoundedVector<SpriteSequence>&& spriteSequences,
-        Renderer& renderer);
-
-    ResourceName m_Name;
-    BoundedVector<TextureLoader> m_TextureLoaders;
-    BoundedVector<size_t> m_SequenceToTextureMap;
-    BoundedVector<SpriteSequence> m_SpriteSequences;
-    Renderer* m_Renderer;
-
-    bool m_Taken{ false };
 };
 
 /// A sprite animation resource.

@@ -2,6 +2,8 @@
 
 #include "CellMap.h"
 #include "Sprite.h"
+#include "SpriteAnimLoader.h"
+#include "SpriteLoader.h"
 
 #include <memory>
 #include <span>

@@ -5,6 +5,7 @@
 #include "Transform2D.h"
 
 class Game;
+class Renderer;
 
 class LostSoul : public Transform2DLike<LostSoul>
 {

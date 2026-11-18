@@ -4,7 +4,7 @@
 #include "Transform2D.h"
 
 class Game;
-class Input;
+class Renderer;
 
 class Caretaker : public Transform2DLike<Caretaker>
 {

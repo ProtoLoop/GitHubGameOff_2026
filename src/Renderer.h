@@ -1,5 +1,6 @@
 #pragma once
 
+#include "InlineVector.h"
 #include "Sprite.h"
 #include "Transform2D.h"
 
@@ -7,7 +8,6 @@
 
 class CellMap;
 class Level;
-class Sprite;
 class WebGpu;
 
 class Renderer

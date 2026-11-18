@@ -109,6 +109,10 @@ set(GAMEOFF_SOURCES
     src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp
+    src/SpriteAnimLoader.h
+    src/SpriteAnimLoader.cpp
+    src/SpriteLoader.h
+    src/SpriteLoader.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
     src/Timer.h
