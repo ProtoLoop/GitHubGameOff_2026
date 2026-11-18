@@ -1,6 +1,7 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
-#include "AnimData.h"
+#include "Resources/AnimResources.h"
+#include "Resources/SpriteResources.h"
 #include "CellMap.h"
 #include "Defer.h"
 #include "Game.h"
@@ -100,8 +101,12 @@ struct App
             class WebGpu& webGpu)
             : Renderer(std::move(renderer)),
               LevelFetcher(LevelFetcher::Fetch(levelPath, FileFetcher)),
-              LevelLoader(LevelLoader::Load(
-                  AnimData::GetAnimDefs(), kCellMapDef, FileFetcher, *Renderer, webGpu))
+              LevelLoader(LevelLoader::Load(SpriteResources::GetSpriteDefs(),
+                  AnimResources::GetAnimDefs(),
+                  kCellMapDef,
+                  FileFetcher,
+                  *Renderer,
+                  webGpu))
         {
             GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
             GG_ASSERT(LevelLoader, "Failed to initialize level loader");

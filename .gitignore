@@ -1,5 +1,6 @@
 assets
 resources
+!src/resources
 build
 .devcontainer
 out

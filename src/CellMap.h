@@ -33,7 +33,7 @@ private:
     CellMapLoader(TextureLoader&& textureLoader, Renderer& renderer, uint32_t cellsPerSide);
 
     TextureLoader m_TextureLoader;
-    Renderer* m_Renderer{ nullptr };
+    Renderer* m_Renderer;
     uint32_t m_CellsPerSide{ 0 };
     bool m_Taken{ false };
 };

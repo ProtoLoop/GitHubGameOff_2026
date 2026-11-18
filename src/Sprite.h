@@ -38,6 +38,14 @@ struct Dimension2D
     friend bool operator==(const Dimension2D& lhs, const Dimension2D& rhs) = default;
 };
 
+struct SpriteDef
+{
+    ResourceName Name;
+    FilePath TexturePath;
+    // If not present then use the entire texture.
+    std::optional<Rect> Rect = std::nullopt;
+};
+
 /// Defines frames within a rectangular region of a texture.
 /// Dim specifies each frame's pixel dimensions. Frames advance left to right,
 /// then top to bottom. Incomplete columns or rows at the edges are ignored.
@@ -46,7 +54,8 @@ struct SpriteSequenceDef
     ResourceName Name;
     Dimension2D Dim{};
     FilePath TexturePath;
-    Rect Rect{};
+    // If not present then use the entire texture.
+    std::optional<Rect> Rect = std::nullopt;
 };
 
 /// Defines an animation's equally spaced facing directions.
@@ -60,6 +69,43 @@ struct SpriteAnimDef
     /// Borrows sequence storage, which must remain valid whenever this definition
     /// is read. SpriteAnimLoader::Load copies the data it needs before returning.
     std::span<const SpriteSequenceDef> SequenceDefs;
+};
+
+class NamedSprite;
+
+class SpriteLoader
+{
+public:
+    SpriteLoader() = delete;
+    ~SpriteLoader() = default;
+    SpriteLoader(const SpriteLoader&) = delete;
+    SpriteLoader& operator=(const SpriteLoader&) = delete;
+    SpriteLoader(SpriteLoader&&) = default;
+    SpriteLoader& operator=(SpriteLoader&&) = default;
+
+    static Result<SpriteLoader> Load(const std::span<const SpriteDef> spriteDefs,
+        FileFetcher& fileFetcher,
+        Renderer& renderer,
+        WebGpu& webGpu);
+
+    bool IsPending() const;
+
+    Result<> Update();
+
+    Result<BoundedVector<NamedSprite>> Take();
+
+private:
+    SpriteLoader(BoundedVector<TextureLoader>&& textureLoaders,
+        BoundedVector<size_t>&& spriteToTextureMap,
+        BoundedVector<NamedSprite>&& sprites,
+        Renderer& renderer);
+
+    BoundedVector<TextureLoader> m_TextureLoaders;
+    BoundedVector<size_t> m_SpriteToTextureMap;
+    BoundedVector<NamedSprite> m_Sprites;
+    Renderer* m_Renderer;
+
+    bool m_Taken{ false };
 };
 
 /// A lightweight representation of a sprite within a texture atlas.
@@ -78,6 +124,7 @@ public:
 private:
     friend class SpriteAnimLoader;
     friend class SpriteSequence;
+    friend class SpriteLoader;
 
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
@@ -86,6 +133,32 @@ private:
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_Rect;
+};
+
+class NamedSprite
+{
+public:
+    NamedSprite() = delete;
+
+    NamedSprite(const ResourceName& name, Sprite&& sprite)
+        : m_Name(name),
+          m_Sprite(std::move(sprite))
+    {
+    }
+
+    const ResourceName& GetName() const { return m_Name; }
+
+    /// Returns the bind group for the sprite's texture.
+    const wgpu::BindGroup& GetTextureBindGroup() const { return m_Sprite.GetTextureBindGroup(); }
+
+    /// Returns the rectangle defining the sprite within the texture atlas.
+    const Rect& GetRect() const { return m_Sprite.GetRect(); }
+
+    const Sprite& GetSprite() const { return m_Sprite; }
+
+private:
+    ResourceName m_Name;
+    Sprite m_Sprite;
 };
 
 class SpriteSequence
@@ -146,7 +219,7 @@ private:
         BoundedVector<TextureLoader>&& textureLoaders,
         BoundedVector<size_t>&& sequenceToTextureMap,
         BoundedVector<SpriteSequence>&& spriteSequences,
-        Renderer* renderer);
+        Renderer& renderer);
 
     ResourceName m_Name;
     BoundedVector<TextureLoader> m_TextureLoaders;

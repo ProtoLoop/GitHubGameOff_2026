@@ -1,6 +1,6 @@
 #include "Caretaker.h"
 
-#include "AnimData.h"
+#include "Resources/AnimResources.h"
 #include "Input.h"
 #include "Game.h"
 #include "Renderer.h"
@@ -25,9 +25,9 @@ Result<Caretaker>
 Caretaker::Create(Game& game)
 {
     GG_TRY(initialAnim,
-        game.GetLevel().CreateSpriteAnimInstance(AnimData::kCT_AnimName_Idle),
+        game.GetLevel().CreateSpriteAnimInstance(AnimResources::kCT_AnimName_Idle),
         "Failed to create sprite anim instance for {}",
-        AnimData::kCT_AnimName_Idle);
+        AnimResources::kCT_AnimName_Idle);
 
     return Caretaker(initialAnim);
 }
@@ -75,7 +75,7 @@ Caretaker::Tick(const float deltaTime, Game& game)
     }
 
     const std::string_view desiredAnimName =
-        isMoving ? AnimData::kCT_AnimName_Run : AnimData::kCT_AnimName_Idle;
+        isMoving ? AnimResources::kCT_AnimName_Run : AnimResources::kCT_AnimName_Idle;
 
     if(m_CurAnim.GetName() != desiredAnimName)
     {
@@ -94,7 +94,7 @@ Caretaker::Tick(const float deltaTime, Game& game)
 }
 
 Result<>
-Caretaker::Render(Renderer& renderer)
+Caretaker::Render(Renderer& renderer) const
 {
     GG_CHECKB(renderer.QueueSprite(m_CurAnim.GetFrame(), GetTransform()), "Failed to queue sprite");
 

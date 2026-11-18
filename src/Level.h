@@ -19,7 +19,8 @@ public:
     LevelLoader(LevelLoader&&) = default;
     LevelLoader& operator=(LevelLoader&&) = default;
 
-    static Result<LevelLoader> Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
+    static Result<LevelLoader> Load(const std::span<const SpriteDef> spriteDefs,
+        const std::span<const SpriteAnimDef> spriteAnimDefs,
         const CellMapDef& cellMapDef,
         FileFetcher& fileFetcher,
         Renderer& renderer,
@@ -32,13 +33,17 @@ public:
     Result<std::unique_ptr<Level>> Take();
 
 private:
-    LevelLoader(CellMapLoader&& cellMapLoader, BoundedVector<SpriteAnimLoader>&& spriteAnimLoaders)
+    LevelLoader(CellMapLoader&& cellMapLoader,
+        SpriteLoader&& spriteLoader,
+        BoundedVector<SpriteAnimLoader>&& spriteAnimLoaders)
         : m_CellMapLoader(std::move(cellMapLoader)),
+          m_SpriteLoader(std::move(spriteLoader)),
           m_SpriteAnimLoaders(std::move(spriteAnimLoaders))
     {
     }
 
     CellMapLoader m_CellMapLoader;
+    SpriteLoader m_SpriteLoader;
     BoundedVector<SpriteAnimLoader> m_SpriteAnimLoaders;
 
     bool m_Taken{ false };
@@ -57,6 +62,8 @@ public:
 
     const CellMap& GetCellMap() const;
 
+    Result<const Sprite&> GetSprite(const std::string_view name) const;
+
     Result<const SpriteAnim&> GetSpriteAnim(const std::string_view name) const;
 
     Result<SpriteAnim::Instance> CreateSpriteAnimInstance(const std::string_view name) const;
@@ -65,8 +72,11 @@ private:
 
     friend class LevelLoader;
 
-    Level(CellMap&& cellMap, BoundedVector<SpriteAnim>&& spriteAnims);
+    Level(CellMap&& cellMap,
+        BoundedVector<NamedSprite>&& sprites,
+        BoundedVector<SpriteAnim>&& spriteAnims);
 
     CellMap m_CellMap;
+    BoundedVector<NamedSprite> m_Sprites;
     BoundedVector<SpriteAnim> m_SpriteAnims;
 };

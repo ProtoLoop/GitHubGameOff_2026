@@ -72,9 +72,11 @@ set(GAMEOFF_SOURCES
     src/Actors/Caretaker.cpp
     src/Actors/LostSoul.h
     src/Actors/LostSoul.cpp
+    src/Resources/AnimResources.h
+    src/Resources/AnimResources.cpp
+    src/Resources/SpriteResources.h
+    src/Resources/SpriteResources.cpp
     src/Angle.h
-    src/AnimData.h
-    src/AnimData.cpp
     src/BoundedVector.h
     src/CellMap.h
     src/CellMap.cpp
@@ -97,6 +99,8 @@ set(GAMEOFF_SOURCES
     src/LevelFetcher.h
     src/LevelFetcher.cpp
     src/main.cpp
+    src/Prop.h
+    src/Prop.cpp
     src/Renderer.h
     src/Renderer.cpp
     src/Result.h

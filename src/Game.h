@@ -3,6 +3,7 @@
 #include "Actors/Caretaker.h"
 #include "Actors/LostSoul.h"
 #include "Level.h"
+#include "Prop.h"
 #include "Random.h"
 
 #include <memory>
@@ -43,6 +44,7 @@ public:
 
 private:
     static constexpr size_t kMaxLostSouls = 10;
+    static constexpr size_t kMaxProps = 10;
 
     enum class Stage
     {
@@ -52,7 +54,7 @@ private:
 
     Result<> TickEntities(float deltaSec);
 
-    Result<> RenderEntities(Renderer& renderer);
+    Result<> RenderSprites(Renderer& renderer);
 
     Stage m_Stage{Stage::None};
 
@@ -64,9 +66,15 @@ private:
 
     InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
 
+    InlineVector<Prop, kMaxProps> m_Props;
+
     float m_TimeAccum{ 0.0f };
 
     static constexpr uint64_t EntityRngSeed = 42;
     static constexpr uint64_t EntityRngStream = 54;
     Random m_EntityRng{EntityRngSeed, EntityRngStream};
+
+    static constexpr uint64_t PropRngSeed = 54;
+    static constexpr uint64_t PropRngStream = 42;
+    Random m_PropRng{PropRngSeed, PropRngStream};
 };

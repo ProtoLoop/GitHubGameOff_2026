@@ -1,6 +1,6 @@
 #include "LostSoul.h"
 
-#include "AnimData.h"
+#include "Resources/AnimResources.h"
 #include "Game.h"
 #include "Renderer.h"
 
@@ -27,14 +27,14 @@ LostSoul::Create(Game& game)
     const Level& level = game.GetLevel();
 
     GG_TRY(idleAnim,
-        level.CreateSpriteAnimInstance(AnimData::kLS_AnimName_Idle),
+        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Idle),
         "Failed to create sprite anim instance for {}",
-        AnimData::kLS_AnimName_Idle);
+        AnimResources::kLS_AnimName_Idle);
 
     GG_TRY(runAnim,
-        level.CreateSpriteAnimInstance(AnimData::kLS_AnimName_Run),
+        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Run),
         "Failed to create sprite anim instance for {}",
-        AnimData::kLS_AnimName_Run);
+        AnimResources::kLS_AnimName_Run);
 
     return LostSoul(Anims{ .Idle = idleAnim, .Run = runAnim });
 }
@@ -67,7 +67,7 @@ LostSoul::Tick(const float deltaTime, Game& game)
 }
 
 Result<>
-LostSoul::Render(Renderer& renderer)
+LostSoul::Render(Renderer& renderer) const
 {
     GG_CHECKB(renderer.QueueSprite(m_CurAnim.GetFrame(), GetTransform()), "Failed to queue sprite");
 

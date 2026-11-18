@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include "Renderer.h"
+#include "Resources/SpriteResources.h"
 
 Game::Game(Input& input, std::unique_ptr<Level>&& level, std::unique_ptr<Renderer>&& renderer)
     : m_Input(&input),
@@ -22,6 +23,19 @@ Game::Begin()
     {
         GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
         m_LostSouls.push_back(std::move(lostSoul));
+    }
+
+    for(size_t i = 0; i < kMaxProps; ++i)
+    {
+        //auto spriteResult = m_Level->GetSprite(SpriteResources::kSprite_Forgotten_Headstone_004);
+        auto spriteResult = m_Level->GetSprite(SpriteResources::kCemetery_Ancient_Tree_004);
+        GG_CHECKB(spriteResult, "Failed to get prop sprite");
+
+        Transform2D transform{};
+        // NOLINTNEXTLINE
+        transform.MoveTo(m_PropRng.NextInRange(-7.0f, 7.0f), m_PropRng.NextInRange(-7.0f, 7.0f));
+
+        m_Props.push_back(Prop(*spriteResult, transform));
     }
 
     m_Stage = Stage::Running;
@@ -50,7 +64,7 @@ Game::Tick(const float deltaSec)
 
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 
-    GG_CHECK(RenderEntities(*m_Renderer));
+    GG_CHECK(RenderSprites(*m_Renderer));
 
     return Result<>::Ok;
 }
@@ -69,12 +83,19 @@ Game::TickEntities(float deltaSec)
 }
 
 Result<>
-Game::RenderEntities(Renderer& renderer)
+Game::RenderSprites(Renderer& renderer)
 {
     GG_CHECK(m_Caretaker->Render(renderer));
-    for(auto& lostSoul : m_LostSouls)
+
+    for(const LostSoul& lostSoul : m_LostSouls)
     {
         GG_CHECK(lostSoul.Render(renderer));
     }
+
+    for(const Prop& prop : m_Props)
+    {
+        GG_CHECK(prop.Render(renderer));
+    }
+
     return Result<>::Ok;
 }
