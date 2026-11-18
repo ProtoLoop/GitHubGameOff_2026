@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Result.h"
+#include "Diag.h"
 
 /// A std::vector-like container in which capacity is fixed at compile time,
 /// does not grow, and can contain non-copyable and non-movable types.

@@ -28,10 +28,12 @@ public:
     }
 
     template<std::size_t M>
-    //NOLINTNEXTLINE(google-explicit-constructor)
+    // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr InlineString(const char (&other)[M])
         : InlineString(std::string_view(&other[0]))
     {
+        static_assert(M <= N,
+            "String literal exceeds InlineString capacity (including null terminator)");
     }
 
     // NOLINTNEXTLINE(google-explicit-constructor)
