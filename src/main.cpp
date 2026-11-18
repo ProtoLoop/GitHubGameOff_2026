@@ -24,6 +24,7 @@ namespace
 
 /// Number of cells along each axis of the cell map.
 constexpr uint32_t kCellMapCellsPerSide = 128;
+constexpr const char* kLevelFilePath = "/assets/project2/level.json";
 
 const CellMapDef kCellMapDef //
     {
@@ -203,7 +204,7 @@ App::Update()
 
             std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
 
-            m_State.emplace<LoadingState>("/assets/sample/level.json", std::move(renderer), WebGpu);
+            m_State.emplace<LoadingState>(kLevelFilePath, std::move(renderer), WebGpu);
 
             m_Stage = Stage::Loading;
         }

@@ -75,6 +75,8 @@ public:
 
     Result<> TryGetUint32(uint32_t& value) const;
 
+    Result<> TryGetFloat(float& value) const;
+
     Result<> TryGetBool(bool& value) const;
 
     /// Convert the JSON value to a string.
@@ -107,7 +109,26 @@ public:
     /// Does not handle escape sequences.
     Result<> TryGetKey(std::string_view& key) const;
 
+    /// Get the value of the JSON property.
     Result<> TryGetValue(JsonValue& value) const;
+
+    /// Convert the JSON value to an unsigned 32-bit integer.
+    Result<> TryGetUint32(uint32_t& value) const;
+
+    Result<> TryGetFloat(float& value) const;
+
+    /// Convert the JSON value to a boolean.
+    Result<> TryGetBool(bool& value) const;
+
+    /// Convert the JSON value to a string.
+    /// Does not handle escape sequences.
+    Result<> TryGetString(std::string_view& value) const;
+
+    /// Convert the JSON value to an object.
+    Result<> TryGetObject(JsonObject& value) const;
+
+    /// Convert the JSON value to an array.
+    Result<> TryGetArray(JsonArray& value) const;
 
 private:
     friend class JsonIterator<JsonProperty>;

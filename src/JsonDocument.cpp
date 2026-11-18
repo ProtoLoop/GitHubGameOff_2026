@@ -1,13 +1,35 @@
 #include "JsonDocument.h"
 
+#include "InlineString.h"
 #include "Shortcuts.h"
 
+#include <cerrno>
 #include <charconv>
+#include <cstdlib>
 #include <string_view>
 #include <system_error>
 
 namespace
 {
+
+Result<>
+ParseFloat(const std::string_view text, float& out) noexcept
+{
+    GG_CHECKB(!text.empty(), "Input text is empty");
+
+    // Null terminate the string
+    const InlineString<32> str{text};
+
+    const char* cstr = str.c_str();
+    char* end{};
+    errno = 0;
+    const float value = std::strtof(cstr, &end);
+
+    GG_CHECKB(end > cstr || *end != '\0' || errno == ERANGE, "Failed to parse number");
+
+    out = value;
+    return Result<>::Ok;
+}
 
 size_t
 TokLen(const jsmntok_t& token)
@@ -75,6 +97,35 @@ JsonValue::TryGetUint32(uint32_t& value) const
     GG_CHECK(ptr == sv.data() + sv.size(),
         "Unexpected trailing characters: (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonValue::TryGetFloat(float& value) const
+{
+    GG_CHECK(m_Index < m_Tokens.size(), "JsonValue out of bounds");
+
+    const jsmntok_t& tok = m_Tokens[m_Index];
+    GG_CHECK(tok.type == JSMN_PRIMITIVE, "Expected token to be a primitive");
+
+    const std::string_view sv = TokStr(tok, m_Json);
+
+    GG_CHECKB(ParseFloat(sv, value),
+        "Failed to parse number (line:{})",
+        GetLine(m_Index, m_Tokens, m_Json));
+
+    //std::from_chars() not available in xcode
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    /*const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+
+    GG_CHECK(ec == std::errc{},
+        "Failed to parse number (line:{})",
+        GetLine(m_Index, m_Tokens, m_Json));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    GG_CHECK(ptr == sv.data() + sv.size(),
+        "Unexpected trailing characters: (line:{})",
+        GetLine(m_Index, m_Tokens, m_Json));*/
 
     return Result<>::Ok;
 }
@@ -178,6 +229,66 @@ JsonProperty::TryGetValue(JsonValue& value) const
     GG_CHECKB(m_Index + 1 < m_Tokens.size(), "JsonProperty out of bounds");
 
     value = JsonValue(m_Index + 1, m_Tokens, m_Json);
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetUint32(uint32_t& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for uint32");
+    GG_CHECKB(jsonValue.TryGetUint32(value), "Failed to get uint32");
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetFloat(float& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for float");
+    GG_CHECKB(jsonValue.TryGetFloat(value), "Failed to get float");
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetBool(bool& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for bool");
+    GG_CHECKB(jsonValue.TryGetBool(value), "Failed to get bool");
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetString(std::string_view& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for string");
+    GG_CHECKB(jsonValue.TryGetString(value), "Failed to get string");
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetObject(JsonObject& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for object");
+    GG_CHECKB(jsonValue.TryGetObject(value), "Failed to get object");
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonProperty::TryGetArray(JsonArray& value) const
+{
+    JsonValue jsonValue;
+    GG_CHECKB(TryGetValue(jsonValue), "Failed to get value for array");
+    GG_CHECKB(jsonValue.TryGetArray(value), "Failed to get array");
+
     return Result<>::Ok;
 }
 
