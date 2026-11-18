@@ -355,7 +355,7 @@ Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& rende
     renderPass.SetPipeline(m_MapPipeline);
 
     // Send all the cells.
-    const uint32_t instanceCount = cellMap.GetCellCount();
+    const uint32_t instanceCount = cellMap.GetCellCount() * 3;
     renderPass.Draw(kVerticesPerQuad, instanceCount, 0, 0);
 
     return Result<>::Ok;
@@ -397,18 +397,21 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         spriteState.mapXY[0] = rec.Transform.Pos.x;
         spriteState.mapXY[1] = rec.Transform.Pos.y;
 
-        spriteState.Scale = sprite.GetScale();
+        spriteState.pivot[0] = sprite.GetPivot().x;
+        spriteState.pivot[1] = sprite.GetPivot().y;
 
-        spriteState.Color[0] = sprite.GetColor().r;
-        spriteState.Color[1] = sprite.GetColor().g;
-        spriteState.Color[2] = sprite.GetColor().b;
-        spriteState.Color[3] = sprite.GetColor().a;
+        spriteState.color[0] = sprite.GetColor().r;
+        spriteState.color[1] = sprite.GetColor().g;
+        spriteState.color[2] = sprite.GetColor().b;
+        spriteState.color[3] = sprite.GetColor().a;
 
         const Rect& rect = sprite.GetRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
         spriteState.srcRect[1] = static_cast<float>(rect.y);
         spriteState.srcRect[2] = static_cast<float>(rect.w);
         spriteState.srcRect[3] = static_cast<float>(rect.h);
+
+        spriteState.scale = sprite.GetScale();
     }
 
     GG_CHECK(EnsureSpriteStateBuffer(sizeof(SpriteState) * m_SpriteStates.size()),

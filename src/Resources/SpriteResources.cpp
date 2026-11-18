@@ -10,12 +10,14 @@ namespace
 #define SPRITE_DEF(name)                                                                           \
     {                                                                                              \
         .Name = SPRITE_NAME(name),                                                                 \
-        .TexturePath = SPRITE_PATH(name),                                                         \
+        .TexturePath = SPRITE_PATH(name),                                                          \
+        .Pivot{ .x = 0.5f, .y = 1.0f },                                                            \
     }
 #define SPRITE_DEF2(dir, name)                                                                     \
     {                                                                                              \
         .Name = SPRITE_NAME(name),                                                                 \
-        .TexturePath = SPRITE_PATH2(dir, name),                                                  \
+        .TexturePath = SPRITE_PATH2(dir, name),                                                    \
+        .Pivot{ .x = 0.5f, .y = 1.0f },                                                            \
     }
 
 constexpr const SpriteDef kSpriteDefs[] //
@@ -33,21 +35,25 @@ constexpr const SpriteDef kSpriteDefs[] //
         {
             .Name = SPRITE_NAME(Forgotten_Headstone_001),
             .TexturePath = SPRITE_PATH2(Forgotten_Headstone, Forgotten_Headstone_001),
+            .Pivot{ .x = 0.5f, .y = 1.0f },
             .Scale = 0.25f,
         },
         {
             .Name = SPRITE_NAME(Forgotten_Headstone_002),
             .TexturePath = SPRITE_PATH2(Forgotten_Headstone, Forgotten_Headstone_002),
+            .Pivot{ .x = 0.5f, .y = 1.0f },
             .Scale = 0.25f,
         },
         {
             .Name = SPRITE_NAME(Forgotten_Headstone_003),
             .TexturePath = SPRITE_PATH2(Forgotten_Headstone, Forgotten_Headstone_003),
+            .Pivot{ .x = 0.5f, .y = 1.0f },
             .Scale = 0.25f,
         },
         {
             .Name = SPRITE_NAME(Forgotten_Headstone_004),
             .TexturePath = SPRITE_PATH2(Forgotten_Headstone, Forgotten_Headstone_004),
+            .Pivot{ .x = 0.5f, .y = 1.0f },
             .Scale = 0.25f,
         },
 

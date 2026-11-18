@@ -46,6 +46,13 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
     // texture loading completes.
     for(const SpriteDef& def : spriteDefs)
     {
+        GG_CHECKB(def.Pivot.x >= 0.0f && def.Pivot.x <= 1.0f && def.Pivot.y >= 0.0f && def.Pivot.y <= 1.0f,
+            "Invalid pivot coordinates: {} : {} - ({}, {})",
+            def.Name,
+            def.TexturePath,
+            def.Pivot.x,
+            def.Pivot.y);
+
         Rect rect = kNullRect;
         if(def.Rect)
         {
@@ -79,7 +86,7 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
             spriteToTextureMap.push_back(index);
         }
 
-        Sprite sprite(defaultBindGroup, rect, def.Color, def.Scale);
+        Sprite sprite(defaultBindGroup, rect, def.Pivot, def.Color, def.Scale);
         NamedSprite namedSprite(def.Name, std::move(sprite));
 
         sprites.push_back(std::move(namedSprite));
@@ -176,7 +183,7 @@ SpriteLoader::Take()
 
         // Create a new sprite and replace the old one.
         NamedSprite newSprite(sprite.GetName(),
-            Sprite(bindGroup, rect, sprite.GetColor(), sprite.GetScale()));
+            Sprite(bindGroup, rect, sprite.GetPivot(), sprite.GetColor(), sprite.GetScale()));
 
         m_Sprites[i] = std::move(newSprite);
     }

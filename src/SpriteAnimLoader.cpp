@@ -56,6 +56,13 @@ SpriteAnimLoader::Load(
             def.Dim.w,
             def.Dim.h);
 
+        GG_CHECKB(def.Pivot.x >= 0.0f && def.Pivot.x <= 1.0f && def.Pivot.y >= 0.0f && def.Pivot.y <= 1.0f,
+            "Invalid pivot coordinates: {} : {} - ({}, {})",
+            animDef.Name,
+            def.Name,
+            def.Pivot.x,
+            def.Pivot.y);
+
         Rect rect = kNullRect;
         if(def.Rect)
         {
@@ -82,7 +89,7 @@ SpriteAnimLoader::Load(
             sequenceToTextureMap.push_back(index);
         }
 
-        SpriteSequence spriteSeq(def.Name, defaultBindGroup, def.Dim, rect, def.Color);
+        SpriteSequence spriteSeq(def.Name, defaultBindGroup, def.Dim, rect, def.Pivot, def.Color);
 
         spriteSequences.push_back(std::move(spriteSeq));
     }
@@ -207,7 +214,12 @@ SpriteAnimLoader::Take()
             texDims.h - rect.y);
 
         // Create a new sequence and replace the old one.
-        SpriteSequence newSeq(seq.GetName(), bindGroup, seq.GetDim(), rect, seq.GetColor());
+        SpriteSequence newSeq(seq.GetName(),
+            bindGroup,
+            seq.GetDim(),
+            rect,
+            seq.GetPivot(),
+            seq.GetColor());
 
         m_SpriteSequences[i] = std::move(newSeq);
     }

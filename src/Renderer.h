@@ -53,10 +53,13 @@ private:
     struct SpriteState
     {
         float mapXY[2]{};    // Map space cell coordinates of the sprite.
-        float Scale{ 1.0f }; // Scale factor for the sprite.
-        uint32_t pad0{ 0 };  // Padding to align the structure to 16 bytes.
-        float Color[4]{};    // Color tint for the sprite.
+        float pivot[2]{};    // Pivot point of the sprite.
+        float color[4]{};    // Color tint for the sprite.
         float srcRect[4]{};  // Source rectangle in the texture (x, y, w, h)
+        float scale{ 1.0f }; // Scale factor for the sprite.
+        uint32_t pad0{ 0 };
+        uint32_t pad1{ 0 };
+        uint32_t pad2{ 0 };
     };
 
     struct CellMapParams

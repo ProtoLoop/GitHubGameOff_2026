@@ -17,10 +17,13 @@ struct CellMapParams
 struct SpriteState
 {
     mapXY: vec2f,   // Map space cell coordinates of the sprite.
-    scale : f32,    // Scale factor for the sprite
-    pad0: u32,
+    pivot: vec2f,   // Pivot point of the sprite.
     color : vec4f,  // Color tint for the sprite
     srcRect: vec4f, // Source rectangle in the texture (x, y, w, h)
+    scale : f32,    // Scale factor for the sprite
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
 };
 
 @group(0) @binding(0) var<storage, read> spriteStates : array<SpriteState>;
@@ -35,13 +38,13 @@ override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cel
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
     
 const spriteVerts = array<vec2f, 6>(
-    vec2f(-0.5, 0.5),
-    vec2f(0.5, 0.5),
-    vec2f(0.5, -0.5),
+    vec2f(0, 0),
+    vec2f(1, 0),
+    vec2f(1, 1),
 
-    vec2f(-0.5, 0.5),
-    vec2f(0.5, -0.5),
-    vec2f(-0.5, -0.5)
+    vec2f(0, 0),
+    vec2f(1, 1),
+    vec2f(0, 1)
 );
 
 const spriteUV = array<vec2f, 6>(
@@ -64,7 +67,8 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
 
     let sprite = spriteStates[spriteId];
 
-    let spriteVtx = spriteVerts[vid];
+    // Apply the pivot in Y-down sprite coordinates, then convert the offset to Y-up screen space.
+    let spriteVtx = (spriteVerts[vid] - sprite.pivot) * vec2f(1.0, -1.0);
 
     // Round to the nearest pixel in camera space.
     // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment.

@@ -5,6 +5,7 @@
 #include "FileFetcher.h"
 #include "InlineString.h"
 
+#include <glm/ext/vector_float2.hpp>
 #include <glm/vec4.hpp>
 #include <span>
 #include <webgpu/webgpu_cpp.h>
@@ -36,12 +37,25 @@ struct Dimension2D
     friend bool operator==(const Dimension2D& lhs, const Dimension2D& rhs) = default;
 };
 
+/// Represents a pivot point within a 2D space.
+/// The coordinates run between 0 and 1, where (0,0) is the top-left corner and (1,1) is the
+/// bottom-right corner.
+struct Pivot2D
+{
+    float x;
+    float y;
+
+    friend bool operator!=(const Pivot2D& lhs, const Pivot2D& rhs) = default;
+    friend bool operator==(const Pivot2D& lhs, const Pivot2D& rhs) = default;
+};
+
 struct SpriteDef
 {
     ResourceName Name;
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> Rect = std::nullopt;
+    Pivot2D Pivot{};
     glm::vec4 Color = glm::vec4(1.0f);
     float Scale = 1.0f;
 };
@@ -56,6 +70,7 @@ struct SpriteSequenceDef
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> Rect = std::nullopt;
+    Pivot2D Pivot{};
     glm::vec4 Color = glm::vec4(1.0f);
 };
 
@@ -85,6 +100,9 @@ public:
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Rect; }
 
+    /// Returns the pivot point within the sprite's rectangle.
+    const Pivot2D& GetPivot() const { return m_Pivot; }
+
     /// Returns the scale factor for the sprite.
     float GetScale() const { return m_Scale; }
 
@@ -99,12 +117,18 @@ private:
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
+    /// pivot specifies the pivot point within the sprite's rectangle.
     /// color specifies the color tint for the sprite.
     /// scale specifies the scale factor for the sprite.
-    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const glm::vec4& color, const float scale);
+    Sprite(wgpu::BindGroup bindGroup,
+        const Rect& rect,
+        const Pivot2D& pivot,
+        const glm::vec4& color,
+        const float scale);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_Rect;
+    Pivot2D m_Pivot;
     glm::vec4 m_Color;
     float m_Scale;
 };
@@ -128,6 +152,9 @@ public:
 
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Sprite.GetRect(); }
+
+    /// Returns the pivot point within the sprite's rectangle.
+    const Pivot2D& GetPivot() const { return m_Sprite.GetPivot(); }
 
     /// Returns the scale factor for the sprite.
     float GetScale() const { return m_Sprite.GetScale(); }
@@ -153,6 +180,8 @@ public:
 
     const Rect& GetRect() const { return m_Rect; }
 
+    const Pivot2D& GetPivot() const { return m_Pivot; }
+
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetColor() const { return m_Color; }
 
@@ -167,12 +196,14 @@ private:
         wgpu::BindGroup bindGroup,
         const Dimension2D& dim,
         const Rect& rect,
+        const Pivot2D& pivot,
         const glm::vec4& color);
 
     ResourceName m_Name;
     wgpu::BindGroup m_BindGroup;
     Dimension2D m_Dim;
     Rect m_Rect;
+    Pivot2D m_Pivot;
     glm::vec4 m_Color;
     uint32_t m_SpriteCount;
 };

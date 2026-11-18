@@ -30,12 +30,10 @@ const CellMapDef kCellMapDef //
         .CellsPerSide = kCellMapCellsPerSide,
         .TileSets //
         {
+            "/assets/sample/assets/tiles/coast_sand_rocks_02_diff_1k.png",
             "/assets/sample/assets/tiles/brown_mud_leaves_01_diff_1k.png",
-            "/assets/sample/assets/tiles/coast_sand_05_diff_1k.png",
-            //"/assets/sample/assets/tiles/dirt_tiles_4x4_256.png",
-            //"/assets/sample/assets/tiles/grass_tiles_4x4_256.png",
-            //"/assets/sample/assets/tiles/coast_sand_05_diff_4k.png",
-            //"/assets/sample/assets/tiles/Ground053_4K-PNG_Color.png",
+            //"/assets/sample/assets/tiles/forest_ground_06_diff_1k.png",
+            //"/assets/sample/assets/tiles/dry_decay_leaves_diff_1k.png",
         },
     };
 
