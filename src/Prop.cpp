@@ -11,7 +11,8 @@ Prop::Prop(Sprite sprite, const Transform2D& transform)
 Result<>
 Prop::Render(Renderer& renderer) const
 {
-    GG_CHECK(renderer.QueueSprite(m_Sprite, GetTransform()), "Failed to queue sprite");
+    GG_CHECK(renderer.QueueSprite(m_Sprite, GetTransform()),
+        "Failed to queue sprite");
 
     return Result<>::Ok;
 }

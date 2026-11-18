@@ -3,6 +3,114 @@
 namespace
 {
 
+/// Warrior Run
+
+constexpr const SpriteSequenceDef kWarrior_AnimSeq_Run[] //
+    {
+        {
+            .Name = "Warrior_Run_N",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 720, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_NE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 576, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_E",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 432, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_SE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 288, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_S",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 144, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_SW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 0, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_W",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 1008, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Run_NW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_run.png",
+            .Rect = Rect{ .x = 0, .y = 864, .w = 1728, .h = 144 } // NOLINT
+        },
+    };
+
+/// Warrior Idle
+
+constexpr const SpriteSequenceDef kWarrior_AnimSeq_Idle[] //
+    {
+        {
+            .Name = "Warrior_Idle_N",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 720, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_NE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 576, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_E",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 432, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_SE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 288, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_S",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 144, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_SW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 0, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_W",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 1008, .w = 1728, .h = 144 } // NOLINT
+        },
+        {
+            .Name = "Warrior_Idle_NW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/warrior_idle.png",
+            .Rect = Rect{ .x = 0, .y = 864, .w = 1728, .h = 144 } // NOLINT
+        },
+    };
+
 /// Shadow Hunter Walk
 
 constexpr const SpriteSequenceDef kSH_AnimSeq_Walk[] //
@@ -11,49 +119,111 @@ constexpr const SpriteSequenceDef kSH_AnimSeq_Walk[] //
             .Name = "SH_Walk_N",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 720, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 720, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_NE",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 576, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 576, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_E",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 432, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 432, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_SE",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 288, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 288, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_S",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 144, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 144, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_SW",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 0, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 0, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_W",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 1008, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 1008, .w = 1728, .h = 144 }, // NOLINT
         },
         {
             .Name = "SH_Walk_NW",
             .Dim{ .w = 144, .h = 144 }, // NOLINT
             .TexturePath = "/assets/shadow_hunter_walk.png",
-            .Rect = Rect{ .x = 0, .y = 864, .w = 1728, .h = 144 } // NOLINT
+            .Rect = Rect{ .x = 0, .y = 864, .w = 1728, .h = 144 }, // NOLINT
+        },
+    };
+
+/// Shadow Hunter Hover
+
+constexpr const SpriteSequenceDef kSH_AnimSeq_Hover[] //
+    {
+        {
+            .Name = "SH_Hover_N",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 720, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_NE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 576, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_E",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 432, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_SE",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 288, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_S",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 144, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_SW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 0, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_W",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 1008, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
+        },
+        {
+            .Name = "SH_Hover_NW",
+            .Dim{ .w = 144, .h = 144 }, // NOLINT
+            .TexturePath = "/assets/shadow_hunter_hover.png",
+            .Rect = Rect{ .x = 0, .y = 864, .w = 1152, .h = 144 }, // NOLINT
+            .Color = { 0.5f, 0.5f, 1.0f, 0.70f } // NOLINT
         },
     };
 
@@ -324,6 +494,10 @@ constexpr const SpriteAnimDef kAnimDefs[] //
             .SequenceDefs{ kSH_AnimSeq_Walk },
         },
         {
+            .Name = AnimResources::kSH_AnimName_Hover,
+            .SequenceDefs{ kSH_AnimSeq_Hover },
+        },
+        {
             .Name = AnimResources::kCT_AnimName_Idle,
             .SequenceDefs{ kCT_AnimSeq_Idle },
         },
@@ -334,6 +508,14 @@ constexpr const SpriteAnimDef kAnimDefs[] //
         {
             .Name = AnimResources::kCT_AnimName_Run,
             .SequenceDefs{ kCT_AnimSeq_Run },
+        },
+        {
+            .Name = AnimResources::kWarrior_AnimName_Idle,
+            .SequenceDefs{ kWarrior_AnimSeq_Idle },
+        },
+        {
+            .Name = AnimResources::kWarrior_AnimName_Run,
+            .SequenceDefs{ kWarrior_AnimSeq_Run },
         },
     };
 

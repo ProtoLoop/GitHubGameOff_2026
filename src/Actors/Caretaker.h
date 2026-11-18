@@ -27,9 +27,17 @@ public:
 
 private:
 
-    explicit Caretaker(const SpriteAnim::Instance& initialAnim);
+    struct Anims
+    {
+        SpriteAnim::Instance Idle;
+        SpriteAnim::Instance Run;
+    };
+
+    explicit Caretaker(const Anims& anims);
 
     Transform2D m_Transform;
 
+    Anims m_Anims;
     SpriteAnim::Instance m_CurAnim;
+    float m_CurAnimPeriod;
 };

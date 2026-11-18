@@ -397,6 +397,13 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         spriteState.mapXY[0] = rec.Transform.Pos.x;
         spriteState.mapXY[1] = rec.Transform.Pos.y;
 
+        spriteState.Scale = sprite.GetScale();
+
+        spriteState.Color[0] = sprite.GetColor().r;
+        spriteState.Color[1] = sprite.GetColor().g;
+        spriteState.Color[2] = sprite.GetColor().b;
+        spriteState.Color[3] = sprite.GetColor().a;
+
         const Rect& rect = sprite.GetRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
         spriteState.srcRect[1] = static_cast<float>(rect.y);

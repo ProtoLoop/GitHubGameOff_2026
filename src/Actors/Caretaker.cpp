@@ -1,35 +1,48 @@
 #include "Caretaker.h"
 
-#include "Resources/AnimResources.h"
-#include "Input.h"
 #include "Game.h"
+#include "Input.h"
 #include "Renderer.h"
+#include "Resources/AnimResources.h"
 
 namespace
 {
 constexpr float kTurnsPerSec = 1;
-constexpr float kMoveSpeed = 2.0f;
-constexpr float kAnimPeriod = 0.66f;
+constexpr float kMoveSpeed = 2.5f;
+constexpr float kAnimPeriod_Run = 0.66f;
+constexpr float kAnimPeriod_Idle = 2.0f;
 
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
+constexpr ResourceName kAnimName_Idle = AnimResources::kWarrior_AnimName_Idle;
+constexpr ResourceName kAnimName_Run = AnimResources::kWarrior_AnimName_Run;
+
 } // namespace
 
-Caretaker::Caretaker(const SpriteAnim::Instance& initialAnim)
-    : m_CurAnim(initialAnim)
+Caretaker::Caretaker(const Anims& anims)
+    : m_Anims(anims),
+      m_CurAnim(m_Anims.Idle),
+      m_CurAnimPeriod(kAnimPeriod_Idle)
 {
 }
 
 Result<Caretaker>
 Caretaker::Create(Game& game)
 {
-    GG_TRY(initialAnim,
-        game.GetLevel().CreateSpriteAnimInstance(AnimResources::kCT_AnimName_Idle),
-        "Failed to create sprite anim instance for {}",
-        AnimResources::kCT_AnimName_Idle);
+    const Level& level = game.GetLevel();
 
-    return Caretaker(initialAnim);
+    GG_TRY(idleAnim,
+        level.CreateSpriteAnimInstance(kAnimName_Idle),
+        "Failed to create sprite anim instance for {}",
+        kAnimName_Idle);
+
+    GG_TRY(runAnim,
+        level.CreateSpriteAnimInstance(kAnimName_Run),
+        "Failed to create sprite anim instance for {}",
+        kAnimName_Run);
+
+    return Caretaker(Anims{ .Idle = idleAnim, .Run = runAnim });
 }
 
 Result<>
@@ -74,19 +87,16 @@ Caretaker::Tick(const float deltaTime, Game& game)
         isMoving = true;
     }
 
-    const std::string_view desiredAnimName =
-        isMoving ? AnimResources::kCT_AnimName_Run : AnimResources::kCT_AnimName_Idle;
+    const SpriteAnim::Instance& desiredAnim = isMoving ? m_Anims.Run : m_Anims.Idle;
 
-    if(m_CurAnim.GetName() != desiredAnimName)
+    if(m_CurAnim.GetName() != desiredAnim.GetName())
     {
-        GG_TRYB(nextAnim,
-            game.GetLevel().CreateSpriteAnimInstance(desiredAnimName),
-            "Failed to create sprite anim instance for {}",
-            desiredAnimName);
-        m_CurAnim = nextAnim;
+        m_CurAnim = desiredAnim;
+        m_CurAnim.SetPhase(0);
+        m_CurAnimPeriod = isMoving ? kAnimPeriod_Run : kAnimPeriod_Idle;
     }
 
-    m_CurAnim.SetPeriod(kAnimPeriod);
+    m_CurAnim.SetPeriod(m_CurAnimPeriod);
     m_CurAnim.SetAngle(GetRot() + kIsoAngleOffset);
     m_CurAnim.Tick(deltaTime);
 
@@ -96,7 +106,8 @@ Caretaker::Tick(const float deltaTime, Game& game)
 Result<>
 Caretaker::Render(Renderer& renderer) const
 {
-    GG_CHECKB(renderer.QueueSprite(m_CurAnim.GetFrame(), GetTransform()), "Failed to queue sprite");
+    const Sprite sprite = m_CurAnim.GetFrame();
+    GG_CHECKB(renderer.QueueSprite(sprite, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
 }

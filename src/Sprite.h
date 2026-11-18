@@ -5,6 +5,7 @@
 #include "FileFetcher.h"
 #include "InlineString.h"
 
+#include <glm/vec4.hpp>
 #include <span>
 #include <webgpu/webgpu_cpp.h>
 
@@ -41,6 +42,8 @@ struct SpriteDef
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> Rect = std::nullopt;
+    glm::vec4 Color = glm::vec4(1.0f);
+    float Scale = 1.0f;
 };
 
 /// Defines frames within a rectangular region of a texture.
@@ -53,6 +56,7 @@ struct SpriteSequenceDef
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> Rect = std::nullopt;
+    glm::vec4 Color = glm::vec4(1.0f);
 };
 
 /// Defines an animation's equally spaced facing directions.
@@ -81,6 +85,12 @@ public:
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Rect; }
 
+    /// Returns the scale factor for the sprite.
+    float GetScale() const { return m_Scale; }
+
+    /// Returns the color tint for the sprite.
+    const glm::vec4& GetColor() const { return m_Color; }
+
 private:
     friend class SpriteAnimLoader;
     friend class SpriteSequence;
@@ -89,10 +99,14 @@ private:
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
-    Sprite(wgpu::BindGroup bindGroup, const Rect& rect);
+    /// color specifies the color tint for the sprite.
+    /// scale specifies the scale factor for the sprite.
+    Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const glm::vec4& color, const float scale);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_Rect;
+    glm::vec4 m_Color;
+    float m_Scale;
 };
 
 /// Associates a name with a sprite.
@@ -115,6 +129,12 @@ public:
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetRect() const { return m_Sprite.GetRect(); }
 
+    /// Returns the scale factor for the sprite.
+    float GetScale() const { return m_Sprite.GetScale(); }
+
+    /// Returns the color tint for the sprite.
+    const glm::vec4& GetColor() const { return m_Sprite.GetColor(); }
+
     const Sprite& GetSprite() const { return m_Sprite; }
 
 private:
@@ -133,6 +153,9 @@ public:
 
     const Rect& GetRect() const { return m_Rect; }
 
+    /// Returns the color tint for the sprite sequence.
+    const glm::vec4& GetColor() const { return m_Color; }
+
     Result<Sprite> GetSprite(const uint32_t index) const;
 
     uint32_t GetSpriteCount() const { return m_SpriteCount; }
@@ -143,12 +166,14 @@ private:
     SpriteSequence(const ResourceName& name,
         wgpu::BindGroup bindGroup,
         const Dimension2D& dim,
-        const Rect& rect);
+        const Rect& rect,
+        const glm::vec4& color);
 
     ResourceName m_Name;
     wgpu::BindGroup m_BindGroup;
     Dimension2D m_Dim;
     Rect m_Rect;
+    glm::vec4 m_Color;
     uint32_t m_SpriteCount;
 };
 
@@ -207,9 +232,16 @@ public:
     /// Sets the period/duration of one animation cycle.
     void SetPeriod(const float period);
 
+    /// Returns the period/duration of one animation cycle.
+    float GetPeriod() const;
+
     /// Sets the current animation phase within a cycle.
     /// phase is a value between 0 and 1.
     void SetPhase(const float phase);
+
+    /// Returns the current animation phase within a cycle.
+    /// The returned value is between 0 and 1.
+    float GetPhase() const;
 
     /// Sets the current animation angle - the direction the sprite should face.
     void SetAngle(const Angle& angle);

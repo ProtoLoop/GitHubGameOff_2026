@@ -27,15 +27,26 @@ Game::Begin()
         m_LostSouls.push_back(std::move(lostSoul));
     }
 
+    constexpr ResourceName kHeadStones[] //
+        { SpriteResources::kSprite_Forgotten_Headstone_001,
+            SpriteResources::kSprite_Forgotten_Headstone_002,
+            SpriteResources::kSprite_Forgotten_Headstone_003,
+            SpriteResources::kSprite_Forgotten_Headstone_004 };
+
     for(size_t i = 0; i < kMaxProps; ++i)
     {
-        auto spriteResult =
-            m_Level->GetSprite(SpriteResources::kSprite_Gothic_Necropolis_Gate_004);
+        static constexpr float kLocRange = 14.0f;
+        const uint32_t headstoneIndex =
+            m_PropRng.NextBelow(static_cast<uint32_t>(std::size(kHeadStones)));
+
+        const ResourceName& headstoneName = kHeadStones[headstoneIndex];
+
+        auto spriteResult = m_Level->GetSprite(headstoneName);
         GG_CHECKB(spriteResult, "Failed to get prop sprite");
 
         Transform2D transform{};
-        // NOLINTNEXTLINE
-        transform.MoveTo(m_PropRng.NextInRange(-14.0f, 14.0f), m_PropRng.NextInRange(-14.0f, 14.0f));
+        transform.MoveTo(m_PropRng.NextInRange(-kLocRange, kLocRange),
+            m_PropRng.NextInRange(-kLocRange, kLocRange));
 
         m_Props.push_back(Prop(*spriteResult, transform));
     }

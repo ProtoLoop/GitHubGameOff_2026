@@ -1,23 +1,25 @@
 #include "LostSoul.h"
 
-#include "Resources/AnimResources.h"
 #include "Game.h"
 #include "Renderer.h"
+#include "Resources/AnimResources.h"
 
 namespace
 {
 constexpr float kTurnsPerSec = 0.5;
-constexpr float kMoveSpeed = 0.75f;
-constexpr float kAnimPeriod = 2.0f;
+constexpr float kMoveSpeed = 0.5f;
+constexpr float kAnimPeriod = 1.0f;
 
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
+constexpr ResourceName kAnimName_hover = AnimResources::kSH_AnimName_Hover;
+
 } // namespace
 
 LostSoul::LostSoul(const Anims& anims)
-    : m_CurAnim(anims.Idle),
-      m_Anims(anims)
+    : m_Anims(anims),
+      m_CurAnim(m_Anims.Hover)
 {
 }
 
@@ -26,17 +28,12 @@ LostSoul::Create(Game& game)
 {
     const Level& level = game.GetLevel();
 
-    GG_TRY(idleAnim,
-        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Idle),
+    GG_TRY(hoverAnim,
+        level.CreateSpriteAnimInstance(kAnimName_hover),
         "Failed to create sprite anim instance for {}",
-        AnimResources::kLS_AnimName_Idle);
+        kAnimName_hover);
 
-    GG_TRY(walkAnim,
-        level.CreateSpriteAnimInstance(AnimResources::kLS_AnimName_Walk),
-        "Failed to create sprite anim instance for {}",
-        AnimResources::kLS_AnimName_Walk);
-
-    return LostSoul(Anims{ .Idle = idleAnim, .Walk = walkAnim });
+    return LostSoul(Anims{ .Hover = hoverAnim });
 }
 
 Result<>
@@ -46,6 +43,7 @@ LostSoul::Tick(const float deltaTime, Game& game)
     {
         case State::Init:
             EnterIdle(game);
+            m_CurAnim.SetPhase(game.GetEntityRng().NextFloat());
             break;
         case State::Idle:
             TickIdle(deltaTime, game);
@@ -69,7 +67,8 @@ LostSoul::Tick(const float deltaTime, Game& game)
 Result<>
 LostSoul::Render(Renderer& renderer) const
 {
-    GG_CHECKB(renderer.QueueSprite(m_CurAnim.GetFrame(), GetTransform()), "Failed to queue sprite");
+    const Sprite sprite = m_CurAnim.GetFrame();
+    GG_CHECKB(renderer.QueueSprite(sprite, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
 }
@@ -86,7 +85,9 @@ LostSoul::EnterIdle(Game& game)
 
     m_State = State::Idle;
     m_Timer.Start(idleTime);
-    m_CurAnim = m_Anims.Idle;
+    const float phase = m_CurAnim.GetPhase();
+    m_CurAnim = m_Anims.Hover;
+    m_CurAnim.SetPhase(phase);
 }
 
 void
@@ -99,7 +100,9 @@ LostSoul::EnterMoving(Game& game)
 
     m_State = State::Moving;
     m_Timer.Start(moveTime);
-    m_CurAnim = m_Anims.Walk;
+    const float phase = m_CurAnim.GetPhase();
+    m_CurAnim = m_Anims.Hover;
+    m_CurAnim.SetPhase(phase);
 }
 
 void
@@ -123,7 +126,7 @@ LostSoul::TickIdle(const float /*deltaTime*/, Game& game)
 {
     if(m_Timer.IsExpired())
     {
-        if(game.GetEntityRng().NextBool(0.5f))//NOLINT
+        if(game.GetEntityRng().NextBool(0.5f)) // NOLINT
         {
             EnterMoving(game);
         }
@@ -140,7 +143,7 @@ LostSoul::TickMoving(const float deltaTime, Game& game)
 {
     if(m_Timer.IsExpired())
     {
-        if(game.GetEntityRng().NextBool(0.3f))//NOLINT
+        if(game.GetEntityRng().NextBool(0.3f)) // NOLINT
         {
             EnterIdle(game);
         }
@@ -159,7 +162,7 @@ LostSoul::TickTurning(const float deltaTime, Game& game)
 {
     if(m_Timer.IsExpired())
     {
-        if(game.GetEntityRng().NextBool(0.3f))//NOLINT
+        if(game.GetEntityRng().NextBool(0.3f)) // NOLINT
         {
             EnterIdle(game);
         }

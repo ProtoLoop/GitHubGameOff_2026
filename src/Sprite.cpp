@@ -1,27 +1,33 @@
 #include "Sprite.h"
 
 #include "Angle.h"
-#include "Renderer.h"
 
 #include <cstdint>
+#include <glm/ext/vector_float4.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 /// Sprite
 
-Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect)
+Sprite::Sprite(wgpu::BindGroup bindGroup, const Rect& rect, const glm::vec4& color, const float scale)
     : m_TextureBindGroup(std::move(bindGroup)),
-      m_Rect(rect)
+      m_Rect(rect),
+      m_Color(color),
+      m_Scale(scale)
 {
 }
 
 /// SpriteSequence
 
-SpriteSequence::SpriteSequence(
-    const ResourceName& name, wgpu::BindGroup bindGroup, const Dimension2D& dim, const Rect& rect)
+SpriteSequence::SpriteSequence(const ResourceName& name,
+    wgpu::BindGroup bindGroup,
+    const Dimension2D& dim,
+    const Rect& rect,
+    const glm::vec4& color)
     : m_Name(name),
       m_BindGroup(std::move(bindGroup)),
       m_Dim(dim),
       m_Rect(rect),
+      m_Color(color),
       m_SpriteCount((rect.w / dim.w) * (rect.h / dim.h))
 {
 }
@@ -42,7 +48,7 @@ SpriteSequence::GetSprite(const uint32_t index) const
             .h = m_Dim.h,
         };
 
-    return Sprite(m_BindGroup, rect);
+    return Sprite(m_BindGroup, rect, m_Color, 1.0f);
 }
 
 /// SpriteAnim
@@ -112,10 +118,22 @@ SpriteAnim::Instance::SetPeriod(const float period)
     }
 }
 
+float
+SpriteAnim::Instance::GetPeriod() const
+{
+    return m_Period;
+}
+
 void
 SpriteAnim::Instance::SetPhase(const float phase)
 {
     m_Phase = phase - std::floor(phase);
+}
+
+float
+SpriteAnim::Instance::GetPhase() const
+{
+    return m_Phase;
 }
 
 void

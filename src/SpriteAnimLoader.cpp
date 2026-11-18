@@ -82,7 +82,7 @@ SpriteAnimLoader::Load(
             sequenceToTextureMap.push_back(index);
         }
 
-        SpriteSequence spriteSeq(def.Name, defaultBindGroup, def.Dim, rect);
+        SpriteSequence spriteSeq(def.Name, defaultBindGroup, def.Dim, rect, def.Color);
 
         spriteSequences.push_back(std::move(spriteSeq));
     }
@@ -207,7 +207,7 @@ SpriteAnimLoader::Take()
             texDims.h - rect.y);
 
         // Create a new sequence and replace the old one.
-        SpriteSequence newSeq(seq.GetName(), bindGroup, seq.GetDim(), rect);
+        SpriteSequence newSeq(seq.GetName(), bindGroup, seq.GetDim(), rect, seq.GetColor());
 
         m_SpriteSequences[i] = std::move(newSeq);
     }

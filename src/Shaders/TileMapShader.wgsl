@@ -154,7 +154,8 @@ fn isOnGrid(gridUV: vec2f) -> bool
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 {
     var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
-    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    // return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    return p;
 }
 
 /// Used when outputting to a non-sRGB framebuffer.
@@ -162,6 +163,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
 {
     var p = linear_to_srgb(textureSample(tileSheets, smp, i.uv, i.texLayer));
-    return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    // return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    return p;
 }
 )";

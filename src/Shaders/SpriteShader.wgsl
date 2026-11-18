@@ -4,6 +4,7 @@ struct VSOut
     @builtin(position) pos : vec4<f32>,
     @location(0)       uv  : vec2<f32>,
     @location(1)       outlineUV : vec2f, // Used to draw outlines
+    @location(2)       color : vec4<f32>,
 };
 
 struct CellMapParams
@@ -16,8 +17,9 @@ struct CellMapParams
 struct SpriteState
 {
     mapXY: vec2f,   // Map space cell coordinates of the sprite.
+    scale : f32,    // Scale factor for the sprite
     pad0: u32,
-    pad1: u32,
+    color : vec4f,  // Color tint for the sprite
     srcRect: vec4f, // Source rectangle in the texture (x, y, w, h)
 };
 
@@ -70,7 +72,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     // Coords of the sprite in world space (in pixels).
     let worldPixels = iso * sprite.mapXY * f32(cellPixelsPerSide);
     // Position of the vertex (corner of the sprite) in screen space.
-    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.srcRect.zw;
+    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.srcRect.zw * sprite.scale;
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 
     let texDims = vec2f(textureDimensions(texture, 0).xy);
@@ -83,6 +85,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
         spriteUV[vid],  // outlineUV
+        sprite.color    // color
     );
 }
 
@@ -106,7 +109,7 @@ fn isOnGrid(gridUV: vec2f) -> bool
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = textureSample(texture, smp, i.uv, 0);
+    let p = textureSample(texture, smp, i.uv, 0) * i.color;
     //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
     return p;
 }
@@ -115,7 +118,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = linear_to_srgb(textureSample(texture, smp, i.uv, 0));
+    let p = linear_to_srgb(textureSample(texture, smp, i.uv, 0) * i.color);
     //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
     return p;
 }

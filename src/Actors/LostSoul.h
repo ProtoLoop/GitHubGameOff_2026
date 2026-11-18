@@ -46,8 +46,7 @@ private:
 
     struct Anims
     {
-        SpriteAnim::Instance Idle;
-        SpriteAnim::Instance Walk;
+        SpriteAnim::Instance Hover;
     };
 
     explicit LostSoul(const Anims& anims);
@@ -58,7 +57,7 @@ private:
 
     float m_TurnDir{ 1.0f };
 
-    SpriteAnim::Instance m_CurAnim;
     Anims m_Anims;
+    SpriteAnim::Instance m_CurAnim;
     State m_State{ State::Init };
 };

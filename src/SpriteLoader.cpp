@@ -79,7 +79,7 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
             spriteToTextureMap.push_back(index);
         }
 
-        Sprite sprite(defaultBindGroup, rect);
+        Sprite sprite(defaultBindGroup, rect, def.Color, def.Scale);
         NamedSprite namedSprite(def.Name, std::move(sprite));
 
         sprites.push_back(std::move(namedSprite));
@@ -175,7 +175,8 @@ SpriteLoader::Take()
             texDims.h - rect.y);
 
         // Create a new sprite and replace the old one.
-        NamedSprite newSprite(sprite.GetName(), Sprite(bindGroup, rect));
+        NamedSprite newSprite(sprite.GetName(),
+            Sprite(bindGroup, rect, sprite.GetColor(), sprite.GetScale()));
 
         m_Sprites[i] = std::move(newSprite);
     }
