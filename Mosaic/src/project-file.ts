@@ -6,14 +6,15 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 9,
+        format: "mosaic", version: 10,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => sheet.id),
         maskSheets: project.masks.map((sheet) => sheet.id),
         maskMode: project.maskMode,
         propAssets: project.propAssets.map((asset) => asset.id),
         props: project.props.map((prop) => ({
-            asset: project.propAssets.indexOf(prop.asset), x: prop.x, y: prop.y, rotation: prop.rotation
+            index: project.propAssets.indexOf(prop.asset),
+            x: Math.round(prop.x * 1000) / 1000, y: Math.round(prop.y * 1000) / 1000, rot: prop.rotation
         })),
         layers: project.layers.map((layer, index) => ({
             sheet: project.tileSheets.indexOf(layer.sheet),
@@ -63,7 +64,7 @@ function list(value: unknown, min: number, max: number): unknown[]
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 9)
+    if(data.format !== "mosaic" || data.version !== 10)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -88,12 +89,12 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     });
     const props = list(data.props, 0, 10000).map((item, id) => {
         const prop = object(item);
-        for(const key of ["x", "y", "rotation"])
+        for(const key of ["x", "y", "rot"])
         {
             if(typeof prop[key] !== "number") { throw new Error("Invalid prop coordinate or rotation"); }
         }
-        return { id, asset: propAssets[integer(prop.asset, 0, propAssets.length - 1)],
-            x: prop.x as number, y: prop.y as number, rotation: prop.rotation as number };
+        return { id, asset: propAssets[integer(prop.index, 0, propAssets.length - 1)],
+            x: prop.x as number, y: prop.y as number, rotation: prop.rot as number };
     });
     const layers = list(data.layers, 1, 256);
     const project: ProjectDocument = {
@@ -127,5 +128,11 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     project.propAssets = [...propAssets, ...available.filter((asset): asset is PropAsset =>
         asset.kind === "prop" && !propAssets.includes(asset))];
     validateDocument(project);
+    // Validate the original coordinates before rounding so invalid bounds still fail.
+    for(const prop of project.props)
+    {
+        prop.x = Math.round(prop.x * 1000) / 1000;
+        prop.y = Math.round(prop.y * 1000) / 1000;
+    }
     return project;
 }

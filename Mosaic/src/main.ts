@@ -1,39 +1,20 @@
 import { listDirectory, loadProject } from "./project-http.ts";
 import { documentAssets, sameTerrainContent,
-    validateDocument, type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type PropAsset } from "./document.ts";
+    type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type PropAsset } from "./document.ts";
+import { Editor, type Tool, type EditResult } from "./editor.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
 import { drawTerrainRegion, drawCoverageRegion, drawProps, type ImagePreview } from "./renderer.ts";
 import { kGridSize, kCellSize, kCellCount } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
-import { mapPoint, clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
+import { mapPoint, type Point } from "./props.ts";
 
-let project: ProjectDocument;
+let editor: Editor;
 let ready = false;
 let fileBusy = false;
 const assets = new Set<TileAtlas | PropAsset>();
-const editHistory = new History(100, 64 * 1024 * 1024);
-let paintPointerId: number | null = null;
-let lastPaintCell = -1;
-let panPointerId: number | null = null;
-let panX = 0;
-let panY = 0;
-let tool: "terrain" | "place" | "select" = "terrain";
-let selectedPropIds = new Set<number>();
-let selectedPropAsset: PropAsset | null = null;
-let propPointerId: number | null = null;
 let hoverClient: Point | null = null;
-let propGesture: {
-    readonly kind: "move" | "box";
-    readonly start: Point;
-    readonly clientStart: Point;
-    readonly beforeSelection: Set<number>;
-    readonly baseSelection: Set<number>;
-    readonly positions: { id: number; x: number; y: number }[];
-    readonly clickedId: number | null;
-    end: Point;
-    moved: boolean;
-} | null = null;
+let overlayFrame: number | null = null;
 
 interface Controls
 {
@@ -72,22 +53,21 @@ const controls: Controls = {
     showGrid : required("show-grid", HTMLInputElement)
 };
 
-function getLayer(id: number): Layer
-{
-    const layer = project.layers.find((candidate) => candidate.id === id);
-    if(layer === undefined)
-    {
-        throw new Error(`Missing layer ${id}`);
-    }
-    return layer;
-}
-
-
+/// Pointer and scroll events can request several updates before the next display frame.
 function drawPropOverlay(): void
 {
+    if(!ready || overlayFrame !== null) { return; }
+    overlayFrame = requestAnimationFrame(() => {
+        overlayFrame = null;
+        renderPropOverlay();
+    });
+}
+
+function renderPropOverlay(): void
+{
     let preview: ImagePreview | null = null;
-    const asset = tool === "place" ? selectedPropAsset : tool === "terrain" ? getLayer(project.activeLayerId).sheet : null;
-    if(asset && hoverClient && panPointerId === null && !fileBusy
+    const asset = editor.tool === "place" ? editor.selectedPropAsset : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
+    if(asset && hoverClient && editor.activeGesture?.kind !== "pan" && !fileBusy
         && !required("project-dialog", HTMLDialogElement).open)
     {
         const bounds = controls.map.getBoundingClientRect();
@@ -95,7 +75,7 @@ function drawPropOverlay(): void
         const size = kGridSize * kCellSize;
         if(point.x >= 0 && point.y >= 0 && point.x <= size && point.y <= size)
         {
-            if(tool === "terrain")
+            if(editor.tool === "terrain")
             {
                 const thumbnail = controls.palette.querySelector<HTMLElement>('[aria-pressed="true"] .material-preview');
                 if(thumbnail)
@@ -114,189 +94,73 @@ function drawPropOverlay(): void
             else { preview = { asset, ...point }; }
         }
     }
-    const box: SelectionBox | null = propGesture?.kind === "box" && propGesture.moved
-        ? { start: propGesture.start, end: propGesture.end } : null;
-    drawProps(project, required("prop-overlay", HTMLCanvasElement), selectedPropIds, preview, box);
+    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), editor.selectedPropIds, preview, editor.selectionBox);
 }
 
 function updatePropControls(): void
 {
-    selectedPropIds = new Set(project.props.filter((prop) => selectedPropIds.has(prop.id)).map((prop) => prop.id));
-    const selected = selectedPropIds.size === 1 ? project.props.find((prop) => selectedPropIds.has(prop.id)) : undefined;
+    const selected = editor.selectedPropIds.size === 1 ? editor.document.props.find((prop) => editor.selectedPropIds.has(prop.id)) : undefined;
     required("prop-selection", HTMLOutputElement).value = selected?.asset.label
-        ?? (selectedPropIds.size > 1 ? `${selectedPropIds.size} props selected` : "No prop selected");
+        ?? (editor.selectedPropIds.size > 1 ? `${editor.selectedPropIds.size} props selected` : "No prop selected");
 }
 
 function renderPropPalette(): void
 {
-    if(selectedPropAsset === null || !project.propAssets.includes(selectedPropAsset)) { selectedPropAsset = project.propAssets[0] ?? null; }
     const palette = required("prop-palette", HTMLDivElement);
     palette.replaceChildren();
-    for(const asset of project.propAssets)
+    for(const asset of editor.document.propAssets)
     {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
         button.title = `${asset.id} (${asset.width}×${asset.height})`;
         button.setAttribute("aria-label", asset.label);
-        button.setAttribute("aria-pressed", String(tool === "place" && asset === selectedPropAsset));
+        button.setAttribute("aria-pressed", String(editor.tool === "place" && asset === editor.selectedPropAsset));
         const preview = document.createElement("img");
         preview.src = asset.url;
         preview.alt = "";
         preview.className = "prop-preview";
         button.append(preview);
         button.addEventListener("click", () => {
-            selectedPropAsset = asset;
-            setTool("place");
+            finishInteraction("commit");
+            editor.chooseProp(asset);
+            refreshTool();
         });
         palette.append(button);
     }
-    if(project.propAssets.length === 0)
+    if(editor.document.propAssets.length === 0)
     {
         palette.textContent = "Add images to assets/props/ and reload the project.";
     }
 }
 
-function setTool(next: typeof tool): void
+function refreshTool(): void
 {
-    finishStroke();
-    tool = next;
-    if(next !== "select") { selectedPropIds.clear(); }
-    controls.map.dataset.tool = tool;
+    controls.map.dataset.tool = editor.tool;
     renderPalette();
     renderPropPalette();
     updatePropControls();
     drawPropOverlay();
 }
 
-function propPoint(event: PointerEvent): { x: number; y: number }
+function setTool(next: Tool): void
+{
+    finishInteraction("commit");
+    editor.setTool(next);
+    refreshTool();
+}
+
+function propPoint(event: PointerEvent): Point
 {
     return mapPoint(event.clientX, event.clientY, controls.map.getBoundingClientRect());
 }
 
-function startProp(event: PointerEvent): void
-{
-    if(event.button === 2 && tool === "place")
-    {
-        event.preventDefault();
-        controls.map.focus({ preventScroll: true });
-        setTool("select");
-        return;
-    }
-    if(event.button !== 0 || paintPointerId !== null || panPointerId !== null || propPointerId !== null) { return; }
-    event.preventDefault();
-    controls.map.focus({ preventScroll: true });
-    const point = propPoint(event);
-    if(tool === "place")
-    {
-        const asset = selectedPropAsset;
-        if(!asset) { setMessage(controls.status, "Add an image to assets/props/ and reload the project.", true); return; }
-        if(project.props.length >= 10000) { setMessage(controls.status, "The level already contains 10,000 props.", true); return; }
-        edit("Place prop", () => {
-            const id = project.nextPropId++;
-            project.props.push({ id, asset, ...clampPropPoint(point.x, point.y), rotation: 0 });
-            selectedPropIds = new Set([id]);
-        });
-        return;
-    }
-    const prop = hitProp(project.props, point.x, point.y);
-    const beforeSelection = new Set(selectedPropIds);
-    if(prop && event.shiftKey)
-    {
-        if(!selectedPropIds.delete(prop.id)) { selectedPropIds.add(prop.id); }
-        updatePropControls();
-        drawPropOverlay();
-        return;
-    }
-    if(prop && !selectedPropIds.has(prop.id)) { selectedPropIds = new Set([prop.id]); }
-    if(!prop && !event.shiftKey) { selectedPropIds.clear(); }
-    propGesture = {
-        kind: prop ? "move" : "box", start: point, end: point,
-        clientStart: { x: event.clientX, y: event.clientY }, beforeSelection,
-        baseSelection: new Set(selectedPropIds), clickedId: prop?.id ?? null, moved: false,
-        positions: prop ? project.props.filter((candidate) => selectedPropIds.has(candidate.id))
-            .map(({ id, x, y }) => ({ id, x, y })) : []
-    };
-    if(prop) { editHistory.begin(project, selectedPropIds.size > 1 ? "Move props" : "Move prop"); }
-    propPointerId = event.pointerId;
-    controls.map.setPointerCapture(event.pointerId);
-    updatePropControls();
-    drawPropOverlay();
-}
-
-function updatePropGesture(event: PointerEvent): void
-{
-    const gesture = propGesture;
-    if(event.pointerId !== propPointerId || !gesture) { return; }
-    const point = propPoint(event);
-    gesture.end = clampPropPoint(point.x, point.y);
-    gesture.moved ||= Math.hypot(event.clientX - gesture.clientStart.x, event.clientY - gesture.clientStart.y) >= 3;
-    if(!gesture.moved) { return; }
-    if(gesture.kind === "box")
-    {
-        selectedPropIds = new Set([...gesture.baseSelection, ...propsInBox(project.props, gesture)]);
-        updatePropControls();
-    }
-    else
-    {
-        const delta = groupMoveDelta(gesture.positions, point.x - gesture.start.x, point.y - gesture.start.y);
-        const originals = new Map(gesture.positions.map((position) => [position.id, position]));
-        for(const prop of project.props)
-        {
-            const original = originals.get(prop.id);
-            if(original) { prop.x = original.x + delta.x; prop.y = original.y + delta.y; }
-        }
-    }
-    drawPropOverlay();
-}
-
-function moveProp(event: PointerEvent): void
-{
-    if(event.pointerId !== propPointerId) { return; }
-    if((event.buttons & 1) === 0) { finishPropDrag(false); return; }
-    updatePropGesture(event);
-}
-
-function finishPropDrag(cancel: boolean): void
-{
-    if(propPointerId === null || !propGesture) { return; }
-    const pointer = propPointerId;
-    const gesture = propGesture;
-    propPointerId = null;
-    propGesture = null;
-    if(controls.map.hasPointerCapture(pointer)) { controls.map.releasePointerCapture(pointer); }
-    if(cancel)
-    {
-        if(gesture.kind === "move")
-        {
-            const before = editHistory.rollback();
-            if(before) { before.view = { ...project.view }; project = before; }
-        }
-        selectedPropIds = gesture.beforeSelection;
-        updateProjectButtons();
-    }
-    else if(gesture.kind === "move")
-    {
-        if(!gesture.moved && gesture.clickedId !== null) { selectedPropIds = new Set([gesture.clickedId]); }
-        commitEdit();
-    }
-    updatePropControls();
-    drawPropOverlay();
-}
-
-function deleteSelectedProp(): void
-{
-    if(selectedPropIds.size === 0) { return; }
-    edit(selectedPropIds.size > 1 ? "Delete props" : "Delete prop", () => {
-        project.props = project.props.filter((prop) => !selectedPropIds.has(prop.id));
-        selectedPropIds.clear();
-    });
-}
+function clientPoint(event: PointerEvent): Point { return { x: event.clientX, y: event.clientY }; }
 
 function drawRegion(startX: number, startY: number, endX: number, endY: number): void
 {
-    drawTerrainRegion(project, controls.map, startX, startY, endX, endY);
-    drawCoverageRegion(project, controls.coverage, startX, startY, endX, endY);
+    drawTerrainRegion(editor.document, controls.map, startX, startY, endX, endY);
+    drawCoverageRegion(editor.document, controls.coverage, startX, startY, endX, endY);
 }
 
 function draw(): void
@@ -326,7 +190,7 @@ function initializeGrid(): void
 /// Fade crowded lines below twelve display pixels per cell, hiding at four.
 function updateGrid(): void
 {
-    const fade = Math.max(0, Math.min(1, (kCellSize * project.view.zoom - 4) / 8));
+    const fade = Math.max(0, Math.min(1, (kCellSize * editor.document.view.zoom - 4) / 8));
     controls.grid.style.opacity = String(controls.showGrid.checked ? 0.58 * fade : 0);
 }
 
@@ -342,191 +206,125 @@ function cellAt(event: PointerEvent): number
     return tileY * kGridSize + tileX;
 }
 
-function paintCell(cell: number, erase: boolean): void
+function updateInteraction(event: PointerEvent): void
 {
-    const tileX = cell % kGridSize;
-    const tileY = Math.floor(cell / kGridSize);
-    const layer = getLayer(project.activeLayerId);
-    if(erase && layer === project.layers[0])
+    const gesture = editor.activeGesture;
+    if(!gesture || gesture.pointerId !== event.pointerId) { return; }
+    switch(gesture.kind)
     {
-        setMessage(controls.status, "The base cannot be cleared. Left-click to reveal it.", false);
-        return;
-    }
-    if(erase)
-    {
-        layer.painted[cell] = false;
-    }
-    else
-    {
-        layer.painted[cell] = true;
-        const layerIndex = project.layers.indexOf(layer);
-        for(let index = layerIndex + 1; index < project.layers.length; index++)
-        {
-            const higher = project.layers[index];
-            higher.painted[cell] = false;
-        }
-    }
-    setMessage(controls.status, erase
-        ? `${layer.sheet.label}: cleared ${tileX + 1}, ${tileY + 1}`
-        : `${layer.sheet.label}: ${layer === project.layers[0] ? "revealed" : "occupied"} ${tileX + 1}, ${tileY + 1}; higher layers cleared`, false);
-    drawRegion(Math.max(0, tileX - 1), Math.max(0, tileY - 1),
-        Math.min(kGridSize, tileX + 2), Math.min(kGridSize, tileY + 2));
-}
-
-/// Fill intermediate cells when pointer events skip across the grid.
-function paintDragAt(event: PointerEvent): void
-{
-    const cell = cellAt(event);
-    if(cell < 0)
-    {
-        lastPaintCell = -1;
-        return;
-    }
-    if(cell === lastPaintCell)
-    {
-        return;
-    }
-    if(lastPaintCell < 0)
-    {
-        paintCell(cell, false);
-    }
-    else
-    {
-        let x = lastPaintCell % kGridSize;
-        let y = Math.floor(lastPaintCell / kGridSize);
-        const endX = cell % kGridSize;
-        const endY = Math.floor(cell / kGridSize);
-        const dx = Math.abs(endX - x);
-        const dy = -Math.abs(endY - y);
-        const stepX = x < endX ? 1 : -1;
-        const stepY = y < endY ? 1 : -1;
-        let error = dx + dy;
-        while(x !== endX || y !== endY)
-        {
-            const twiceError = 2 * error;
-            if(twiceError >= dy)
-            {
-                error += dy;
-                x += stepX;
-            }
-            if(twiceError <= dx)
-            {
-                error += dx;
-                y += stepY;
-            }
-            paintCell(y * kGridSize + x, false);
-        }
-    }
-    lastPaintCell = cell;
-}
-
-function startPaint(event: PointerEvent): void
-{
-    if(tool !== "terrain") { startProp(event); return; }
-    if(paintPointerId !== null || panPointerId !== null || propPointerId !== null)
-    {
-        return;
-    }
-    if(event.button === 2)
-    {
+    case "paint": {
         const cell = cellAt(event);
-        if(cell >= 0)
+        const region = editor.paintTo(event.pointerId, cell);
+        if(region)
         {
-            editHistory.begin(project, "Erase cell");
-            paintCell(cell, true);
-            commitEdit();
+            const layer = editor.getLayer(editor.document.activeLayerId);
+            const position = `${cell % kGridSize + 1}, ${Math.floor(cell / kGridSize) + 1}`;
+            setMessage(controls.status, !layer.painted[cell]
+                ? `${layer.sheet.label}: cleared ${position}`
+                : `${layer.sheet.label}: ${layer === editor.document.layers[0] ? "revealed" : "occupied"} ${position}; higher layers cleared`, false);
+            drawRegion(region.left, region.top, region.right, region.bottom);
         }
-        return;
+        break;
     }
-    if(event.button !== 0)
-    {
-        return;
+    case "move":
+    case "box":
+        editor.moveSelection(event.pointerId, propPoint(event), clientPoint(event));
+        updatePropControls();
+        drawPropOverlay();
+        break;
+    case "pan": {
+        const viewport = controls.mapViewport;
+        const next = editor.panTo(event.pointerId, clientPoint(event), { x: viewport.scrollLeft, y: viewport.scrollTop });
+        if(next) { viewport.scrollLeft = next.x; viewport.scrollTop = next.y; }
+        break;
     }
+    }
+}
+
+function startInteraction(event: PointerEvent): void
+{
+    if(!ready || fileBusy || editor.activeGesture) { return; }
+    if(event.button !== 1 && event.target !== controls.map) { return; }
+    if(event.button !== 0 && event.button !== 1 && event.button !== 2) { return; }
     event.preventDefault();
     controls.map.focus({ preventScroll: true });
-    editHistory.begin(project, "Paint stroke");
-    paintPointerId = event.pointerId;
-    lastPaintCell = -1;
-    controls.map.setPointerCapture(event.pointerId);
-    paintDragAt(event);
-}
-
-function movePaint(event: PointerEvent): void
-{
-    if(propPointerId !== null) { moveProp(event); return; }
-    if(event.pointerId !== paintPointerId)
+    try
     {
-        return;
+        if(event.button === 1)
+        {
+            editor.beginPan(event.pointerId, clientPoint(event));
+            controls.mapViewport.setPointerCapture(event.pointerId);
+            controls.mapViewport.classList.add("panning");
+        }
+        else if(event.button === 2 && editor.tool === "place") { setTool("select"); }
+        else if(editor.tool === "terrain")
+        {
+            editor.beginPaint(event.pointerId, event.button === 2);
+            updateInteraction(event);
+            if(event.button === 2) { finishInteraction("commit"); }
+            else { controls.map.setPointerCapture(event.pointerId); }
+        }
+        else if(event.button === 0)
+        {
+            if(editor.tool === "place") { applyEdit(() => editor.placeProp(propPoint(event))); }
+            else
+            {
+                editor.beginSelection(event.pointerId, propPoint(event), clientPoint(event), event.shiftKey);
+                if(editor.activeGesture) { controls.map.setPointerCapture(event.pointerId); }
+                updatePropControls();
+            }
+        }
     }
-    if((event.buttons & 1) === 0)
-    {
-        endPaint(event);
-        return;
-    }
-    paintDragAt(event);
-}
-
-function endPaint(event: PointerEvent): void
-{
-    if(event.pointerId === propPointerId)
-    {
-        if(event.type === "pointerup") { updatePropGesture(event); }
-        finishPropDrag(event.type === "pointercancel");
-        return;
-    }
-    if(event.pointerId !== paintPointerId)
-    {
-        return;
-    }
-    finishStroke();
-}
-
-/// Capture panning on the viewport so dragging can continue outside the map.
-function startPan(event: PointerEvent): void
-{
-    if(event.button !== 1 || paintPointerId !== null || panPointerId !== null || propPointerId !== null)
-    {
-        return;
-    }
-    event.preventDefault();
-    panPointerId = event.pointerId;
-    panX = event.clientX;
-    panY = event.clientY;
-    controls.mapViewport.setPointerCapture(event.pointerId);
-    controls.mapViewport.classList.add("panning");
+    catch(error) { finishInteraction("cancel"); showError(error); }
     drawPropOverlay();
 }
 
-function movePan(event: PointerEvent): void
+function moveInteraction(event: PointerEvent): void
 {
-    if(event.pointerId !== panPointerId)
+    if(!ready) { return; }
+    hoverClient = event.pointerType === "touch" ? null : clientPoint(event);
+    const gesture = editor.activeGesture;
+    if(gesture?.pointerId === event.pointerId)
     {
-        return;
+        if((event.buttons & (gesture.kind === "pan" ? 4 : 1)) === 0) { finishInteraction("commit"); }
+        else { updateInteraction(event); }
     }
-    if((event.buttons & 4) === 0)
-    {
-        endPan(event);
-        return;
-    }
-    controls.mapViewport.scrollLeft += panX - event.clientX;
-    controls.mapViewport.scrollTop += panY - event.clientY;
-    panX = event.clientX;
-    panY = event.clientY;
+    if(editor.tool !== "select") { drawPropOverlay(); }
 }
 
-function endPan(event: PointerEvent): void
+function endInteraction(event: PointerEvent): void
 {
-    if(event.pointerId !== panPointerId)
+    if(!ready || editor.activeGesture?.pointerId !== event.pointerId) { return; }
+    if(event.type === "pointerup") { updateInteraction(event); }
+    finishInteraction(event.type === "pointerup" ? "commit" : "cancel");
+}
+
+/// All exits clear controller state before releasing capture, which itself emits an event.
+function finishInteraction(outcome: "commit" | "cancel" | "escape"): void
+{
+    if(!ready) { return; }
+    const gesture = editor.activeGesture;
+    if(!gesture && outcome !== "escape") { return; }
+    const previous = editor.document;
+    try
     {
-        return;
+        const result = outcome === "escape" ? editor.escape() : editor.finishGesture(outcome);
+        if(result?.changed) { session.changed(); }
     }
-    panPointerId = null;
-    controls.mapViewport.classList.remove("panning");
-    drawPropOverlay();
-    if(controls.mapViewport.hasPointerCapture(event.pointerId))
+    catch(error) { showError(error); }
+    finally
     {
-        controls.mapViewport.releasePointerCapture(event.pointerId);
+        if(gesture)
+        {
+            const target = gesture.kind === "pan" ? controls.mapViewport : controls.map;
+            if(target.hasPointerCapture(gesture.pointerId)) { target.releasePointerCapture(gesture.pointerId); }
+        }
+        controls.mapViewport.classList.remove("panning");
     }
+    if(previous !== editor.document) { refreshDocument(previous); }
+    else { updatePropControls(); drawPropOverlay(); updateProjectButtons(); }
+    if(outcome === "escape") { refreshTool(); }
+    collectAssets();
 }
 
 /// Resize only the displayed canvas and retain the map point under the cursor.
@@ -534,16 +332,16 @@ function zoomMap(event: WheelEvent): void
 {
     if(!event.altKey) { return; }
     event.preventDefault();
-    if(paintPointerId !== null || panPointerId !== null || propPointerId !== null)
+    if(editor.activeGesture !== null)
     {
         return;
     }
     const viewport = controls.mapViewport;
     const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? viewport.clientHeight : 1;
-    const nextZoom = Math.max(1 / 16, Math.min(4, project.view.zoom * Math.exp(-event.deltaY * unit * 0.002)));
+    const nextZoom = Math.max(1 / 16, Math.min(4, editor.document.view.zoom * Math.exp(-event.deltaY * unit * 0.002)));
     const bounds = controls.map.getBoundingClientRect();
-    const ratio = nextZoom / project.view.zoom;
+    const ratio = nextZoom / editor.document.view.zoom;
     const offsetX = event.clientX - bounds.left;
     const offsetY = event.clientY - bounds.top;
     const scrollLeft = viewport.scrollLeft;
@@ -553,7 +351,7 @@ function zoomMap(event: WheelEvent): void
     controls.map.style.height = `${size}px`;
     viewport.scrollLeft = scrollLeft + offsetX * (ratio - 1);
     viewport.scrollTop = scrollTop + offsetY * (ratio - 1);
-    project.view.zoom = nextZoom;
+    editor.document.view.zoom = nextZoom;
     drawPropOverlay();
     session.changed();
     updateGrid();
@@ -576,11 +374,11 @@ function makeSelect(options: readonly string[], value: number): HTMLSelectElemen
 function renderPalette(): void
 {
     controls.palette.replaceChildren();
-    project.layers.forEach((layer) => {
+    editor.document.layers.forEach((layer) => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
-        button.setAttribute("aria-pressed", String(tool === "terrain" && layer.id === project.activeLayerId));
+        button.setAttribute("aria-pressed", String(editor.tool === "terrain" && layer.id === editor.document.activeLayerId));
         const swatch = document.createElement("span");
         swatch.className = "material-preview";
         swatch.setAttribute("aria-hidden", "true");
@@ -597,18 +395,13 @@ function renderPalette(): void
 
 function setActiveLayer(id: number): void
 {
-    setTool("terrain");
-    if(id === project.activeLayerId)
-    {
-        return;
-    }
-    project.activeLayerId = id;
-    session.changed();
-    renderPalette();
-    setMessage(controls.status, getLayer(id) === project.layers[0]
+    finishInteraction("commit");
+    if(editor.chooseLayer(id)) { session.changed(); }
+    refreshTool();
+    setMessage(controls.status, editor.getLayer(id) === editor.document.layers[0]
         ? "Base selected. Left-click or drag to clear overlays and reveal the background."
-        : `${getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`, false);
-    drawCoverageRegion(project, controls.coverage, 0, 0, kGridSize, kGridSize);
+        : `${editor.getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`, false);
+    drawCoverageRegion(editor.document, controls.coverage, 0, 0, kGridSize, kGridSize);
     drawPropOverlay();
 }
 
@@ -624,7 +417,8 @@ function addSheetInfo(layer: Layer, card: HTMLDivElement): void
 function renderLayers(): void
 {
     controls.layers.replaceChildren();
-    project.layers.forEach((layer, index) => {
+    editor.document.layers.forEach((layer, index) => {
+        const id = layer.id;
         const card = document.createElement("div");
         card.className = "layer-card";
         const heading = document.createElement("strong");
@@ -634,10 +428,8 @@ function renderLayers(): void
         const choices = availableTiles();
         const materialSelect = makeSelect(choices.map((atlas) => atlas.label), choices.indexOf(layer.sheet));
         materialSelect.title = "Choose the tile sheet for this layer.";
-        materialSelect.addEventListener("change", () => edit("Change material", () => {
-            const sheet = choices[Number(materialSelect.value)];
-            layer.sheet = sheet;
-        }));
+        materialSelect.addEventListener("change", () => applyEdit(() =>
+            editor.changeLayerMaterial(id, choices[Number(materialSelect.value)])));
         materialLabel.append(materialSelect);
         card.append(heading, materialLabel);
         addSheetInfo(layer, card);
@@ -651,32 +443,18 @@ function renderLayers(): void
             up.textContent = "Move up";
             up.title = "Move this layer earlier in the list, beneath the preceding overlay.";
             up.disabled = index === 1;
-            up.addEventListener("click", () => edit("Move layer up", () => {
-                const current = project.layers.indexOf(layer);
-                [project.layers[current - 1], project.layers[current]] =
-                    [project.layers[current], project.layers[current - 1]];
-            }));
+            up.addEventListener("click", () => applyEdit(() => editor.moveLayer(id, -1)));
             const down = document.createElement("button");
             down.type = "button";
             down.textContent = "Move down";
             down.title = "Move this layer later in the list, above the following overlay.";
-            down.disabled = index === project.layers.length - 1;
-            down.addEventListener("click", () => edit("Move layer down", () => {
-                const current = project.layers.indexOf(layer);
-                [project.layers[current], project.layers[current + 1]] =
-                    [project.layers[current + 1], project.layers[current]];
-            }));
+            down.disabled = index === editor.document.layers.length - 1;
+            down.addEventListener("click", () => applyEdit(() => editor.moveLayer(id, 1)));
             const remove = document.createElement("button");
             remove.type = "button";
             remove.textContent = "Remove";
             remove.title = "Remove this layer and its painted cells. This edit can be undone.";
-            remove.addEventListener("click", () => edit("Remove layer", () => {
-                project.layers.splice(project.layers.indexOf(layer), 1);
-                if(project.activeLayerId === layer.id)
-                {
-                    project.activeLayerId = project.layers[Math.max(0, index - 1)].id;
-                }
-            }));
+            remove.addEventListener("click", () => applyEdit(() => editor.removeLayer(id)));
             actions.append(up, down, remove);
             card.append(actions);
         }
@@ -688,15 +466,15 @@ function renderLayers(): void
 function addOverlay(): void
 {
     edit("Add overlay", () => {
-        if(project.layers.length >= 256) { throw new Error("Projects support at most 256 layers"); }
+        if(editor.document.layers.length >= 256) { throw new Error("Projects support at most 256 layers"); }
         const choices = availableTiles();
         const sheet = choices[Math.min(2, choices.length - 1)];
         const layer: Layer = {
-            id: project.nextLayerId++, painted: Array(kCellCount).fill(false),
+            id: editor.document.nextLayerId++, painted: Array(kCellCount).fill(false),
             sheet
         };
-        project.layers.push(layer);
-        project.activeLayerId = layer.id;
+        editor.document.layers.push(layer);
+        editor.document.activeLayerId = layer.id;
     });
 }
 
@@ -706,13 +484,13 @@ function resetSample(): void
         const choices = availableTiles();
         const makeLayer = (index: number): Layer => {
             const sheet = choices[Math.min(index, choices.length - 1)];
-            const id = project.nextLayerId++;
+            const id = editor.document.nextLayerId++;
             return { id, sheet,
                 painted: Array(kCellCount).fill(index === 0) };
         };
-        project.layers = [makeLayer(0), makeLayer(1), makeLayer(2)];
-        const full = project.layers[1];
-        const patch = project.layers[2];
+        editor.document.layers = [makeLayer(0), makeLayer(1), makeLayer(2)];
+        const full = editor.document.layers[1];
+        const patch = editor.document.layers[2];
         for(let y = 0; y < kGridSize; y++)
         {
             for(let x = 0; x < kGridSize; x++) { full.painted[y * kGridSize + x] = true; }
@@ -723,15 +501,15 @@ function resetSample(): void
         }
         patch.painted[3 * kGridSize + 2] = false;
         patch.painted[kGridSize + 1] = false;
-        project.activeLayerId = patch.id;
+        editor.document.activeLayerId = patch.id;
     });
 }
 
-controls.mapViewport.addEventListener("pointerdown", startPan);
-controls.mapViewport.addEventListener("pointermove", movePan);
-controls.mapViewport.addEventListener("pointerup", endPan);
-controls.mapViewport.addEventListener("pointercancel", endPan);
-controls.mapViewport.addEventListener("lostpointercapture", endPan);
+controls.mapViewport.addEventListener("pointerdown", startInteraction);
+controls.mapViewport.addEventListener("pointermove", moveInteraction);
+controls.mapViewport.addEventListener("pointerup", endInteraction);
+controls.mapViewport.addEventListener("pointercancel", endInteraction);
+controls.mapViewport.addEventListener("lostpointercapture", endInteraction);
 controls.mapViewport.addEventListener("auxclick", (event) => {
     if(event.button === 1)
     {
@@ -739,24 +517,15 @@ controls.mapViewport.addEventListener("auxclick", (event) => {
     }
 });
 controls.mapViewport.addEventListener("wheel", zoomMap, { passive: false });
-controls.map.addEventListener("pointerdown", startPaint);
-controls.map.addEventListener("pointermove", movePaint);
-controls.map.addEventListener("pointerup", endPaint);
-controls.map.addEventListener("pointercancel", endPaint);
-controls.map.addEventListener("lostpointercapture", endPaint);
 controls.map.addEventListener("contextmenu", (event) => event.preventDefault());
 controls.addLayer.addEventListener("click", addOverlay);
 controls.activeMask.addEventListener("change", () => edit("Change mask mode", () => {
-    project.maskMode = controls.activeMask.value === "random" ? "random" : Number(controls.activeMask.value);
+    editor.document.maskMode = controls.activeMask.value === "random" ? "random" : Number(controls.activeMask.value);
 }));
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
 controls.mapViewport.addEventListener("scroll", () => {
     saveView();
     if(ready) { drawPropOverlay(); }
-});
-controls.mapViewport.addEventListener("pointermove", (event) => {
-    hoverClient = event.pointerType === "touch" ? null : { x: event.clientX, y: event.clientY };
-    if(ready && tool !== "select") { drawPropOverlay(); }
 });
 controls.mapViewport.addEventListener("pointerleave", () => {
     hoverClient = null;
@@ -765,7 +534,7 @@ controls.mapViewport.addEventListener("pointerleave", () => {
 globalThis.addEventListener("resize", () => { if(ready) { drawPropOverlay(); } });
 globalThis.addEventListener("blur", () => {
     hoverClient = null;
-    if(ready) { finishPropDrag(true); drawPropOverlay(); }
+    if(ready) { finishInteraction("cancel"); drawPropOverlay(); }
 });
 required("reset", HTMLButtonElement).addEventListener("click", resetSample);
 
@@ -774,7 +543,7 @@ function renderMaskChoices(): void
     controls.activeMask.replaceChildren(new Option("Random per junction", "random"));
     const links = required("mask-links", HTMLParagraphElement);
     links.replaceChildren();
-    project.masks.forEach((mask, index) => {
+    editor.document.masks.forEach((mask, index) => {
         controls.activeMask.add(new Option(mask.label, String(index)));
         const link = document.createElement("a");
         link.href = mask.url;
@@ -782,7 +551,7 @@ function renderMaskChoices(): void
         if(index > 0) { links.append(" · "); }
         links.append(link);
     });
-    controls.activeMask.value = String(project.maskMode);
+    controls.activeMask.value = String(editor.document.maskMode);
 }
 
 async function start(): Promise<void>
@@ -814,12 +583,12 @@ function updateSaveStatus(status: SaveStatus): void
     setMessage(required("save-status", HTMLOutputElement), `${status.filename ? decodeURIComponent(new URL(status.filename).pathname.split("/").at(-2)!) : "No project"} — ${state}`, status.error !== null);
 }
 
-const session = new ProjectSession(() => editHistory.committedState(project), writeProject, updateSaveStatus, 600);
+const session = new ProjectSession(() => editor.committedDocument, writeProject, updateSaveStatus, 600);
 
 function availableTiles(): TileAtlas[]
 {
     // Preserve directory-listing order in material controls without storing another catalog.
-    return project.tileSheets.toSorted((a, b) => {
+    return editor.document.tileSheets.toSorted((a, b) => {
         const aPath = a.id.split("/").map(encodeURIComponent).join("/");
         const bPath = b.id.split("/").map(encodeURIComponent).join("/");
         return aPath < bPath ? -1 : aPath > bPath ? 1 : 0;
@@ -828,7 +597,7 @@ function availableTiles(): TileAtlas[]
 
 function collectAssets(): void
 {
-    const retained = new Set([...(ready ? documentAssets(project) : []), ...editHistory.retainedStates().flatMap(documentAssets)]);
+    const retained = new Set([...(ready ? documentAssets(editor.document) : []), ...(ready ? editor.history.retainedStates().flatMap(documentAssets) : [])]);
     for(const asset of assets)
     {
         if(!retained.has(asset))
@@ -843,44 +612,42 @@ function collectAssets(): void
 /// Pass null when installing a project. Otherwise previous describes the rendered terrain.
 function refreshDocument(previous: ProjectDocument | null): void
 {
-    controls.showGrid.checked = project.view.showGrid;
-    const size = kGridSize * kCellSize * project.view.zoom;
+    controls.showGrid.checked = editor.document.view.showGrid;
+    const size = kGridSize * kCellSize * editor.document.view.zoom;
     controls.map.style.width = `${size}px`;
     controls.map.style.height = `${size}px`;
     renderMaskChoices();
     renderLayers();
     renderPropPalette();
-    controls.map.dataset.tool = tool;
+    controls.map.dataset.tool = editor.tool;
     updatePropControls();
-    if(previous === null || !sameTerrainContent(previous, project))
+    if(previous === null || !sameTerrainContent(previous, editor.document))
     {
         draw();
     }
     else
     {
         const previousLayer = previous.layers.findIndex((layer) => layer.id === previous.activeLayerId);
-        const activeLayer = project.layers.findIndex((layer) => layer.id === project.activeLayerId);
+        const activeLayer = editor.document.layers.findIndex((layer) => layer.id === editor.document.activeLayerId);
         if(previousLayer !== activeLayer)
         {
-            drawCoverageRegion(project, controls.coverage, 0, 0, kGridSize, kGridSize);
+            drawCoverageRegion(editor.document, controls.coverage, 0, 0, kGridSize, kGridSize);
         }
         drawPropOverlay();
     }
     updateGrid();
-    controls.mapViewport.scrollLeft = project.view.scrollLeft;
-    controls.mapViewport.scrollTop = project.view.scrollTop;
+    controls.mapViewport.scrollLeft = editor.document.view.scrollLeft;
+    controls.mapViewport.scrollTop = editor.document.view.scrollTop;
     updateProjectButtons();
 }
 
 function installDocument(next: ProjectDocument): void
 {
-    validateDocument(next);
-    project = next;
-    selectedPropIds.clear();
+    const nextEditor = new Editor(next, new History(100, 64 * 1024 * 1024));
+    if(ready) { nextEditor.setTool(editor.tool); }
+    editor = nextEditor;
     hoverClient = null;
-    selectedPropAsset = null;
     ready = true;
-    editHistory.clear();
     for(const asset of documentAssets(next)) { assets.add(asset); }
     required("editor", HTMLDivElement).inert = false;
     initializeGrid();
@@ -895,70 +662,37 @@ function saveView(): void
     const left = controls.mapViewport.scrollLeft;
     const top = controls.mapViewport.scrollTop;
     const grid = controls.showGrid.checked;
-    if(project.view.scrollLeft !== left || project.view.scrollTop !== top || project.view.showGrid !== grid)
+    if(editor.document.view.scrollLeft !== left || editor.document.view.scrollTop !== top || editor.document.view.showGrid !== grid)
     {
-        project.view.scrollLeft = left;
-        project.view.scrollTop = top;
-        project.view.showGrid = grid;
+        editor.document.view.scrollLeft = left;
+        editor.document.view.scrollTop = top;
+        editor.document.view.showGrid = grid;
         session.changed();
     }
 }
 
-function commitEdit(): void
+function applyEdit(action: () => EditResult | null): void
 {
-    validateDocument(project);
-    if(editHistory.commit(project)) { session.changed(); }
-    updateProjectButtons();
+    finishInteraction("commit");
+    const previous = editor.document;
+    let result: EditResult | null;
+    try { result = action(); }
+    catch(error) { showError(error); refreshDocument(previous); collectAssets(); return; }
+    if(!result) { return; }
+    if(result.changed) { session.changed(); }
+    refreshDocument(result.previous);
     collectAssets();
-}
-
-function finishStroke(): void
-{
-    finishPropDrag(false);
-    if(paintPointerId === null) { return; }
-    const pointer = paintPointerId;
-    paintPointerId = null;
-    lastPaintCell = -1;
-    if(controls.map.hasPointerCapture(pointer)) { controls.map.releasePointerCapture(pointer); }
-    commitEdit();
 }
 
 function edit(label: string, mutate: () => void): void
 {
-    finishStroke();
-    editHistory.begin(project, label);
-    const previous = editHistory.committedState(project);
-    try
-    {
-        mutate();
-        commitEdit();
-    }
-    catch(error)
-    {
-        const before = editHistory.rollback();
-        if(before !== null) { project = before; }
-        showError(error);
-    }
-    refreshDocument(previous);
-    collectAssets();
+    applyEdit(() => editor.edit(label, mutate));
 }
 
 function changeHistory(redo: boolean): void
 {
     if(!ready || fileBusy) { return; }
-    finishStroke();
-    const restored = redo ? editHistory.redo(project) : editHistory.undo(project);
-    if(restored === null) { return; }
-    restored.view = { ...project.view };
-    if(restored.layers.some((layer) => layer.id === project.activeLayerId))
-    {
-        restored.activeLayerId = project.activeLayerId;
-    }
-    const previous = project;
-    project = restored;
-    session.changed();
-    refreshDocument(previous);
-    collectAssets();
+    applyEdit(() => editor.changeHistory(redo));
 }
 
 let currentFolder: string | null = null;
@@ -972,10 +706,10 @@ function updateProjectButtons(): void
     required("project-reload", HTMLButtonElement).disabled = !ready;
     const undo = required("project-undo", HTMLButtonElement);
     const redo = required("project-redo", HTMLButtonElement);
-    undo.disabled = !ready || editHistory.undoLabel === null;
-    redo.disabled = !ready || editHistory.redoLabel === null;
-    undo.textContent = editHistory.undoLabel === null ? "Undo" : `Undo ${editHistory.undoLabel}`;
-    redo.textContent = editHistory.redoLabel === null ? "Redo" : `Redo ${editHistory.redoLabel}`;
+    undo.disabled = !ready || editor.history.undoLabel === null;
+    redo.disabled = !ready || editor.history.redoLabel === null;
+    undo.textContent = !ready || editor.history.undoLabel === null ? "Undo" : `Undo ${editor.history.undoLabel}`;
+    redo.textContent = !ready || editor.history.redoLabel === null ? "Redo" : `Redo ${editor.history.redoLabel}`;
 }
 
 function updateChooserButtons(): void
@@ -1029,7 +763,7 @@ async function refreshProjects(): Promise<void>
 async function showProjectChooser(): Promise<void>
 {
     if(fileBusy) { return; }
-    finishStroke();
+    finishInteraction("commit");
     const dialog = required("project-dialog", HTMLDialogElement);
     if(dialog.open) { return; }
     if(currentFolder !== null) { required("project-choice", HTMLSelectElement).value = currentFolder; }
@@ -1042,7 +776,7 @@ async function showProjectChooser(): Promise<void>
 async function fileAction(action: "open" | "save" | "reload"): Promise<void>
 {
     if(fileBusy || (action === "open" && projectListing)) { return; }
-    finishStroke();
+    finishInteraction("commit");
     fileBusy = true;
     hoverClient = null;
     if(ready) { drawPropOverlay(); }
@@ -1083,37 +817,16 @@ globalThis.addEventListener("keydown", (event) => {
     if(event.key === "Escape")
     {
         event.preventDefault();
-        const wasSelecting = tool === "select" && propPointerId === null;
-        finishPropDrag(true);
-        if(paintPointerId !== null)
-        {
-            const pointer = paintPointerId;
-            paintPointerId = null;
-            lastPaintCell = -1;
-            if(controls.map.hasPointerCapture(pointer)) { controls.map.releasePointerCapture(pointer); }
-            const previous = project;
-            const before = editHistory.rollback();
-            if(before) { before.view = { ...project.view }; project = before; }
-            refreshDocument(previous);
-        }
-        if(panPointerId !== null)
-        {
-            const pointer = panPointerId;
-            panPointerId = null;
-            controls.mapViewport.classList.remove("panning");
-            if(controls.mapViewport.hasPointerCapture(pointer)) { controls.mapViewport.releasePointerCapture(pointer); }
-        }
-        if(wasSelecting) { selectedPropIds.clear(); }
-        setTool("select");
+        finishInteraction("escape");
         return;
     }
     const target = event.target;
     if(target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) { return; }
-    if((event.key === "Delete" || event.key === "Backspace") && selectedPropIds.size > 0
+    if((event.key === "Delete" || event.key === "Backspace") && editor.selectedPropIds.size > 0
         && !event.ctrlKey && !event.metaKey && !event.altKey)
     {
         event.preventDefault();
-        deleteSelectedProp();
+        applyEdit(() => editor.deleteSelectedProps());
     }
 });
 
@@ -1144,7 +857,7 @@ required("project-choice", HTMLSelectElement).addEventListener("keydown", (event
 required("project-undo", HTMLButtonElement).addEventListener("click", () => changeHistory(false));
 required("project-redo", HTMLButtonElement).addEventListener("click", () => changeHistory(true));
 globalThis.addEventListener("beforeunload", (event) => {
-    if(fileBusy || (ready && (session.dirty || editHistory.inTransaction)))
+    if(fileBusy || (ready && (session.dirty || editor.history.inTransaction)))
     {
         event.preventDefault();
         event.returnValue = "";

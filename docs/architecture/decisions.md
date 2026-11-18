@@ -436,7 +436,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props) and the
 
 ## Mosaic nested tile and prop assets
 
-Date: 2026-11-18. Status: Accepted.
+Date: 2026-11-18. Status: Accepted. Version support is superseded by
+[Mosaic prop JSON field names](#mosaic-prop-json-field-names).
 
 Asset collections need subfolders to keep terrain and decorative images organized
 without flattening filenames. Version 9 allows nested paths under `assets/tiles/`
@@ -462,3 +463,23 @@ Existing project files are not rewritten as part of this change.
 
 This follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).
+
+
+## Mosaic prop JSON field names
+
+Date: 2026-11-18. Status: Accepted.
+
+Version 10 names each serialized prop's catalog reference `index` and its
+clockwise angle in degrees `rot`, replacing `asset` and `rotation`. Coordinates,
+catalog ordering, and rendering semantics remain unchanged. The in-memory
+document continues to use `asset` for the decoded image reference and `rotation`
+for the angle.
+
+Renaming required fields changes the serialized contract, so the format version
+advances rather than changing the meaning of version 9. Mosaic reads and writes
+version 10 only, without migration support or aliases for the previous names.
+Existing project files are not rewritten as part of this change.
+
+This supersedes version 9 support in
+[nested tile and prop assets](#mosaic-nested-tile-and-prop-assets).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

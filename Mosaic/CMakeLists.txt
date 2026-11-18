@@ -12,7 +12,7 @@ configure_file(index.html "${MOSAIC_OUTPUT}/index.html" COPYONLY)
 
 set(MOSAIC_SOURCES
     src/grid.ts src/renderer.ts src/props.ts
-    src/main.ts src/placement.ts src/document.ts src/history.ts src/project-file.ts src/project-session.ts src/project-http.ts
+    src/main.ts src/editor.ts src/placement.ts src/document.ts src/history.ts src/project-file.ts src/project-session.ts src/project-http.ts
 )
 
 add_custom_command(

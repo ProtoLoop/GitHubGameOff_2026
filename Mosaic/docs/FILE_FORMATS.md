@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 9`. Only version 9 is supported.
+The container has `format: "mosaic"` and `version: 10`. Only version 10 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -188,14 +188,17 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "propAssets": ["assets/props/headstone.png"],
-  "props": [{ "asset": 0, "x": 250.5, "y": 300, "rotation": 45 }]
+  "props": [{ "index": 0, "x": 250.5, "y": 300, "rot": 45 }]
 }
 ```
 
-Each instance references a zero-based `asset` index. `x` and `y` are finite map
+Each instance uses `index` to reference a zero-based entry in `propAssets`. `x` and `y` are finite map
 pixel coordinates for the image center, between 0 and 4096 inclusive. The map
 origin is at its top-left, with X increasing rightward and Y increasing downward.
-`rotation` is a finite clockwise angle in degrees, at least 0 and less than 360.
+Prop coordinates are rounded to the nearest 0.001 map pixels during placement,
+movement, loading, and saving. JSON numbers use at most three decimal places
+without padded trailing zeros.
+`rot` is a finite clockwise angle in degrees, at least 0 and less than 360.
 Images rotate around their centers, without scaling or snapping. One source pixel
 covers one map pixel. Source alpha is preserved. Render all props above terrain,
 in array order, using ordinary source-over alpha blending and nearest sampling.
@@ -208,9 +211,12 @@ images. Missing referenced images, incorrect asset kinds, invalid transforms,
 and invalid catalog references fail loading before installation.
 
 The document owns prop placements. Snapshots copy their transforms and share
-immutable decoded images. Placement, movement, rotation, and deletion are undoable,
+immutable decoded images. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
-a drag. Prop selection, tool mode, and palette selection are transient editor state
+a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
+pointer capture. Losing window focus cancels an active edit. Panning stops and
+retains the current view. Saved rotation is preserved and rendered, but has no editing control.
+Prop selection, tool mode, and palette selection are transient editor state
 and are not saved or undoable. Instance IDs and the next-ID counter are session-only.
 The loader reconstructs IDs in array order. Picking checks rotated image rectangles
 from front to back, including transparent pixels.
