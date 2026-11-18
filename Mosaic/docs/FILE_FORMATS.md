@@ -5,18 +5,22 @@ Each project is an immediate subfolder of the server's projects root:
 ```text
 project-name/
   level.json
-  assets/tiles/*.png
+  assets/tiles/**/*.png
   assets/masks/*.png
+  assets/props/**/*.png  # optional
 ```
 
-PNG, JPEG, and WebP images are discovered directly in the two asset folders.
-Nested folders are ignored. Both folders must contain at least one usable image.
+PNG, JPEG, and WebP images are discovered recursively under `assets/tiles/` and
+`assets/props/`, including files directly in those roots. Masks are discovered
+only directly inside `assets/masks/`. The tile tree and mask folder must each
+contain at least one usable image.
 Without `level.json`, Mosaic opens an empty level with an unmasked base and one
 overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 7`. Only version 7 is supported.
+The container has `format: "mosaic"` and `version: 9`. Only version 9 is supported.
+Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
 algorithms below are part of the versioned format contract.
@@ -28,6 +32,8 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-relative mask-sheet paths |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
+| `propAssets` | Ordered project-relative individual prop-image paths |
+| `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
@@ -175,6 +181,43 @@ after each layer:
 The coverage preview uses the same masks without checking whether the terrain
 cell is painted. Clip only at map bounds, not painted-cell boundaries.
 
+### Decorative props
+
+`propAssets` and `props` are required arrays, and may be empty. For example:
+
+```json
+{
+  "propAssets": ["assets/props/headstone.png"],
+  "props": [{ "asset": 0, "x": 250.5, "y": 300, "rotation": 45 }]
+}
+```
+
+Each instance references a zero-based `asset` index. `x` and `y` are finite map
+pixel coordinates for the image center, between 0 and 4096 inclusive. The map
+origin is at its top-left, with X increasing rightward and Y increasing downward.
+`rotation` is a finite clockwise angle in degrees, at least 0 and less than 360.
+Images rotate around their centers, without scaling or snapping. One source pixel
+covers one map pixel. Source alpha is preserved. Render all props above terrain,
+in array order, using ordinary source-over alpha blending and nearest sampling.
+Clip artwork at map edges, even when its center lies inside the map.
+
+A prop asset is a single image, not an atlas. Rectangular images are allowed,
+with each dimension from 1 to 4096 pixels. The catalog supports at most 256 prop
+images and the level at most 10,000 instances. Asset dimensions come from the
+images. Missing referenced images, incorrect asset kinds, invalid transforms,
+and invalid catalog references fail loading before installation.
+
+The document owns prop placements. Snapshots copy their transforms and share
+immutable decoded images. Placement, movement, rotation, and deletion are undoable,
+with a complete drag forming one action. Escape or pointer cancellation rolls back
+a drag. Prop selection, tool mode, and palette selection are transient editor state
+and are not saved or undoable. Instance IDs and the next-ID counter are session-only.
+The loader reconstructs IDs in array order. Picking checks rotated image rectangles
+from front to back, including transparent pixels.
+
+The game does not yet consume these records. Its coordinate system and sprite
+resources remain separate from this editor-only capability.
+
 ### Editor settings and editing
 
 | Field under `editor` | Meaning |
@@ -198,20 +241,28 @@ and settings, reproducing the corresponding rendering choices.
 
 ### Assets and limits
 
-Catalog entries are paths such as `assets/tiles/grass.png` and
-`assets/masks/alpha.png`. Paths contain actual filenames, not URL escapes.
-Labels come from filenames. Image bytes remain in separate files. Renaming a
-referenced image requires updating its catalog path.
+Catalog entries are paths such as `assets/tiles/ground/grass.png`,
+`assets/props/graveyard/headstone.png`, and `assets/masks/alpha.png`. Paths contain
+actual filenames, not URL escapes. Every path must start with its asset kind's
+root. Tile and prop paths may include subfolders, while mask paths must be flat.
+Empty path segments, `.` and `..` segments, backslashes, and control characters
+are invalid. Paths are limited to 1024 characters. Literal percent signs are
+allowed and encoded when requesting URLs. Labels use paths relative to the asset
+root, so identical filenames in different subfolders remain distinguishable. Image
+bytes remain in separate files. Renaming a referenced image requires updating its
+catalog path.
 
-At most 256 layers, 256 tile sheets, and 64 mask sheets are supported. Images
-are square and at most 4096 pixels wide. There is no encoded image file-size
+At most 256 layers, 256 tile sheets, and 64 mask sheets are supported. Terrain
+and mask images are square and at most 4096 pixels wide. There is no encoded image file-size
 limit. Terrain textures must share the same dimensions, from 64 through 4096 pixels
 per side in multiples of 64. Mask sheets must be 256×256,
 independent of the terrain texture dimensions. Level JSON has no file-size cap on
 read or write.
 
-Catalog order is preserved on load. Newly discovered terrain textures must match
-the shared dimensions. Compatible sheets append without
+Catalog order is preserved on load. Discovered images are sorted by their full
+encoded resource URLs. Newly discovered images append in that deterministic order,
+without changing existing catalog indices or prop placement order. Newly discovered terrain textures
+must match the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
 selection because the sheet count participates in the algorithm. Fixed mask
 selection is unaffected. Missing catalog assets, duplicate cells,
@@ -220,14 +271,19 @@ before replacing the current document.
 
 Undo history is session-only, bounded to 100 actions and an estimated 64 MiB
 of map snapshots. Each snapshot owns its occupancy arrays and shares immutable
-images. Saves serialize the committed occupancy and rendering settings.
+images. Saves serialize committed occupancy, prop placements, and rendering settings.
 
 ## HTTP contract
 
 The app reads ordinary HTML directory listings with GET `/projects/` and
-GET `/projects/<name>/assets/tiles/` or `assets/masks/`. Only immediate child
-links are used. It GETs images and `level.json` through their resource URLs,
-encoding each filename as a URL component. A 404 for `level.json` means a new level.
+GET `/projects/<name>/assets/tiles/`, `assets/masks/`, and `assets/props/`.
+A 404 for the optional props directory means an empty discovered prop catalog.
+Other errors fail loading. Discovered subfolders must be readable, including
+under the optional props root. A saved prop catalog still requires its referenced
+images. Each listing accepts only immediate child links on the same origin.
+The browser walks child directories for tiles and props, fetching each listing
+once, and keeps mask discovery flat. It GETs images and `level.json` through their
+resource URLs, encoding each path segment separately. A 404 for `level.json` means a new level.
 Other failures are reported. Reload bypasses cached listings and images.
 
 Save sends the complete JSON body with PUT `/projects/<name>/level.json` and

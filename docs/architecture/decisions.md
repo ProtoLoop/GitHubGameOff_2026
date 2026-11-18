@@ -398,3 +398,67 @@ separate runtime work and does not yet implement this contract.
 This supersedes [Mosaic terrain tiles and cell coverage](#mosaic-terrain-tiles-and-cell-coverage).
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#terrain-dimensions-and-selection)
 and [Coverage masks](../COVERAGE_MASKS.md).
+
+
+## Mosaic decorative prop placement
+
+Date: 2026-11-18. Status: Accepted. Asset discovery and version support are amended by
+[Mosaic nested tile and prop assets](#mosaic-nested-tile-and-prop-assets).
+
+Mosaic needs decorative image placement independently of painted terrain. Props
+must remain intact when terrain is repainted and participate in the existing
+history, asset lifetime, and autosave lifecycle.
+
+Version 8 adds an optional `assets/props/` discovery directory, an ordered prop
+image catalog, and an ordered instance list. Instances store an image reference,
+a center position in map pixels, and clockwise rotation in degrees. Images keep
+their native dimensions and alpha. Props draw above terrain in placement order.
+A separate transparent canvas lets dragging redraw props without recomputing
+terrain. The document owns placements and snapshots share immutable decoded
+images, following the existing [project persistence lifecycle](#mosaic-project-folders-and-http-persistence).
+
+We considered tying props to terrain layers or cells. Independent placements
+allow free movement and keep terrain operations from changing decoration. Center
+pivots and array draw order avoid asset metadata and ordering controls for this
+initial version. They give up custom ground anchors and depth sorting. Picking
+uses rotated image rectangles, including transparent pixels.
+
+Mosaic reads and writes version 8 only, with no migration loader. Earlier project
+files are rejected and remain untouched. This supersedes version 7 support in
+[whole-texture terrain repetition](#mosaic-whole-texture-terrain-repetition), while
+preserving its terrain sampling contract. The game does not yet load these props.
+Game resource identities and Y-up transforms require a separate integration design.
+
+This follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props) and the
+[user guide](../../Mosaic/README.md).
+
+
+## Mosaic nested tile and prop assets
+
+Date: 2026-11-18. Status: Accepted.
+
+Asset collections need subfolders to keep terrain and decorative images organized
+without flattening filenames. Version 9 allows nested paths under `assets/tiles/`
+and `assets/props/`. Mask discovery remains flat.
+
+The browser walks ordinary HTTP directory listings and sorts discovered image
+URLs before loading them. Each listing supplies immediate child links, and each
+path component is decoded once for the asset's project-relative identity. Labels
+retain subfolder names. Existing saved catalog order is preserved, with new assets
+appended in discovery order. The server remains independent of editor semantics.
+Only a missing top-level props folder is optional. Failures reading discovered
+subfolders fail the candidate load and preserve the current document.
+
+We considered requiring users to flatten their folders or using a separate asset
+manifest. Recursive discovery keeps folders as the source of truth and avoids a
+second catalog to maintain, at the cost of one HTTP listing request per folder.
+Terrain dimension constraints and rendering rules remain unchanged.
+
+Mosaic reads and writes version 9 only, without migration support. This amends
+asset discovery in [project folders and HTTP persistence](#mosaic-project-folders-and-http-persistence)
+and supersedes version 8 support in [decorative prop placement](#mosaic-decorative-prop-placement).
+Existing project files are not rewritten as part of this change.
+
+This follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).

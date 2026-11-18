@@ -24,7 +24,7 @@
         {
             height: 100%;
             display: grid;
-            grid-template-rows: auto minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr) auto;
         }
 
         .project-bar
@@ -96,7 +96,9 @@
         #project-message { display: block; min-height: 3em; margin-bottom: 12px; }
         .chooser-actions { justify-content: flex-end; }
         output { color: #a4c78a; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-        #save-status { padding: 8px 12px; border-left: 2px solid #a4c78a; font-size: 13px; }
+        #status, #save-status, #project-message { user-select: text; -webkit-user-select: text; cursor: text; }
+        output.error { color: #ff8585; }
+        #save-status { padding: 8px 12px; border-left: 2px solid currentColor; font-size: 13px; }
 
         #editor
         {
@@ -185,7 +187,12 @@
         }
         canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
         #map { cursor: crosshair; touch-action: none; }
+        #map[data-tool="select"] { cursor: move; }
+        #map[data-tool="place"] { cursor: default; }
         .map-surface { position: relative; width: max-content; }
+        .prop-preview { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
+        #prop-palette button[aria-pressed="true"] { outline: 2px solid #ffdc60; }
+        #prop-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
         #map-grid
         {
             position: absolute;
@@ -205,7 +212,8 @@
         #coverage { width: 100%; height: auto; }
         .map-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
         .map-footer .checkbox { flex: 0 0 auto; font-size: 13px; }
-        #status { display: block; margin: 0; min-width: 0; flex: 1 1 200px; }
+        #status { display: block; margin: 0; min-width: 0; padding: 0 16px 12px; max-height: 25vh; overflow: auto; }
+        #status:empty { display: none; }
 
         @media (max-width: 1100px)
         {
@@ -250,6 +258,13 @@
         </header>
         <div id="editor" inert>
             <aside class="sidebar" aria-label="Materials and layer settings">
+                <details open>
+                    <summary>Props</summary>
+                    <div id="prop-palette" class="material-palette" role="group" aria-label="Prop to place"></div>
+                    <div class="settings">
+                        <output id="prop-selection">No prop selected</output>
+                    </div>
+                </details>
                 <details open aria-labelledby="palette-heading">
                     <summary id="palette-heading">Material palette</summary>
                     <div id="material-palette" class="material-palette" role="group" aria-label="Material to edit"></div>
@@ -271,6 +286,7 @@
                 <details>
                     <summary>Help</summary>
                     <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
+                    <p class="hint">Choose a prop image to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to prop selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to prop selection, clearing palette highlights. In Select, Shift-click adds or removes a prop. Drag empty space to select prop centers inside a box, or Shift-drag to add them. Drag a selected prop to move the group. Delete or Backspace removes the selection. Escape in prop selection cancels a drag, or clears selection when idle. Props use native image size. Later placements draw on top. Selection uses image rectangles, including transparent pixels.</p>
                     <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
                     <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
                     <p class="hint">Layers composite from bottom to top. Terrain textures must be square, have identical dimensions, and be 64–4096 pixels per side in multiples of 64. Each whole texture repeats from the map origin at one texture pixel per world pixel. Texture edges must be seamless. Masks always cover 64×64 pixels.</p>
@@ -284,7 +300,8 @@
                         <h2 id="map-heading">Tilemap · 64 × 64</h2>
                         <div id="map-viewport" class="canvas-wrap">
                             <div class="map-surface">
-                                <canvas id="map" aria-label="Editable 64 by 64 layered material tilemap"></canvas>
+                                <canvas id="map" tabindex="0" aria-label="Editable 64 by 64 layered material tilemap"></canvas>
+                                <canvas id="prop-overlay" aria-hidden="true"></canvas>
                                 <svg id="map-grid" aria-hidden="true" focusable="false"></svg>
                             </div>
                         </div>
@@ -301,10 +318,10 @@
                 </div>
                 <div class="map-footer">
                     <label class="checkbox"><input id="show-grid" title="Show or hide the grid over the map." type="checkbox" checked> Show grid</label>
-                    <output id="status" class="hint" aria-live="polite">Loading Mosaic assets…</output>
                 </div>
             </div>
         </div>
+        <output id="status" class="hint" aria-live="polite">Loading Mosaic assets…</output>
     </main>
     <dialog id="project-dialog" aria-labelledby="project-dialog-heading">
         <h2 id="project-dialog-heading">Open Project</h2>

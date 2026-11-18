@@ -1,22 +1,39 @@
 import { listDirectory, loadProject } from "./project-http.ts";
-import { documentAssets,
-    validateDocument, type ProjectDocument, type Layer, type ImageAsset as TileAtlas } from "./document.ts";
+import { documentAssets, sameTerrainContent,
+    validateDocument, type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type PropAsset } from "./document.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
-import { drawTerrainRegion, drawCoverageRegion } from "./renderer.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawProps, type ImagePreview } from "./renderer.ts";
 import { kGridSize, kCellSize, kCellCount } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
+import { mapPoint, clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
 
 let project: ProjectDocument;
 let ready = false;
 let fileBusy = false;
-const assets = new Set<TileAtlas>();
+const assets = new Set<TileAtlas | PropAsset>();
 const editHistory = new History(100, 64 * 1024 * 1024);
 let paintPointerId: number | null = null;
 let lastPaintCell = -1;
 let panPointerId: number | null = null;
 let panX = 0;
 let panY = 0;
+let tool: "terrain" | "place" | "select" = "terrain";
+let selectedPropIds = new Set<number>();
+let selectedPropAsset: PropAsset | null = null;
+let propPointerId: number | null = null;
+let hoverClient: Point | null = null;
+let propGesture: {
+    readonly kind: "move" | "box";
+    readonly start: Point;
+    readonly clientStart: Point;
+    readonly beforeSelection: Set<number>;
+    readonly baseSelection: Set<number>;
+    readonly positions: { id: number; x: number; y: number }[];
+    readonly clickedId: number | null;
+    end: Point;
+    moved: boolean;
+} | null = null;
 
 interface Controls
 {
@@ -66,6 +83,216 @@ function getLayer(id: number): Layer
 }
 
 
+function drawPropOverlay(): void
+{
+    let preview: ImagePreview | null = null;
+    const asset = tool === "place" ? selectedPropAsset : tool === "terrain" ? getLayer(project.activeLayerId).sheet : null;
+    if(asset && hoverClient && panPointerId === null && !fileBusy
+        && !required("project-dialog", HTMLDialogElement).open)
+    {
+        const bounds = controls.map.getBoundingClientRect();
+        const point = mapPoint(hoverClient.x, hoverClient.y, bounds);
+        const size = kGridSize * kCellSize;
+        if(point.x >= 0 && point.y >= 0 && point.x <= size && point.y <= size)
+        {
+            if(tool === "terrain")
+            {
+                const thumbnail = controls.palette.querySelector<HTMLElement>('[aria-pressed="true"] .material-preview');
+                if(thumbnail)
+                {
+                    const rect = thumbnail.getBoundingClientRect();
+                    // A collapsed palette has no layout box, but retains its responsive CSS dimensions.
+                    const style = getComputedStyle(thumbnail);
+                    const width = rect.width || Number.parseFloat(style.width);
+                    const height = rect.height || Number.parseFloat(style.height);
+                    preview = { asset, ...point, size: {
+                        width: width * size / bounds.width,
+                        height: height * size / bounds.height
+                    } };
+                }
+            }
+            else { preview = { asset, ...point }; }
+        }
+    }
+    const box: SelectionBox | null = propGesture?.kind === "box" && propGesture.moved
+        ? { start: propGesture.start, end: propGesture.end } : null;
+    drawProps(project, required("prop-overlay", HTMLCanvasElement), selectedPropIds, preview, box);
+}
+
+function updatePropControls(): void
+{
+    selectedPropIds = new Set(project.props.filter((prop) => selectedPropIds.has(prop.id)).map((prop) => prop.id));
+    const selected = selectedPropIds.size === 1 ? project.props.find((prop) => selectedPropIds.has(prop.id)) : undefined;
+    required("prop-selection", HTMLOutputElement).value = selected?.asset.label
+        ?? (selectedPropIds.size > 1 ? `${selectedPropIds.size} props selected` : "No prop selected");
+}
+
+function renderPropPalette(): void
+{
+    if(selectedPropAsset === null || !project.propAssets.includes(selectedPropAsset)) { selectedPropAsset = project.propAssets[0] ?? null; }
+    const palette = required("prop-palette", HTMLDivElement);
+    palette.replaceChildren();
+    for(const asset of project.propAssets)
+    {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "material-choice";
+        button.title = `${asset.id} (${asset.width}×${asset.height})`;
+        button.setAttribute("aria-label", asset.label);
+        button.setAttribute("aria-pressed", String(tool === "place" && asset === selectedPropAsset));
+        const preview = document.createElement("img");
+        preview.src = asset.url;
+        preview.alt = "";
+        preview.className = "prop-preview";
+        button.append(preview);
+        button.addEventListener("click", () => {
+            selectedPropAsset = asset;
+            setTool("place");
+        });
+        palette.append(button);
+    }
+    if(project.propAssets.length === 0)
+    {
+        palette.textContent = "Add images to assets/props/ and reload the project.";
+    }
+}
+
+function setTool(next: typeof tool): void
+{
+    finishStroke();
+    tool = next;
+    if(next !== "select") { selectedPropIds.clear(); }
+    controls.map.dataset.tool = tool;
+    renderPalette();
+    renderPropPalette();
+    updatePropControls();
+    drawPropOverlay();
+}
+
+function propPoint(event: PointerEvent): { x: number; y: number }
+{
+    return mapPoint(event.clientX, event.clientY, controls.map.getBoundingClientRect());
+}
+
+function startProp(event: PointerEvent): void
+{
+    if(event.button === 2 && tool === "place")
+    {
+        event.preventDefault();
+        controls.map.focus({ preventScroll: true });
+        setTool("select");
+        return;
+    }
+    if(event.button !== 0 || paintPointerId !== null || panPointerId !== null || propPointerId !== null) { return; }
+    event.preventDefault();
+    controls.map.focus({ preventScroll: true });
+    const point = propPoint(event);
+    if(tool === "place")
+    {
+        const asset = selectedPropAsset;
+        if(!asset) { setMessage(controls.status, "Add an image to assets/props/ and reload the project.", true); return; }
+        if(project.props.length >= 10000) { setMessage(controls.status, "The level already contains 10,000 props.", true); return; }
+        edit("Place prop", () => {
+            const id = project.nextPropId++;
+            project.props.push({ id, asset, ...clampPropPoint(point.x, point.y), rotation: 0 });
+            selectedPropIds = new Set([id]);
+        });
+        return;
+    }
+    const prop = hitProp(project.props, point.x, point.y);
+    const beforeSelection = new Set(selectedPropIds);
+    if(prop && event.shiftKey)
+    {
+        if(!selectedPropIds.delete(prop.id)) { selectedPropIds.add(prop.id); }
+        updatePropControls();
+        drawPropOverlay();
+        return;
+    }
+    if(prop && !selectedPropIds.has(prop.id)) { selectedPropIds = new Set([prop.id]); }
+    if(!prop && !event.shiftKey) { selectedPropIds.clear(); }
+    propGesture = {
+        kind: prop ? "move" : "box", start: point, end: point,
+        clientStart: { x: event.clientX, y: event.clientY }, beforeSelection,
+        baseSelection: new Set(selectedPropIds), clickedId: prop?.id ?? null, moved: false,
+        positions: prop ? project.props.filter((candidate) => selectedPropIds.has(candidate.id))
+            .map(({ id, x, y }) => ({ id, x, y })) : []
+    };
+    if(prop) { editHistory.begin(project, selectedPropIds.size > 1 ? "Move props" : "Move prop"); }
+    propPointerId = event.pointerId;
+    controls.map.setPointerCapture(event.pointerId);
+    updatePropControls();
+    drawPropOverlay();
+}
+
+function updatePropGesture(event: PointerEvent): void
+{
+    const gesture = propGesture;
+    if(event.pointerId !== propPointerId || !gesture) { return; }
+    const point = propPoint(event);
+    gesture.end = clampPropPoint(point.x, point.y);
+    gesture.moved ||= Math.hypot(event.clientX - gesture.clientStart.x, event.clientY - gesture.clientStart.y) >= 3;
+    if(!gesture.moved) { return; }
+    if(gesture.kind === "box")
+    {
+        selectedPropIds = new Set([...gesture.baseSelection, ...propsInBox(project.props, gesture)]);
+        updatePropControls();
+    }
+    else
+    {
+        const delta = groupMoveDelta(gesture.positions, point.x - gesture.start.x, point.y - gesture.start.y);
+        const originals = new Map(gesture.positions.map((position) => [position.id, position]));
+        for(const prop of project.props)
+        {
+            const original = originals.get(prop.id);
+            if(original) { prop.x = original.x + delta.x; prop.y = original.y + delta.y; }
+        }
+    }
+    drawPropOverlay();
+}
+
+function moveProp(event: PointerEvent): void
+{
+    if(event.pointerId !== propPointerId) { return; }
+    if((event.buttons & 1) === 0) { finishPropDrag(false); return; }
+    updatePropGesture(event);
+}
+
+function finishPropDrag(cancel: boolean): void
+{
+    if(propPointerId === null || !propGesture) { return; }
+    const pointer = propPointerId;
+    const gesture = propGesture;
+    propPointerId = null;
+    propGesture = null;
+    if(controls.map.hasPointerCapture(pointer)) { controls.map.releasePointerCapture(pointer); }
+    if(cancel)
+    {
+        if(gesture.kind === "move")
+        {
+            const before = editHistory.rollback();
+            if(before) { before.view = { ...project.view }; project = before; }
+        }
+        selectedPropIds = gesture.beforeSelection;
+        updateProjectButtons();
+    }
+    else if(gesture.kind === "move")
+    {
+        if(!gesture.moved && gesture.clickedId !== null) { selectedPropIds = new Set([gesture.clickedId]); }
+        commitEdit();
+    }
+    updatePropControls();
+    drawPropOverlay();
+}
+
+function deleteSelectedProp(): void
+{
+    if(selectedPropIds.size === 0) { return; }
+    edit(selectedPropIds.size > 1 ? "Delete props" : "Delete prop", () => {
+        project.props = project.props.filter((prop) => !selectedPropIds.has(prop.id));
+        selectedPropIds.clear();
+    });
+}
+
 function drawRegion(startX: number, startY: number, endX: number, endY: number): void
 {
     drawTerrainRegion(project, controls.map, startX, startY, endX, endY);
@@ -75,6 +302,7 @@ function drawRegion(startX: number, startY: number, endX: number, endY: number):
 function draw(): void
 {
     drawRegion(0, 0, kGridSize, kGridSize);
+    drawPropOverlay();
 }
 
 /// Keep the grid vector-based so terrain scaling cannot discard thin lines.
@@ -121,7 +349,7 @@ function paintCell(cell: number, erase: boolean): void
     const layer = getLayer(project.activeLayerId);
     if(erase && layer === project.layers[0])
     {
-        controls.status.value = "The base cannot be cleared. Left-click to reveal it.";
+        setMessage(controls.status, "The base cannot be cleared. Left-click to reveal it.", false);
         return;
     }
     if(erase)
@@ -138,9 +366,9 @@ function paintCell(cell: number, erase: boolean): void
             higher.painted[cell] = false;
         }
     }
-    controls.status.value = erase
+    setMessage(controls.status, erase
         ? `${layer.sheet.label}: cleared ${tileX + 1}, ${tileY + 1}`
-        : `${layer.sheet.label}: ${layer === project.layers[0] ? "revealed" : "occupied"} ${tileX + 1}, ${tileY + 1}; higher layers cleared`;
+        : `${layer.sheet.label}: ${layer === project.layers[0] ? "revealed" : "occupied"} ${tileX + 1}, ${tileY + 1}; higher layers cleared`, false);
     drawRegion(Math.max(0, tileX - 1), Math.max(0, tileY - 1),
         Math.min(kGridSize, tileX + 2), Math.min(kGridSize, tileY + 2));
 }
@@ -194,7 +422,8 @@ function paintDragAt(event: PointerEvent): void
 
 function startPaint(event: PointerEvent): void
 {
-    if(paintPointerId !== null || panPointerId !== null)
+    if(tool !== "terrain") { startProp(event); return; }
+    if(paintPointerId !== null || panPointerId !== null || propPointerId !== null)
     {
         return;
     }
@@ -214,6 +443,7 @@ function startPaint(event: PointerEvent): void
         return;
     }
     event.preventDefault();
+    controls.map.focus({ preventScroll: true });
     editHistory.begin(project, "Paint stroke");
     paintPointerId = event.pointerId;
     lastPaintCell = -1;
@@ -223,6 +453,7 @@ function startPaint(event: PointerEvent): void
 
 function movePaint(event: PointerEvent): void
 {
+    if(propPointerId !== null) { moveProp(event); return; }
     if(event.pointerId !== paintPointerId)
     {
         return;
@@ -237,6 +468,12 @@ function movePaint(event: PointerEvent): void
 
 function endPaint(event: PointerEvent): void
 {
+    if(event.pointerId === propPointerId)
+    {
+        if(event.type === "pointerup") { updatePropGesture(event); }
+        finishPropDrag(event.type === "pointercancel");
+        return;
+    }
     if(event.pointerId !== paintPointerId)
     {
         return;
@@ -247,7 +484,7 @@ function endPaint(event: PointerEvent): void
 /// Capture panning on the viewport so dragging can continue outside the map.
 function startPan(event: PointerEvent): void
 {
-    if(event.button !== 1 || paintPointerId !== null || panPointerId !== null)
+    if(event.button !== 1 || paintPointerId !== null || panPointerId !== null || propPointerId !== null)
     {
         return;
     }
@@ -257,6 +494,7 @@ function startPan(event: PointerEvent): void
     panY = event.clientY;
     controls.mapViewport.setPointerCapture(event.pointerId);
     controls.mapViewport.classList.add("panning");
+    drawPropOverlay();
 }
 
 function movePan(event: PointerEvent): void
@@ -284,6 +522,7 @@ function endPan(event: PointerEvent): void
     }
     panPointerId = null;
     controls.mapViewport.classList.remove("panning");
+    drawPropOverlay();
     if(controls.mapViewport.hasPointerCapture(event.pointerId))
     {
         controls.mapViewport.releasePointerCapture(event.pointerId);
@@ -295,7 +534,7 @@ function zoomMap(event: WheelEvent): void
 {
     if(!event.altKey) { return; }
     event.preventDefault();
-    if(paintPointerId !== null || panPointerId !== null)
+    if(paintPointerId !== null || panPointerId !== null || propPointerId !== null)
     {
         return;
     }
@@ -315,6 +554,7 @@ function zoomMap(event: WheelEvent): void
     viewport.scrollLeft = scrollLeft + offsetX * (ratio - 1);
     viewport.scrollTop = scrollTop + offsetY * (ratio - 1);
     project.view.zoom = nextZoom;
+    drawPropOverlay();
     session.changed();
     updateGrid();
     saveView();
@@ -340,14 +580,14 @@ function renderPalette(): void
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
-        button.setAttribute("aria-pressed", String(layer.id === project.activeLayerId));
+        button.setAttribute("aria-pressed", String(tool === "terrain" && layer.id === project.activeLayerId));
         const swatch = document.createElement("span");
         swatch.className = "material-preview";
         swatch.setAttribute("aria-hidden", "true");
         swatch.style.backgroundImage = `url(${JSON.stringify(layer.sheet.url)})`;
         swatch.style.backgroundSize = "100% 100%";
         const filename = layer.sheet.label;
-        button.title = layer.sheet.id.split("/").slice(-2).join("/");
+        button.title = layer.sheet.id;
         button.setAttribute("aria-label", filename);
         button.append(swatch);
         button.addEventListener("click", () => setActiveLayer(layer.id));
@@ -357,6 +597,7 @@ function renderPalette(): void
 
 function setActiveLayer(id: number): void
 {
+    setTool("terrain");
     if(id === project.activeLayerId)
     {
         return;
@@ -364,10 +605,11 @@ function setActiveLayer(id: number): void
     project.activeLayerId = id;
     session.changed();
     renderPalette();
-    controls.status.value = getLayer(id) === project.layers[0]
+    setMessage(controls.status, getLayer(id) === project.layers[0]
         ? "Base selected. Left-click or drag to clear overlays and reveal the background."
-        : `${getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`;
+        : `${getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`, false);
     drawCoverageRegion(project, controls.coverage, 0, 0, kGridSize, kGridSize);
+    drawPropOverlay();
 }
 
 function addSheetInfo(layer: Layer, card: HTMLDivElement): void
@@ -508,7 +750,23 @@ controls.activeMask.addEventListener("change", () => edit("Change mask mode", ()
     project.maskMode = controls.activeMask.value === "random" ? "random" : Number(controls.activeMask.value);
 }));
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
-controls.mapViewport.addEventListener("scroll", saveView);
+controls.mapViewport.addEventListener("scroll", () => {
+    saveView();
+    if(ready) { drawPropOverlay(); }
+});
+controls.mapViewport.addEventListener("pointermove", (event) => {
+    hoverClient = event.pointerType === "touch" ? null : { x: event.clientX, y: event.clientY };
+    if(ready && tool !== "select") { drawPropOverlay(); }
+});
+controls.mapViewport.addEventListener("pointerleave", () => {
+    hoverClient = null;
+    if(ready) { drawPropOverlay(); }
+});
+globalThis.addEventListener("resize", () => { if(ready) { drawPropOverlay(); } });
+globalThis.addEventListener("blur", () => {
+    hoverClient = null;
+    if(ready) { finishPropDrag(true); drawPropOverlay(); }
+});
 required("reset", HTMLButtonElement).addEventListener("click", resetSample);
 
 function renderMaskChoices(): void
@@ -538,16 +796,22 @@ async function start(): Promise<void>
     finally { required("mosaic", HTMLElement).inert = false; updateProjectButtons(); }
 }
 
+function setMessage(output: HTMLOutputElement, message: string, error: boolean): void
+{
+    output.value = message;
+    output.classList.toggle("error", error);
+}
+
 function showError(error: unknown): void
 {
-    controls.status.value = error instanceof Error ? error.message : String(error);
+    setMessage(controls.status, error instanceof Error ? error.message : String(error), true);
 }
 
 function updateSaveStatus(status: SaveStatus): void
 {
     const state = status.error ? `Save failed: ${status.error} — press Ctrl/Cmd+S to retry`
         : status.saving ? "Saving…" : status.dirty ? "Unsaved" : "Saved";
-    required("save-status", HTMLOutputElement).value = `${status.filename ? decodeURIComponent(new URL(status.filename).pathname.split("/").at(-2)!) : "No project"} — ${state}`;
+    setMessage(required("save-status", HTMLOutputElement), `${status.filename ? decodeURIComponent(new URL(status.filename).pathname.split("/").at(-2)!) : "No project"} — ${state}`, status.error !== null);
 }
 
 const session = new ProjectSession(() => editHistory.committedState(project), writeProject, updateSaveStatus, 600);
@@ -575,7 +839,9 @@ function collectAssets(): void
     }
 }
 
-function refreshDocument(): void
+/// Refresh controls against the current snapshot, but reuse unchanged terrain pixels.
+/// Pass null when installing a project. Otherwise previous describes the rendered terrain.
+function refreshDocument(previous: ProjectDocument | null): void
 {
     controls.showGrid.checked = project.view.showGrid;
     const size = kGridSize * kCellSize * project.view.zoom;
@@ -583,7 +849,23 @@ function refreshDocument(): void
     controls.map.style.height = `${size}px`;
     renderMaskChoices();
     renderLayers();
-    draw();
+    renderPropPalette();
+    controls.map.dataset.tool = tool;
+    updatePropControls();
+    if(previous === null || !sameTerrainContent(previous, project))
+    {
+        draw();
+    }
+    else
+    {
+        const previousLayer = previous.layers.findIndex((layer) => layer.id === previous.activeLayerId);
+        const activeLayer = project.layers.findIndex((layer) => layer.id === project.activeLayerId);
+        if(previousLayer !== activeLayer)
+        {
+            drawCoverageRegion(project, controls.coverage, 0, 0, kGridSize, kGridSize);
+        }
+        drawPropOverlay();
+    }
     updateGrid();
     controls.mapViewport.scrollLeft = project.view.scrollLeft;
     controls.mapViewport.scrollTop = project.view.scrollTop;
@@ -594,14 +876,17 @@ function installDocument(next: ProjectDocument): void
 {
     validateDocument(next);
     project = next;
+    selectedPropIds.clear();
+    hoverClient = null;
+    selectedPropAsset = null;
     ready = true;
     editHistory.clear();
     for(const asset of documentAssets(next)) { assets.add(asset); }
     required("editor", HTMLDivElement).inert = false;
     initializeGrid();
-    refreshDocument();
+    refreshDocument(null);
     collectAssets();
-    controls.status.value = "";
+    setMessage(controls.status, "", false);
 }
 
 function saveView(): void
@@ -629,6 +914,7 @@ function commitEdit(): void
 
 function finishStroke(): void
 {
+    finishPropDrag(false);
     if(paintPointerId === null) { return; }
     const pointer = paintPointerId;
     paintPointerId = null;
@@ -641,6 +927,7 @@ function edit(label: string, mutate: () => void): void
 {
     finishStroke();
     editHistory.begin(project, label);
+    const previous = editHistory.committedState(project);
     try
     {
         mutate();
@@ -652,7 +939,7 @@ function edit(label: string, mutate: () => void): void
         if(before !== null) { project = before; }
         showError(error);
     }
-    refreshDocument();
+    refreshDocument(previous);
     collectAssets();
 }
 
@@ -667,9 +954,10 @@ function changeHistory(redo: boolean): void
     {
         restored.activeLayerId = project.activeLayerId;
     }
+    const previous = project;
     project = restored;
     session.changed();
-    refreshDocument();
+    refreshDocument(previous);
     collectAssets();
 }
 
@@ -708,7 +996,7 @@ async function refreshProjects(): Promise<void>
     const message = required("project-message", HTMLOutputElement);
     const selected = choices.value;
     projectListing = true;
-    message.value = "Loading projects…";
+    setMessage(message, "Loading projects…", false);
     updateChooserButtons();
     try
     {
@@ -717,15 +1005,15 @@ async function refreshProjects(): Promise<void>
         choices.replaceChildren(...urls.map((url) =>
             new Option(decodeURIComponent(new URL(url).pathname.split("/").at(-2)!), url)));
         choices.value = urls.includes(selected) ? selected : urls[0] ?? "";
-        message.value = urls.length ? "Select a project, then click Open."
-            : "No projects found. Add a project folder, then click Refresh Projects.";
-        if(!dialog.open && !urls.length) { controls.status.value = message.value; }
+        setMessage(message, urls.length ? "Select a project, then click Open."
+            : "No projects found. Add a project folder, then click Refresh Projects.", false);
+        if(!dialog.open && !urls.length) { setMessage(controls.status, message.value, false); }
     }
     catch(error)
     {
         if(request !== projectListingRequest) { return; }
         choices.replaceChildren();
-        message.value = error instanceof Error ? error.message : String(error);
+        setMessage(message, error instanceof Error ? error.message : String(error), true);
         if(!dialog.open) { showError(error); }
     }
     finally
@@ -746,6 +1034,8 @@ async function showProjectChooser(): Promise<void>
     if(dialog.open) { return; }
     if(currentFolder !== null) { required("project-choice", HTMLSelectElement).value = currentFolder; }
     dialog.showModal();
+    hoverClient = null;
+    if(ready) { drawPropOverlay(); }
     await refreshProjects();
 }
 
@@ -754,6 +1044,8 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
     if(fileBusy || (action === "open" && projectListing)) { return; }
     finishStroke();
     fileBusy = true;
+    hoverClient = null;
+    if(ready) { drawPropOverlay(); }
     updateProjectButtons();
     required("mosaic", HTMLElement).inert = true;
     try
@@ -761,7 +1053,7 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
         if(action === "save") { await session.flush(); return; }
         const folder = action === "reload" ? currentFolder : required("project-choice", HTMLSelectElement).value;
         if(!folder) { return; }
-        if(action === "open") { required("project-message", HTMLOutputElement).value = "Opening project…"; }
+        if(action === "open") { setMessage(required("project-message", HTMLOutputElement), "Opening project…", false); }
         if(ready) { await session.flush(); }
         const next = await loadProject(folder);
         installDocument(next.project);
@@ -774,7 +1066,7 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
         showError(error);
         if(action === "open")
         {
-            required("project-message", HTMLOutputElement).value = error instanceof Error ? error.message : String(error);
+            setMessage(required("project-message", HTMLOutputElement), error instanceof Error ? error.message : String(error), true);
         }
     }
     finally
@@ -785,6 +1077,45 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
         collectAssets();
     }
 }
+
+globalThis.addEventListener("keydown", (event) => {
+    if(!ready || fileBusy || required("project-dialog", HTMLDialogElement).open) { return; }
+    if(event.key === "Escape")
+    {
+        event.preventDefault();
+        const wasSelecting = tool === "select" && propPointerId === null;
+        finishPropDrag(true);
+        if(paintPointerId !== null)
+        {
+            const pointer = paintPointerId;
+            paintPointerId = null;
+            lastPaintCell = -1;
+            if(controls.map.hasPointerCapture(pointer)) { controls.map.releasePointerCapture(pointer); }
+            const previous = project;
+            const before = editHistory.rollback();
+            if(before) { before.view = { ...project.view }; project = before; }
+            refreshDocument(previous);
+        }
+        if(panPointerId !== null)
+        {
+            const pointer = panPointerId;
+            panPointerId = null;
+            controls.mapViewport.classList.remove("panning");
+            if(controls.mapViewport.hasPointerCapture(pointer)) { controls.mapViewport.releasePointerCapture(pointer); }
+        }
+        if(wasSelecting) { selectedPropIds.clear(); }
+        setTool("select");
+        return;
+    }
+    const target = event.target;
+    if(target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) { return; }
+    if((event.key === "Delete" || event.key === "Backspace") && selectedPropIds.size > 0
+        && !event.ctrlKey && !event.metaKey && !event.altKey)
+    {
+        event.preventDefault();
+        deleteSelectedProp();
+    }
+});
 
 required("project-reload", HTMLButtonElement).addEventListener("click", () => { void fileAction("reload"); });
 required("project-open", HTMLButtonElement).addEventListener("click", () => { void showProjectChooser(); });

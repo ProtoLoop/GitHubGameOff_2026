@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { createDocument, type ImageAsset } from "./document.ts";
+import { createDocument, type ImageAsset, type PropAsset } from "./document.ts";
 import { readProject, writeProject } from "./project-file.ts";
 import { cellMasks, terrainSourceOffset } from "./placement.ts";
 
@@ -26,10 +26,10 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 7,'));
+    assert(text.includes('\n  "version": 9,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
-    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "layers", "editor"]);
+    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "propAssets", "props", "layers", "editor"]);
     assert.deepEqual(data.tileSheets, [tile.id]);
     assert.deepEqual(data.maskSheets, [mask.id]);
     assert.deepEqual(data.layers[0], { sheet: 0, cells: [] });
@@ -78,6 +78,7 @@ Deno.test("invalid sparse records and missing assets fail before installation", 
     type File = typeof original;
     const changes: ((data: File) => void)[] = [
         (data) => { data.version = 2; },
+        (data) => { data.version = 8; },
         (data) => { data.editor = null; },
         (data) => { data.maskSheets.push(mask.id); },
         (data) => { data.tileSheets.push(tile.id); },
@@ -155,4 +156,63 @@ Deno.test("whole-texture dimensions are derived and discovered textures must mat
         await assert.rejects(() => readProject(blob, [material, mask,
             { ...extra, dimension: dimension === 256 ? 512 : 256 }]), /extra.png/);
     }
+});
+
+Deno.test("props round-trip with catalog order, transforms and placement order intact", async () => {
+    const asset: PropAsset = { id: "assets/props/stone #1.png", kind: "prop", label: "stone #1.png",
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource };
+    const extra = { ...asset, id: "assets/props/extra.png", label: "extra.png" };
+    const project = fixture();
+    project.propAssets = [asset];
+    project.props = [{ id: 5, asset, x: 200.5, y: 300.25, rotation: 45 },
+        { id: 9, asset, x: 100, y: 200, rotation: 270 }];
+    project.nextPropId = 10;
+    const blob = await writeProject(project);
+    const data = JSON.parse(await blob.text());
+    const loaded = await readProject(blob, [tile, mask, extra, asset]);
+    assert.deepEqual(loaded.propAssets, [asset, extra]);
+    assert.deepEqual(loaded.props.map(({ x, y, rotation }) => ({ x, y, rotation })),
+        project.props.map(({ x, y, rotation }) => ({ x, y, rotation })));
+    assert.equal(loaded.nextPropId, 2);
+    assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()).props, data.props);
+    await assert.rejects(() => readProject(blob, [tile, mask]));
+    for(const corrupt of [
+        (d: typeof data) => { d.version = 7; },
+        (d: typeof data) => { delete d.props; },
+        (d: typeof data) => { d.props[0].asset = 1; },
+        (d: typeof data) => { d.props[0].x = "200"; },
+        (d: typeof data) => { d.props[0].y = null; },
+        (d: typeof data) => { d.props[0].rotation = 360; },
+        (d: typeof data) => { d.propAssets = [tile.id]; }
+    ])
+    {
+        const invalid = structuredClone(data);
+        corrupt(invalid);
+        await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), [tile, mask, asset]));
+    }
+});
+
+Deno.test("nested paths round-trip and newly discovered catalogs append without changing references", async () => {
+    const first = image("tile", "woods/ground.png");
+    const second = image("tile", "fields/ground.png");
+    const extra = image("tile", "a/ground.png");
+    const prop: PropAsset = { kind: "prop", id: "assets/props/old #/stone%20.png", label: "old #/stone%20.png",
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource };
+    const newProp = { ...prop, id: "assets/props/new/stone%20.png", label: "new/stone%20.png" };
+    const project = createDocument([first, second], [mask]);
+    project.propAssets = [prop];
+    project.props = [{ id: 0, asset: prop, x: 100, y: 200, rotation: 0 }];
+    project.nextPropId = 1;
+    const blob = await writeProject(project);
+    const loaded = await readProject(blob, [extra, second, first, mask, newProp, prop]);
+    assert.deepEqual(loaded.tileSheets, [first, second, extra]);
+    assert.deepEqual(loaded.propAssets, [prop, newProp]);
+    assert.equal(loaded.layers[1].sheet, second);
+    assert.equal(loaded.props[0].asset, prop);
+    const saved = JSON.parse(await (await writeProject(loaded)).text());
+    assert.deepEqual(saved.tileSheets, [first.id, second.id, extra.id]);
+    assert.deepEqual(saved.propAssets, [prop.id, newProp.id]);
+    const again = await readProject(await writeProject(loaded), [extra, second, first, mask, newProp, prop]);
+    assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), saved);
+    await assert.rejects(() => readProject(blob, [first, second, mask, newProp]), /Missing image/);
 });

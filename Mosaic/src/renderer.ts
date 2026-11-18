@@ -1,4 +1,5 @@
-import { type ProjectDocument, type MaskPlacement } from "./document.ts";
+import { type SelectionBox } from "./props.ts";
+import { type ProjectDocument, type MaskPlacement, type PropAsset, type ImageAsset } from "./document.ts";
 import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
 import { kGridSize, kCellSize, kHalfCellSize } from "./grid.ts";
 
@@ -110,3 +111,89 @@ export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasE
     context.putImageData(coverage, startX * kCellSize, startY * kCellSize);
 }
 
+
+export interface ImagePreview
+{
+    readonly asset: PropAsset | ImageAsset;
+    /// Optional draw dimensions in map pixels. Omit to retain native image size.
+    readonly size?: { readonly width: number; readonly height: number };
+    readonly x: number;
+    readonly y: number;
+}
+
+// Weak keys keep decoded preview canvases alive only as long as their source assets.
+const terrainPreviewImages = new WeakMap<ImageAsset, OffscreenCanvas>();
+
+function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
+{
+    const cached = terrainPreviewImages.get(asset);
+    if(cached) { return cached; }
+    const canvas = new OffscreenCanvas(asset.dimension, asset.dimension);
+    const context = canvas.getContext("2d");
+    if(context === null) { throw new Error("Canvas 2D is unavailable"); }
+    const image = context.createImageData(asset.dimension, asset.dimension);
+    image.data.set(asset.pixels);
+    // Terrain ignores source alpha, matching the painted map rather than the image file.
+    for(let offset = 3; offset < image.data.length; offset += 4) { image.data[offset] = 255; }
+    context.putImageData(image, 0, 0);
+    terrainPreviewImages.set(asset, canvas);
+    return canvas;
+}
+
+/// A transparent overlay keeps previews and selection separate from terrain rendering.
+export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, selectedIds: ReadonlySet<number>,
+    preview: ImagePreview | null, box: SelectionBox | null): void
+{
+    const context = prepareCanvas(canvas);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingEnabled = false;
+    for(const prop of project.props)
+    {
+        context.save();
+        context.translate(prop.x, prop.y);
+        context.rotate(prop.rotation * Math.PI / 180);
+        context.drawImage(prop.asset.image, -prop.asset.width / 2, -prop.asset.height / 2);
+        context.restore();
+    }
+    for(const selected of project.props)
+    {
+        if(!selectedIds.has(selected.id)) { continue; }
+        context.save();
+        context.translate(selected.x, selected.y);
+        context.rotate(selected.rotation * Math.PI / 180);
+        context.strokeStyle = "#ffdc60";
+        context.lineWidth = 2 / project.view.zoom;
+        context.strokeRect(-selected.asset.width / 2, -selected.asset.height / 2,
+            selected.asset.width, selected.asset.height);
+        context.restore();
+    }
+    if(preview)
+    {
+        context.save();
+        context.globalAlpha = 0.5;
+        const asset = preview.asset;
+        const image = asset.kind === "prop" ? asset.image : terrainPreviewImage(asset);
+        const width = preview.size?.width ?? (asset.kind === "prop" ? asset.width : asset.dimension);
+        const height = preview.size?.height ?? (asset.kind === "prop" ? asset.height : asset.dimension);
+        if(preview.size)
+        {
+            context.drawImage(image, preview.x - width / 2, preview.y - height / 2, width, height);
+        }
+        else { context.drawImage(image, preview.x - width / 2, preview.y - height / 2); }
+        context.restore();
+    }
+    if(box)
+    {
+        context.save();
+        context.strokeStyle = "#ffdc60";
+        context.fillStyle = "rgba(255, 220, 96, 0.12)";
+        context.lineWidth = 1 / project.view.zoom;
+        const x = Math.min(box.start.x, box.end.x);
+        const y = Math.min(box.start.y, box.end.y);
+        const width = Math.abs(box.end.x - box.start.x);
+        const height = Math.abs(box.end.y - box.start.y);
+        context.fillRect(x, y, width, height);
+        context.strokeRect(x, y, width, height);
+        context.restore();
+    }
+}

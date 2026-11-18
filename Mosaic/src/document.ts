@@ -1,15 +1,36 @@
 import { kGridSize, kCellSize, kCellCount, kMaskAtlasGridSize, kMaskAtlasPixelSize, kMaskPixelCount } from "./grid.ts";
 
-export interface ImageAsset
+export interface Asset
 {
     readonly id: string;
-    readonly kind: "tile" | "mask";
     readonly label: string;
     readonly blob: Blob;
+    readonly url: string;
+}
+
+export interface PropAsset extends Asset
+{
+    readonly kind: "prop";
+    readonly width: number;
+    readonly height: number;
+    readonly image: CanvasImageSource;
+}
+
+export interface Prop
+{
+    readonly id: number;
+    readonly asset: PropAsset;
+    x: number;
+    y: number;
+    rotation: number;
+}
+
+export interface ImageAsset extends Asset
+{
+    readonly kind: "tile" | "mask";
     readonly dimension: number;
     readonly pixels: Uint8ClampedArray;
     readonly coverage: Uint8Array;
-    readonly url: string;
 }
 
 export type Rotation = "0" | "90" | "180" | "270";
@@ -35,6 +56,9 @@ export interface Layer
 export interface ProjectDocument
 {
     readonly gridSize: typeof kGridSize;
+    propAssets: readonly PropAsset[];
+    props: Prop[];
+    nextPropId: number;
     layers: Layer[];
     tileSheets: readonly ImageAsset[];
     masks: readonly ImageAsset[];
@@ -53,6 +77,7 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     const sheets = [tiles[0], tiles[Math.min(1, tiles.length - 1)]];
     const project: ProjectDocument = {
         gridSize: kGridSize, nextLayerId: 2, activeLayerId: 1,
+        propAssets: [], props: [], nextPropId: 0,
         tileSheets: [...tiles], masks: [...masks], maskMode: "random",
         view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true },
         layers: sheets.map((sheet, id) => ({
@@ -67,7 +92,8 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
 export function cloneDocument(project: ProjectDocument): ProjectDocument
 {
     return {
-        ...project, view: { ...project.view }, tileSheets: [...project.tileSheets], masks: [...project.masks],
+        ...project, propAssets: [...project.propAssets], props: project.props.map((prop) => ({ ...prop })),
+        view: { ...project.view }, tileSheets: [...project.tileSheets], masks: [...project.masks],
         layers: project.layers.map((layer) => ({ ...layer, painted: [...layer.painted] }))
     };
 }
@@ -76,13 +102,21 @@ export function documentBytes(project: ProjectDocument): number
 {
     // Conservative estimate for boolean array slots, excluding shared images.
     return project.layers.reduce((total, layer) => total + 128 + layer.painted.length * 8,
-        256 + (project.tileSheets.length + project.masks.length) * 8);
+        256 + project.props.length * 128 + (project.tileSheets.length + project.masks.length + project.propAssets.length) * 8);
 }
 
 /// View changes and swatch selection do not create undo actions.
 export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
 {
-    if(a.nextLayerId !== b.nextLayerId || a.maskMode !== b.maskMode
+    if(a.nextPropId !== b.nextPropId || a.props.length !== b.props.length
+        || a.propAssets.length !== b.propAssets.length
+        || a.propAssets.some((asset, index) => asset !== b.propAssets[index])
+        || a.props.some((prop, index) => {
+            const other = b.props[index];
+            return prop.id !== other.id || prop.asset !== other.asset || prop.x !== other.x
+                || prop.y !== other.y || prop.rotation !== other.rotation;
+        })
+        || a.nextLayerId !== b.nextLayerId || a.maskMode !== b.maskMode
         || a.layers.length !== b.layers.length || a.masks.length !== b.masks.length
         || a.tileSheets.length !== b.tileSheets.length
         || a.tileSheets.some((sheet, index) => sheet !== b.tileSheets[index])
@@ -97,9 +131,39 @@ export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
     });
 }
 
-export function documentAssets(project: ProjectDocument): ImageAsset[]
+/// Compare inputs to terrain rendering. Images are immutable and compared by identity.
+/// Props, view settings, catalog-only terrain images, and session layer IDs do not affect it.
+/// Selected-layer coverage must additionally account for the active layer's array index.
+export function sameTerrainContent(a: ProjectDocument, b: ProjectDocument): boolean
 {
-    return [...new Set([...project.tileSheets, ...project.masks])];
+    return a.gridSize === b.gridSize && a.maskMode === b.maskMode
+        && a.layers.length === b.layers.length && a.masks.length === b.masks.length
+        && a.masks.every((mask, index) => mask === b.masks[index])
+        && a.layers.every((layer, index) => {
+            const other = b.layers[index];
+            return layer.sheet === other.sheet && layer.painted.length === other.painted.length
+                && layer.painted.every((painted, cell) => painted === other.painted[cell]);
+        });
+}
+
+export function documentAssets(project: ProjectDocument): (ImageAsset | PropAsset)[]
+{
+    return [...new Set([...project.tileSheets, ...project.masks, ...project.propAssets])];
+}
+
+/// Asset IDs contain literal filenames, not URL escapes. Masks remain a flat catalog.
+function validAssetPath(asset: ImageAsset | PropAsset): boolean
+{
+    const root = asset.kind === "tile" ? "tiles" : asset.kind === "mask" ? "masks" : "props";
+    const parts = asset.id.split("/");
+    for(const character of asset.id)
+    {
+        if(character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) { return false; }
+    }
+    return asset.id.length <= 1024 && parts.length >= 3
+        && parts[0] === "assets" && parts[1] === root
+        && (asset.kind !== "mask" || parts.length === 3)
+        && parts.every((part) => part.length > 0 && part !== "." && part !== ".." && !part.includes("\\"));
 }
 
 export function validateDocument(project: ProjectDocument): void
@@ -157,11 +221,43 @@ export function validateDocument(project: ProjectDocument): void
     {
         fail("invalid mask set or selection");
     }
+    if(project.propAssets.length > 256 || project.props.length > 10000
+        || new Set(project.propAssets).size !== project.propAssets.length)
+    {
+        fail("invalid prop catalog or instance count");
+    }
+    for(const asset of project.propAssets)
+    {
+        if(asset.kind !== "prop"
+            || !Number.isSafeInteger(asset.width) || !Number.isSafeInteger(asset.height)
+            || asset.width < 1 || asset.height < 1 || asset.width > 4096 || asset.height > 4096)
+        {
+            fail("invalid prop image");
+        }
+    }
+    const propIds = new Set<number>();
+    for(const prop of project.props)
+    {
+        if(!Number.isSafeInteger(prop.id) || prop.id < 0 || propIds.has(prop.id)
+            || !project.propAssets.includes(prop.asset)
+            || !Number.isFinite(prop.x) || !Number.isFinite(prop.y)
+            || prop.x < 0 || prop.y < 0 || prop.x > kGridSize * kCellSize || prop.y > kGridSize * kCellSize
+            || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360)
+        {
+            fail("invalid prop placement");
+        }
+        propIds.add(prop.id);
+    }
+    if(!Number.isSafeInteger(project.nextPropId) || project.nextPropId < 0
+        || project.props.some((prop) => prop.id >= project.nextPropId))
+    {
+        fail("invalid next prop ID");
+    }
     const assets = documentAssets(project);
     if(new Set(project.tileSheets).size !== project.tileSheets.length
         || new Set(project.masks).size !== project.masks.length
         || new Set(assets.map((asset) => asset.id)).size !== assets.length
-        || assets.some((asset) => !/^assets\/(tiles|masks)\/[^/\\]+$/.test(asset.id)
+        || assets.some((asset) => !validAssetPath(asset)
             || !asset.label || asset.label.length > 1024))
     {
         fail("invalid or conflicting asset identity or filename");
@@ -213,6 +309,28 @@ export async function decodeAsset(blob: Blob, label: string, id: string, kind: "
             }
         }
         return { id, kind, label, blob, dimension, pixels, coverage, url: URL.createObjectURL(blob) };
+    }
+    finally { bitmap.close(); }
+}
+
+/// Keep a decoded canvas with each immutable asset so drawing never waits for image loading.
+export async function decodePropAsset(blob: Blob, label: string, id: string): Promise<PropAsset>
+{
+    let bitmap: ImageBitmap;
+    try { bitmap = await createImageBitmap(blob); }
+    catch { throw new Error(`Could not decode ${label}`); }
+    try
+    {
+        const { width, height } = bitmap;
+        if(width < 1 || height < 1 || width > 4096 || height > 4096)
+        {
+            throw new Error(`${label}: prop images must be 1–4096 pixels along each axis`);
+        }
+        const image = new OffscreenCanvas(width, height);
+        const context = image.getContext("2d");
+        if(context === null) { throw new Error("Canvas 2D is unavailable"); }
+        context.drawImage(bitmap, 0, 0);
+        return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image };
     }
     finally { bitmap.close(); }
 }

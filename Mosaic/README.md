@@ -7,10 +7,12 @@ my-project/
   assets/
     tiles/       # equally sized square seamless terrain textures
     masks/       # 256×256 alpha-mask sheets
+    props/       # optional individual decorative images, including transparency
   level.json     # created when you save
 ```
 
-Put PNG, JPEG, or WebP images directly in the appropriate folders. All terrain
+Put PNG, JPEG, or WebP images in the appropriate folders. Tiles and props may
+use nested subfolders at any depth. Masks must be directly inside `assets/masks/`. All terrain
 textures in a level must be square, have identical pixel dimensions, and be
 64–4096 pixels per side in multiples of 64. Each entire texture is one tile.
 
@@ -21,7 +23,10 @@ seamless. Layer details show texture dimensions and cell coverage. Changing a
 layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The included
-`sample` project provides assets. Copy a project folder to make another project.
+`sample` project provides assets. Copy its asset folders to make a new project.
+Mosaic reads and writes version 9 only, with no migration support. Existing
+version-7 and version-8 level files, including the checked-in sample, cannot be opened by this
+version. A project without `level.json` starts a new level.
 
 Build from the workspace root with CMake 3.27+, Ninja, and Python 3.9+:
 
@@ -46,9 +51,39 @@ the toolbar wraps and the coverage preview moves below the map.
   **Refresh Projects** updates the list. **Cancel** or Escape closes the chooser.
 - **Reload Project** picks up external level or asset changes, with no rebuild.
 - Select a swatch and drag left to paint. Right-click erases the selected overlay.
+- Choose a prop palette swatch for placement or a terrain swatch for painting.
+  The active swatch is highlighted. Escape cancels the active gesture and always
+  returns to prop selection, clearing palette highlights while retaining the last
+  choices. Prop selection uses the move cursor, placement uses the default arrow,
+  and terrain painting uses a crosshair. Middle-button panning uses the grabbing cursor.
+- Terrain painting shows a 50%-opacity preview of the selected whole texture,
+  centered under the cursor at the palette thumbnail's displayed size (56×56 pixels,
+  or 42×42 on narrow windows), independent of map zoom. It follows scrolling and
+  disappears outside the map or after Escape. Painting still affects individual
+  cells. The preview does not change terrain sampling or brush size.
+- Choose a prop swatch to enter **Place**. A translucent preview follows the cursor
+  at native image size. Left-click places one copy and stays in Place for repeated
+  stamping. Escape or right-click returns to Select, keeping the last copy selected.
+  Choose a prop swatch again to resume placement. Previewing does not save or create
+  undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
+  reload to update the palette. Rectangular images support 1–4096 pixels per axis.
+- In **Select**, click a prop to select it. Shift-click adds or removes it from the
+  selection. Drag empty space to box-select props whose centers lie inside the box.
+  Shift-drag empty space adds those props to the selection. Clicking without dragging
+  selects only the clicked prop, while dragging a selected prop moves the group.
+- Selected props have outlines and the sidebar shows the selection count. Delete
+  or Backspace removes the group as one undo action.
+  Escape cancels an active move or box selection, otherwise it clears selection.
+  Picking uses rotated image rectangles, including transparent pixels. Later
+  placements draw on top.
+- Props move freely in map pixels. Their
+  centers stay within the map, with group spacing preserved at the edges. Artwork
+  is clipped at map edges. Each drag is
+  one undo action. Choose a material swatch to resume painting.
 - Drag the middle mouse button to pan. Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor.
 - Edits autosave after a short pause. Ctrl/Cmd+S saves immediately or retries a failed save.
-- Hover over controls for tooltips. Palette swatches show the parent folder and filename.
+- Hover over controls for tooltips. Palette tooltips show the full project-relative path. Asset labels include
+  subfolder names to distinguish identical filenames.
 - Ctrl/Cmd+Z undoes. Shift+Ctrl/Cmd+Z redoes. Opening or reloading clears history.
 
 Saving writes only `level.json`. Images stay in their folders. Switching projects
