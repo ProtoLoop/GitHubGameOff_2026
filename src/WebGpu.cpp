@@ -8,6 +8,10 @@
 #include <string_view>
 #include <utility>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/val.h>
+#endif
+
 namespace
 {
 constexpr wgpu::TextureFormat kDefaultTextureFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
@@ -70,14 +74,31 @@ ChoosePresentMode(const std::span<const wgpu::PresentMode> availableModes)
     return wgpu::PresentMode::Undefined;
 }
 
+/// Returns the browser's preferred canvas format.
+wgpu::TextureFormat
+GetPreferredCanvasFormat()
+{
+#ifdef __EMSCRIPTEN__
+  const std::string format = emscripten::val::global("navigator")["gpu"]
+      .call<std::string>("getPreferredCanvasFormat");
+
+  // Convert it to the C++ enum explicitly:
+
+  if(format == "bgra8unorm") { return wgpu::TextureFormat::BGRA8Unorm; }
+  if(format == "rgba8unorm") { return wgpu::TextureFormat::RGBA8Unorm; }
+  return wgpu::TextureFormat::Undefined;
+#else
+  return wgpu::TextureFormat::RGBA8Unorm;
+#endif
+}
+
 wgpu::TextureFormat
 ChooseBackbufferFormat(const std::span<const wgpu::TextureFormat> availableFormats)
 {
     // Preferred formats in order of preference.
-    constexpr wgpu::TextureFormat preferredFormats[] = //
+    const wgpu::TextureFormat preferredFormats[] //
         {
-            wgpu::TextureFormat::RGBA8UnormSrgb,
-            wgpu::TextureFormat::BGRA8UnormSrgb,
+            GetPreferredCanvasFormat(),
             wgpu::TextureFormat::RGBA8Unorm,
             wgpu::TextureFormat::BGRA8Unorm,
         };
@@ -105,6 +126,27 @@ ChooseBackbufferFormat(const std::span<const wgpu::TextureFormat> availableForma
 
     // Fallback to first available format
     return availableFormats[0];
+}
+
+/// Returns the format used for texture views of the swapchain.
+/// Used when creating a render target view for a render pass.
+wgpu::TextureFormat
+GetSwapchainTextureViewFormat(const wgpu::Device& device, const wgpu::TextureFormat swapchainFormat)
+{
+    // Texture views used for render attachements will use SRGB when possible.
+    if(device.HasFeature(wgpu::FeatureName::CoreFeaturesAndLimits))
+    {
+        if(swapchainFormat == wgpu::TextureFormat::BGRA8Unorm)
+        {
+            return wgpu::TextureFormat::BGRA8UnormSrgb;
+        }
+        else if(swapchainFormat == wgpu::TextureFormat::RGBA8Unorm)
+        {
+            return wgpu::TextureFormat::RGBA8UnormSrgb;
+        }
+    }
+
+    return  swapchainFormat;
 }
 
 Result<wgpu::Surface>
@@ -214,6 +256,17 @@ ConfigureSurface(const wgpu::Adapter& adapter,
     const wgpu::TextureFormat format = ChooseBackbufferFormat(formats);
     GG_CHECK(format != wgpu::TextureFormat::Undefined, "No supported backbuffer format found");
 
+    // View formats we support for the surface's texture views,
+    // i.e. when this surface's tetures are used as render
+    // attachments in a render pass.
+    // The pipline used to create the render pass must have
+    // a ColorTargetState that matches one of these view formats.
+    const wgpu::TextureFormat viewFormats[] //
+        {
+            format,
+            GetSwapchainTextureViewFormat(device, format),
+        };
+
     const wgpu::SurfaceConfiguration config //
         {
             .device = device,
@@ -221,6 +274,8 @@ ConfigureSurface(const wgpu::Adapter& adapter,
             .usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopyDst,
             .width = width,
             .height = height,
+            .viewFormatCount = std::size(viewFormats),
+            .viewFormats = &viewFormats[0],
             .alphaMode = wgpu::CompositeAlphaMode::Opaque,
             .presentMode = presentMode,
         };
@@ -352,7 +407,10 @@ WebGpu::Start(SDL_Window* window)
     m_Instance = wgpu::CreateInstance(nullptr);
     GG_CHECK(m_Instance, "Failed to create WebGPU instance");
 
-    const wgpu::RequestAdapterOptions options{};
+    const wgpu::RequestAdapterOptions options//
+        {
+            .featureLevel = wgpu::FeatureLevel::Compatibility,
+        };
     m_Stage = Stage::RequestingAdapter;
     m_Instance.RequestAdapter(&options,
         wgpu::CallbackMode::AllowProcessEvents,
@@ -381,8 +439,17 @@ WebGpu::Update()
                     std::string_view(info.vendor),
                     std::string_view(info.device));
             }
+            
+            constexpr auto core = wgpu::FeatureName::CoreFeaturesAndLimits;
 
             wgpu::DeviceDescriptor descriptor{};
+
+            if(m_Adapter.HasFeature(core))
+            {
+                descriptor.requiredFeatureCount = 1;
+                descriptor.requiredFeatures = &core;
+            }
+
             descriptor.SetDeviceLostCallback(wgpu::CallbackMode::AllowProcessEvents,
                 OnDeviceLostCb,
                 this);
@@ -604,10 +671,11 @@ WebGpu::GetDefaultTexture() const
 }
 
 wgpu::TextureFormat
-WebGpu::GetSwapchainFormat() const
+WebGpu::GetSwapchainTextureViewFormat() const
 {
     GG_ASSERT(IsReady());
-    return m_SwapchainFormat;
+
+    return ::GetSwapchainTextureViewFormat(m_Device, m_SwapchainFormat);
 }
 
 Result<wgpu::Texture>
@@ -668,6 +736,8 @@ WebGpu::GetSwapchainTexture() const
     GG_CHECK(surfaceTexture.status == wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal
             || surfaceTexture.status == wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal,
         "Failed to acquire current surface texture after reconfiguration");
+
+    m_SwapchainFormat = *surfaceFormat;
 
     return surfaceTexture.texture;
 }

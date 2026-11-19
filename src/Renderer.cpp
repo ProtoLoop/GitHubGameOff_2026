@@ -128,11 +128,18 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice,
 }
 
 wgpu::RenderPassEncoder
-CreateRenderPassEncoder(const wgpu::CommandEncoder& cmdEncoder, const wgpu::Texture& renderTarget)
+CreateRenderPassEncoder(const wgpu::CommandEncoder& cmdEncoder,
+    const wgpu::Texture& renderTarget,
+    const wgpu::TextureFormat targetFormat)
 {
+    const wgpu::TextureViewDescriptor viewDesc //
+        {
+            .format = targetFormat,
+        };
+
     const wgpu::RenderPassColorAttachment attachment //
         {
-            .view = renderTarget.CreateView(),
+            .view = renderTarget.CreateView(&viewDesc),
             .loadOp = wgpu::LoadOp::Clear,
             .storeOp = wgpu::StoreOp::Store,
             .clearValue = { .r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f },
@@ -315,7 +322,9 @@ Renderer::Render(const Level& level)
     GG_CHECK(renderTargetResult, "Failed to acquire swapchain texture");
     const wgpu::Texture& renderTarget = *renderTargetResult;
 
-    const wgpu::RenderPassEncoder renderPass = CreateRenderPassEncoder(cmdEncoder, renderTarget);
+    const wgpu::RenderPassEncoder renderPass = CreateRenderPassEncoder(cmdEncoder,
+        renderTarget,
+        m_WebGpu->GetSwapchainTextureViewFormat());
     GG_CHECK(renderPass, "Failed to create render pass");
 
     GG_CHECK(SetViewport(renderTarget, renderPass), "Failed to set viewport");
@@ -463,7 +472,7 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget,
 Result<>
 Renderer::EnsurePipelines()
 {
-    const wgpu::TextureFormat swapchainFormat = m_WebGpu->GetSwapchainFormat();
+    const wgpu::TextureFormat targetFormat = m_WebGpu->GetSwapchainTextureViewFormat();
 
     const wgpu::ConstantEntry vsConstantEntries[] //
         {
@@ -485,10 +494,10 @@ Renderer::EnsurePipelines()
             },
         };
 
-    if(!m_SpritePipeline || m_RenderTargetFormat != swapchainFormat)
+    if(!m_SpritePipeline || m_RenderTargetFormat != targetFormat)
     {
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
-            swapchainFormat,
+            targetFormat,
             kSpriteShaderInfo,
             nullptr, //*layoutResult,
             vsConstantEntries);
@@ -496,10 +505,10 @@ Renderer::EnsurePipelines()
         m_SpritePipeline = std::move(*pipelineResult);
     }
 
-    if(!m_MapPipeline || m_RenderTargetFormat != swapchainFormat)
+    if(!m_MapPipeline || m_RenderTargetFormat != targetFormat)
     {
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
-            swapchainFormat,
+            targetFormat,
             kTileMapShaderInfo,
             nullptr, //*layoutResult,
             vsConstantEntries);
@@ -507,7 +516,7 @@ Renderer::EnsurePipelines()
         m_MapPipeline = std::move(*pipelineResult);
     }
 
-    m_RenderTargetFormat = swapchainFormat;
+    m_RenderTargetFormat = targetFormat;
 
     return Result<>::Ok;
 }

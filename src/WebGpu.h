@@ -53,7 +53,8 @@ public:
 
     wgpu::Texture GetDefaultTexture() const;
 
-    wgpu::TextureFormat GetSwapchainFormat() const;
+    /// Returns the format used for texture views of the swapchain.
+    wgpu::TextureFormat GetSwapchainTextureViewFormat() const;
 
     Result<wgpu::Texture> GetSwapchainTexture() const;
 
@@ -101,5 +102,5 @@ private:
     wgpu::Surface m_Surface;
     wgpu::Sampler m_DefaultSampler;
     wgpu::Texture m_DefaultTexture;
-    wgpu::TextureFormat m_SwapchainFormat{ wgpu::TextureFormat::Undefined };
+    mutable wgpu::TextureFormat m_SwapchainFormat{ wgpu::TextureFormat::Undefined };
 };
