@@ -616,7 +616,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic prop asset pivots and scale
 
-Date: 2026-11-19. Status: Accepted.
+Date: 2026-11-19. Status: Accepted. Version support and serialized asset paths are
+superseded by [Mosaic project-root asset paths](#mosaic-project-root-asset-paths).
 
 Version 14 changes `propAssets` from image paths to objects containing `texPath`,
 `pivotX`, `pivotY`, and `scale`. Each omitted pivot component defaults to 0.5 and
@@ -645,3 +646,27 @@ Map coordinates, terrain rendering, and instance rotation fields remain unchange
 The C++ loader is outside this change and still expects the previous string catalog.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic project-root asset paths
+
+Date: 2026-11-19. Status: Accepted.
+
+The game's root is the project directory, while Mosaic serves projects beneath
+`/projects/<name>/`. Version 15 requires a leading slash in `tileSheets`,
+`maskSheets`, and `propAssets[].texPath`, such as `/assets/props/tree.png`, so the
+saved paths are directly rooted at the game's project directory.
+
+Mosaic removes that slash when matching paths to discovered assets. Its in-memory
+IDs remain project-relative, and its HTTP requests still resolve within the
+opened project. The path above therefore loads through
+`/projects/project2/assets/props/tree.png` when project2 is open. Existing filename
+validation and the 1024-character limit on the relative portion remain unchanged.
+
+Mosaic reads and writes version 15 only, without migration support. Project2's
+asset paths and version are converted once, preserving all other data. This
+supersedes version support and serialized path syntax in
+[prop asset pivots and scale](#mosaic-prop-asset-pivots-and-scale). Prop metadata,
+terrain rules, and catalog ordering are unchanged. No C++ changes are included.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).

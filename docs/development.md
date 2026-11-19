@@ -129,8 +129,12 @@ runtime dependencies. Its MIT notice is included in
 `thirdparty/dawn` is a Git submodule of `https://github.com/google/dawn.git`,
 pinned to release `v20261106.204713` at
 `797946823414be58054116de563d9ec4636dcb2e`. Initialize it with the other submodules.
-CMake fetches Dawn's dependencies at the revisions in its `DEPS` file, so the
-first configure needs network access. Native builds link static
+CMake fetches Dawn's dependencies at the revisions in its `DEPS` file on the
+first configure of a build directory and when the checked-out Dawn commit changes.
+The completed revision is stored as `DAWN_FETCHED_REVISION` in the CMake cache.
+Other configures skip the dependency fetch script. Deleting the build directory
+clears the cached revision and triggers fetching again. A fetch needs network
+access when required dependencies are not already available locally. Native builds link static
 `dawn::webgpu_dawn`. Browser builds use `emdawnwebgpu_cpp`. Bundled notices are
 included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
 
@@ -200,6 +204,12 @@ Publish the required assets as described in [Asset locations](#asset-locations).
 
 The browser build uses the custom [HTML shell](../web/index.html) and displays
 rendering in its WebGPU canvas. It has no worker threads.
+
+Browser builds link Emscripten’s Embind library with `-lembind`. `WebGpu.cpp`
+uses `emscripten::val` to call `navigator.gpu.getPreferredCanvasFormat()` when
+selecting the canvas format. CMake supplies this link option only for Emscripten
+builds. No additional installation is required.
+
 Keep native and browser build trees separate. When changing toolchains, use a
 fresh build directory.
 

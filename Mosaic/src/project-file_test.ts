@@ -26,12 +26,12 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 14,'));
+    assert(text.includes('\n  "version": 15,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "propAssets", "props", "layers", "editor"]);
-    assert.deepEqual(data.tileSheets, [tile.id]);
-    assert.deepEqual(data.maskSheets, [mask.id]);
+    assert.deepEqual(data.tileSheets, ["/" + tile.id]);
+    assert.deepEqual(data.maskSheets, ["/" + mask.id]);
     assert.deepEqual(data.layers[0], { sheet: 0, cells: [] });
     assert.equal(data.maskMode, 0);
     assert.equal(data.editor.maskMode, undefined);
@@ -55,6 +55,51 @@ Deno.test("level JSON larger than 16 MiB loads and can be saved again", async ()
     assert(large.size > 16 * 1024 * 1024);
     const loaded = await readProject(large, [tile, mask]);
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), JSON.parse(await original.text()));
+});
+
+Deno.test("file asset paths require a project-root slash while discovered IDs remain relative", async () => {
+    const prop: PropAsset = { kind: "prop", id: "assets/props/trees #/tree%20.png", label: "trees #/tree%20.png",
+        blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 1, scale: 0.25 };
+    const project = fixture();
+    project.propAssets = [prop];
+    const blob = await writeProject(project);
+    const data = JSON.parse(await blob.text());
+    assert.deepEqual(data.tileSheets, ["/" + tile.id]);
+    assert.deepEqual(data.maskSheets, ["/" + mask.id]);
+    assert.equal(data.propAssets[0].texPath, "/" + prop.id);
+    const available = [tile, mask, prop];
+    const loaded = await readProject(blob, available);
+    assert.equal(loaded.tileSheets[0], tile);
+    assert.equal(loaded.masks[0], mask);
+    assert.equal(loaded.propAssets[0].id, prop.id);
+    assert.equal(loaded.propAssets[0].url, prop.url);
+    assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
+    for(const [index, asset] of available.entries())
+    {
+        for(const path of [asset.id, "//" + asset.id, "/projects/project2/" + asset.id,
+            "https://example.com/" + asset.id, "/./" + asset.id, "/../" + asset.id,
+            "/" + asset.id.replace("assets/", "assets//"), "/" + asset.id.replace("assets/", "assets/../assets/")])
+        {
+            const invalid = structuredClone(data);
+            if(index === 0) { invalid.tileSheets[0] = path; }
+            else if(index === 1) { invalid.maskSheets[0] = path; }
+            else { invalid.propAssets[0].texPath = path; }
+            await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), available));
+        }
+    }
+});
+
+Deno.test("the root slash preserves the existing 1024-character relative asset path limit", async () => {
+    const longTile = { ...tile, id: "assets/tiles/" + "a/".repeat(500) + "longnam.png", label: "longnam.png" };
+    assert.equal(longTile.id.length, 1024);
+    const project = createDocument([longTile], [mask]);
+    const blob = await writeProject(project);
+    const data = JSON.parse(await blob.text());
+    assert.equal(data.tileSheets[0].length, 1025);
+    assert.equal((await readProject(blob, [longTile, mask])).tileSheets[0], longTile);
+    data.tileSheets[0] += "a";
+    await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [longTile, mask]), /Invalid project asset path/);
 });
 
 Deno.test("newly discovered sheets append without changing occupancy or catalog indices", async () => {
@@ -84,11 +129,12 @@ Deno.test("invalid sparse records and missing assets fail before installation", 
         (data) => { data.version = 11; },
         (data) => { data.version = 12; },
         (data) => { data.version = 13; },
+        (data) => { data.version = 14; },
         (data) => { data.editor = null; },
-        (data) => { data.maskSheets.push(mask.id); },
-        (data) => { data.tileSheets.push(tile.id); },
-        (data) => { data.tileSheets = [mask.id]; },
-        (data) => { data.maskSheets = [tile.id]; },
+        (data) => { data.maskSheets.push("/" + mask.id); },
+        (data) => { data.tileSheets.push("/" + tile.id); },
+        (data) => { data.tileSheets = ["/" + mask.id]; },
+        (data) => { data.maskSheets = ["/" + tile.id]; },
         (data) => { data.gridSize = 513; },
         (data) => { data.layers[0].cells = [0]; },
         (data) => { data.layers[1].sheet = 1; },
@@ -216,7 +262,7 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
     const data = JSON.parse(await (await writeProject(project)).text());
     for(const fields of [{}, { pivotX: 0 }, { pivotY: 1 }, { scale: 0.25 }, { pivotX: 0.25, pivotY: 1, scale: 2 }])
     {
-        data.propAssets = [{ texPath: asset.id, ...fields }];
+        data.propAssets = [{ texPath: "/" + asset.id, ...fields }];
         const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, extra, asset]);
         const expected = { pivotX: 0.5, pivotY: 0.5, scale: 1, ...fields };
         assert.deepEqual(loaded.propAssets[0], { ...asset, ...expected });
@@ -226,22 +272,22 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
         assert.deepEqual([asset.pivotX, asset.pivotY, asset.scale], [0.5, 0.5, 1]);
         const saved = await writeProject(loaded);
         assert.deepEqual(JSON.parse(await saved.text()).propAssets, [
-            { texPath: asset.id, ...expected }, { texPath: extra.id, pivotX: 0.5, pivotY: 0.5, scale: 1 }
+            { texPath: "/" + asset.id, ...expected }, { texPath: "/" + extra.id, pivotX: 0.5, pivotY: 0.5, scale: 1 }
         ]);
         const again = await readProject(saved, [tile, mask, extra, asset]);
         assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), JSON.parse(await saved.text()));
     }
-    for(const entry of [asset.id, {}, null, { texPath: tile.id }, { texPath: 42 },
-        ...["pivotX", "pivotY"].flatMap((key) => [-0.01, 1.01, null, "0.5", true].map((value) => ({ texPath: asset.id, [key]: value }))),
-        ...[0, -1, null, "1", false].map((scale) => ({ texPath: asset.id, scale }))])
+    for(const entry of [asset.id, {}, null, { texPath: "/" + tile.id }, { texPath: 42 },
+        ...["pivotX", "pivotY"].flatMap((key) => [-0.01, 1.01, null, "0.5", true].map((value) => ({ texPath: "/" + asset.id, [key]: value }))),
+        ...[0, -1, null, "1", false].map((scale) => ({ texPath: "/" + asset.id, scale }))])
     {
         data.propAssets = [entry];
         await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
     }
     // Distinct metadata objects must not allow duplicate texture identities.
-    data.propAssets = [{ texPath: asset.id }, { texPath: asset.id, scale: 2 }];
+    data.propAssets = [{ texPath: "/" + asset.id }, { texPath: "/" + asset.id, scale: 2 }];
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
-    data.propAssets = [{ texPath: asset.id, scale: "overflow" }];
+    data.propAssets = [{ texPath: "/" + asset.id, scale: "overflow" }];
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data).replace('"overflow"', "1e400")]), [tile, mask, asset]));
 });
 
@@ -265,9 +311,9 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     assert.equal(loaded.props[0].asset, loaded.propAssets[0]);
     assert.equal(loaded.props[0].asset.image, prop.image);
     const saved = JSON.parse(await (await writeProject(loaded)).text());
-    assert.deepEqual(saved.tileSheets, [first.id, second.id, extra.id]);
+    assert.deepEqual(saved.tileSheets, [first, second, extra].map((asset) => "/" + asset.id));
     assert.deepEqual(saved.propAssets, [prop, newProp].map((asset) => ({
-        texPath: asset.id, pivotX: 0.5, pivotY: 0.5, scale: 1
+        texPath: "/" + asset.id, pivotX: 0.5, pivotY: 0.5, scale: 1
     })));
     const again = await readProject(await writeProject(loaded), [extra, second, first, mask, newProp, prop]);
     assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), saved);
@@ -314,7 +360,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.nextPropId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 14);
+        assert.equal(data.version, 15);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);

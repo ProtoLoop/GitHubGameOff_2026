@@ -6,13 +6,13 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 14,
+        format: "mosaic", version: 15,
         gridSize: project.gridSize,
-        tileSheets: project.tileSheets.map((sheet) => sheet.id),
-        maskSheets: project.masks.map((sheet) => sheet.id),
+        tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
+        maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
         propAssets: project.propAssets.map((asset) => ({
-            texPath: asset.id, pivotX: asset.pivotX, pivotY: asset.pivotY, scale: asset.scale
+            texPath: "/" + asset.id, pivotX: asset.pivotX, pivotY: asset.pivotY, scale: asset.scale
         })),
         props: project.props.map((prop) => ({
             index: project.propAssets.indexOf(prop.asset),
@@ -48,10 +48,14 @@ function integer(value: unknown, min: number, max: number): number
     return value;
 }
 
-function text(value: unknown): string
+/// File paths are rooted at the project. Discovery uses IDs relative to that root.
+function assetId(value: unknown): string
 {
-    if(typeof value !== "string" || value.length > 1024) { throw new Error("Invalid project text"); }
-    return value;
+    if(typeof value !== "string" || !value.startsWith("/assets/") || value.length > 1025)
+    {
+        throw new Error("Invalid project asset path");
+    }
+    return value.slice(1);
 }
 
 function list(value: unknown, min: number, max: number): unknown[]
@@ -73,14 +77,14 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 14)
+    if(data.format !== "mosaic" || data.version !== 15)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
     const editor = object(data.editor);
     const assets = new Map(available.map((asset) => [asset.id, asset]));
     const lookup = (id: unknown): ImageAsset | PropAsset => {
-        const asset = assets.get(text(id));
+        const asset = assets.get(assetId(id));
         if(!asset) { throw new Error(`Missing image: ${id}`); }
         return asset;
     };

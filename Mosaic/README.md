@@ -24,9 +24,14 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The included
 `sample` project provides assets. Copy its asset folders to make a new project.
-Mosaic reads and writes version 14 only, with no migration support. Existing
+Mosaic reads and writes version 15 only, with no migration support. Existing
 level files from earlier versions, including the checked-in sample, cannot be
 opened by this version. A project without `level.json` starts a new level.
+
+Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
+project directory. Mosaic resolves those paths within the opened project. For
+example, `/assets/props/tree.png` in project2 is loaded through
+`/projects/project2/assets/props/tree.png`.
 
 Build from the workspace root with CMake 3.27+, Ninja, and Python 3.9+:
 

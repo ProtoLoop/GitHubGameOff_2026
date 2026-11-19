@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 14`. Only version 14 is supported.
+The container has `format: "mosaic"` and `version: 15`. Only version 15 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -28,8 +28,8 @@ algorithms below are part of the versioned format contract.
 | Field | Meaning |
 | --- | --- |
 | `gridSize` | Power of two from 2 to 512 painted cells along each square map axis |
-| `tileSheets` | Ordered project-relative terrain-sheet paths |
-| `maskSheets` | Ordered project-relative mask-sheet paths |
+| `tileSheets` | Ordered project-root terrain-sheet paths starting with `/assets/tiles/` |
+| `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
 | `propAssets` | Ordered objects with `texPath`, normalized `pivotX`/`pivotY`, and positive `scale` |
@@ -188,14 +188,14 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "propAssets": [
-    { "texPath": "assets/props/headstone.png", "pivotX": 0.5, "pivotY": 0.5, "scale": 1 }
+    { "texPath": "/assets/props/headstone.png", "pivotX": 0.5, "pivotY": 0.5, "scale": 1 }
   ],
   "props": [{ "index": 0, "x": 1.5, "y": 2.25, "rot": 45 }]
 }
 ```
 
-Each asset entry requires `texPath`, a project-relative image path under
-`assets/props/`. `pivotX` and `pivotY` are finite numbers between 0 and 1, inclusive,
+Each asset entry requires `texPath`, a project-root image path under
+`/assets/props/`. `pivotX` and `pivotY` are finite numbers between 0 and 1, inclusive,
 measured from the image's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
 omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
 zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
@@ -237,8 +237,8 @@ and are not saved or undoable. Instance IDs and the next-ID counter are session-
 The loader reconstructs IDs in array order. Picking checks scaled, rotated image rectangles
 from front to back, including transparent pixels.
 
-This format change applies to Mosaic only. The game loader has not been updated
-to consume version 14 prop asset objects.
+This format change applies to Mosaic only. No game loader changes are included here. The paths are rooted at the project
+directory, which is the game's root.
 
 ### Editor settings and editing
 
@@ -282,12 +282,20 @@ size, occupancy, and removed props from the prior snapshot.
 
 ### Assets and limits
 
-Terrain and mask catalog entries, and prop entries' `texPath` fields, are paths such as `assets/tiles/ground/grass.png`,
-`assets/props/graveyard/headstone.png`, and `assets/masks/alpha.png`. Paths contain
-actual filenames, not URL escapes. Every path must start with its asset kind's
-root. Tile and prop paths may include subfolders, while mask paths must be flat.
-Empty path segments, `.` and `..` segments, backslashes, and control characters
-are invalid. Paths are limited to 1024 characters. Literal percent signs are
+Terrain and mask catalog entries, and prop entries' `texPath` fields, require one
+leading `/`: `/assets/tiles/ground/grass.png`, `/assets/props/graveyard/headstone.png`,
+and `/assets/masks/alpha.png`. These paths are rooted at the project directory,
+which is the game's root, not at Mosaic's web-server root. For example, Mosaic
+loads `/assets/props/tree.png` in project2 through
+`/projects/project2/assets/props/tree.png`.
+
+Mosaic removes the leading slash when matching serialized paths to discovered
+assets. In-memory asset IDs remain project-relative, and HTTP discovery still
+runs within the opened project folder. Paths contain actual filenames, not URL
+escapes. Every path must start with its asset kind's root. Tile and prop paths may include subfolders, while mask paths must be flat.
+After the required leading slash, empty path segments, `.` and `..` segments,
+backslashes, and control characters are invalid. Paths are limited to 1024
+characters excluding that leading slash. Literal percent signs are
 allowed and encoded when requesting URLs. Labels use paths relative to the asset
 root, so identical filenames in different subfolders remain distinguishable. Image
 bytes remain in separate files. Renaming a referenced image requires updating its
