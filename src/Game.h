@@ -44,7 +44,6 @@ public:
 
 private:
     static constexpr size_t kMaxLostSouls = 10;
-    static constexpr size_t kMaxProps = 10;
 
     enum class Stage
     {
@@ -66,15 +65,9 @@ private:
 
     InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
 
-    InlineVector<Prop, kMaxProps> m_Props;
-
     float m_TimeAccum{ 0.0f };
 
     static constexpr uint64_t EntityRngSeed = 42;
     static constexpr uint64_t EntityRngStream = 54;
     Random m_EntityRng{EntityRngSeed, EntityRngStream};
-
-    static constexpr uint64_t PropRngSeed = 54;
-    static constexpr uint64_t PropRngStream = 42;
-    Random m_PropRng{PropRngSeed, PropRngStream};
 };

@@ -166,9 +166,12 @@ private:
 
     void Reserve(size_t capacity)
     {
-        GG_ASSERT(!m_Storage);
-        m_Storage = allocator_traits::allocate(m_Allocator, capacity);
-        m_Capacity = capacity;
+        if(capacity > 0)
+        {
+            GG_ASSERT(!m_Storage);
+            m_Storage = allocator_traits::allocate(m_Allocator, capacity);
+            m_Capacity = capacity;
+        }
     }
 
     void Destroy()

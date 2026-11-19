@@ -670,3 +670,13 @@ supersedes version support and serialized path syntax in
 terrain rules, and catalog ordering are unchanged. No C++ changes are included.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).
+
+
+## Level-owned decorative props
+
+Date: 2026-11-19. Status: Accepted.
+
+`Level` owns decorative props because their placement and lifetime belong to the
+loaded level. `Game` retains gameplay entities and coordinates sprite submission
+for both. This extends the
+[entity-owned state and sprite submission decision](#entity-owned-state-and-sprite-submission).

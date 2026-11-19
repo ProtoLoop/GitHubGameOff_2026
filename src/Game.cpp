@@ -1,7 +1,6 @@
 #include "Game.h"
 
 #include "Renderer.h"
-#include "Resources/SpriteResources.h"
 
 Game::Game(Input& input, std::unique_ptr<Level>&& level, std::unique_ptr<Renderer>&& renderer)
     : m_Input(&input),
@@ -23,32 +22,8 @@ Game::Begin()
     {
         GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
         // NOLINTNEXTLINE
-        lostSoul.MoveTo(m_PropRng.NextInRange(-14.0f, 14.0f), m_PropRng.NextInRange(-14.0f, 14.0f));
+        lostSoul.MoveTo(m_EntityRng.NextInRange(-14.0f, 14.0f), m_EntityRng.NextInRange(-14.0f, 14.0f));
         m_LostSouls.push_back(std::move(lostSoul));
-    }
-
-    constexpr ResourceName kHeadStones[] //
-        { SpriteResources::kSprite_Forgotten_Headstone_001,
-            SpriteResources::kSprite_Forgotten_Headstone_002,
-            SpriteResources::kSprite_Forgotten_Headstone_003,
-            SpriteResources::kSprite_Forgotten_Headstone_004 };
-
-    for(size_t i = 0; i < kMaxProps; ++i)
-    {
-        static constexpr float kLocRange = 14.0f;
-        const uint32_t headstoneIndex =
-            m_PropRng.NextBelow(static_cast<uint32_t>(std::size(kHeadStones)));
-
-        const ResourceName& headstoneName = kHeadStones[headstoneIndex];
-
-        auto spriteResult = m_Level->GetSprite(headstoneName);
-        GG_CHECKB(spriteResult, "Failed to get prop sprite");
-
-        Transform2D transform{};
-        transform.MoveTo(m_PropRng.NextInRange(-kLocRange, kLocRange),
-            m_PropRng.NextInRange(-kLocRange, kLocRange));
-
-        m_Props.push_back(Prop(*spriteResult, transform));
     }
 
     m_Stage = Stage::Running;
@@ -105,7 +80,7 @@ Game::RenderSprites(Renderer& renderer)
         GG_CHECK(lostSoul.Render(renderer));
     }
 
-    for(const Prop& prop : m_Props)
+    for(const Prop& prop : m_Level->GetProps())
     {
         GG_CHECK(prop.Render(renderer));
     }

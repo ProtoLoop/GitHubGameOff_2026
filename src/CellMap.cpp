@@ -47,14 +47,15 @@ CellMapLoader::Take()
     auto bgResult = m_Renderer->CreateTileSetTextureBindGroup(*textureResult);
     GG_CHECK(bgResult, "Failed to create map texture bind group");
 
-    return CellMap(std::move(*bgResult), m_CellsPerSide);
-
+    return CellMap(std::move(*textureResult), std::move(*bgResult), m_CellsPerSide);
 }
 
 /// CellMap
 
-CellMap::CellMap(wgpu::BindGroup m_TileSetBindGroup, const uint32_t cellsPerSide)
-    : m_TileSetBindGroup(std::move(m_TileSetBindGroup)),
+CellMap::CellMap(
+    wgpu::Texture tileSetTexture, wgpu::BindGroup m_TileSetBindGroup, const uint32_t cellsPerSide)
+    : m_TileSetTexture(std::move(tileSetTexture)),
+      m_TileSetBindGroup(std::move(m_TileSetBindGroup)),
       m_CellsPerSide(cellsPerSide)
 {
 }
@@ -69,4 +70,16 @@ uint32_t
 CellMap::GetCellsPerSide() const
 {
     return m_CellsPerSide;
+}
+
+uint32_t
+CellMap::GetCellsPerLayer() const
+{
+    return GetCellsPerSide() * GetCellsPerSide();
+}
+
+uint32_t
+CellMap::GetLayerCount() const
+{
+    return m_TileSetTexture.GetDepthOrArrayLayers();
 }

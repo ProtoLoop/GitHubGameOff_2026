@@ -42,12 +42,16 @@ struct Dimension2D
 /// bottom-right corner.
 struct Pivot2D
 {
+    static const Pivot2D kDefault;
+
     float x;
     float y;
 
     friend bool operator!=(const Pivot2D& lhs, const Pivot2D& rhs) = default;
     friend bool operator==(const Pivot2D& lhs, const Pivot2D& rhs) = default;
 };
+
+inline constexpr Pivot2D Pivot2D::kDefault { .x = 0.5f, .y = 0.5f };
 
 struct SpriteDef
 {

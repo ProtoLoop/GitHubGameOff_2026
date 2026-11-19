@@ -1,12 +1,8 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
-#include "Resources/AnimResources.h"
-#include "Resources/SpriteResources.h"
-#include "CellMap.h"
 #include "Defer.h"
 #include "Game.h"
 #include "Input.h"
-#include "Level.h"
 #include "LevelFetcher.h"
 #include "Renderer.h"
 #include "WebGpu.h"
@@ -21,22 +17,7 @@
 
 namespace
 {
-
-/// Number of cells along each axis of the cell map.
-constexpr uint32_t kCellMapCellsPerSide = 128;
-constexpr const char* kLevelFilePath = "/assets/project2/level.json";
-
-const CellMapDef kCellMapDef //
-    {
-        .CellsPerSide = kCellMapCellsPerSide,
-        .TileSets //
-        {
-            "/assets/sample/assets/tiles/coast_sand_rocks_02_diff_1k.png",
-            "/assets/sample/assets/tiles/brown_mud_leaves_01_diff_1k.png",
-            //"/assets/sample/assets/tiles/forest_ground_06_diff_1k.png",
-            //"/assets/sample/assets/tiles/dry_decay_leaves_diff_1k.png",
-        },
-    };
+constexpr const char* kLevelFilePath = "/assets/level.json";
 
 struct App
 {
@@ -97,38 +78,32 @@ struct App
     struct LoadingState
     {
         LoadingState(const std::string_view levelPath,
+            std::unique_ptr<FileFetcher> fileFetcher,
             std::unique_ptr<Renderer> renderer,
             class WebGpu& webGpu)
-            : Renderer(std::move(renderer)),
-              LevelFetcher(LevelFetcher::Fetch(levelPath, FileFetcher)),
-              LevelLoader(LevelLoader::Load(SpriteResources::GetSpriteDefs(),
-                  AnimResources::GetAnimDefs(),
-                  kCellMapDef,
-                  FileFetcher,
-                  *Renderer,
-                  webGpu))
+            : FileFetcher(std::move(fileFetcher)),
+              Renderer(std::move(renderer)),
+              LevelFetcher(LevelFetcher::Fetch(levelPath, *FileFetcher, *Renderer, webGpu))
         {
             GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
-            GG_ASSERT(LevelLoader, "Failed to initialize level loader");
         }
 
-        class FileFetcher FileFetcher;
+        // Had to allocate FileFetcher and Renderer on the heap
+        // because they are too large to be allocated inline when running web assembly.
+        std::unique_ptr<FileFetcher> FileFetcher;
         std::unique_ptr<Renderer> Renderer;
         Result<LevelFetcher> LevelFetcher;
-        Result<LevelLoader> LevelLoader;
 
         Result<> Update()
         {
             GG_CHECKB(LevelFetcher, "Level fetcher not initialized");
-            GG_CHECKB(LevelLoader, "Level loader not initialized");
 
             GG_CHECK(LevelFetcher->Update(), "Failed to update level fetcher");
-            GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
 
             return Result<>::Ok;
         }
 
-        bool IsPending() const { return LevelFetcher->IsPending() || LevelLoader->IsPending(); }
+        bool IsPending() const { return LevelFetcher->IsPending(); }
     };
 
     struct FailedState
@@ -204,7 +179,7 @@ App::Update()
 
             std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
 
-            m_State.emplace<LoadingState>(kLevelFilePath, std::move(renderer), WebGpu);
+            m_State.emplace<LoadingState>(kLevelFilePath, std::make_unique<FileFetcher>(), std::move(renderer), WebGpu);
 
             m_Stage = Stage::Loading;
         }
@@ -225,7 +200,7 @@ App::Update()
         {
             auto& oldState = std::get<LoadingState>(m_State);
 
-            auto levelResult = oldState.LevelLoader->Take();
+            auto levelResult = oldState.LevelFetcher->Take();
             GG_CHECKB(levelResult, "Failed to load level");
 
             // Save the renderer prior to destroying the old state

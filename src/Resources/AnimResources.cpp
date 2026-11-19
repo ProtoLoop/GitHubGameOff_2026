@@ -267,97 +267,97 @@ constexpr const SpriteSequenceDef kCT_AnimSeq_Idle[] //
         {
             .Name = "CT_Idle_337",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_337.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_337.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_000",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_000.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_000.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_022",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_022.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_022.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_045",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_045.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_045.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_067",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_067.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_067.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_090",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_090.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_090.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_112",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_112.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_112.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_135",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_135.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_135.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_157",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_157.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_157.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_180",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_180.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_180.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_202",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_202.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_202.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_225",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_225.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_225.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_247",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_247.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_247.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_270",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_270.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_270.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_292",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_292.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_292.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Idle_315",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Idle/Idle_Body_315.png",
+            .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_315.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
     };
@@ -369,97 +369,97 @@ constexpr const SpriteSequenceDef kCT_AnimSeq_Walk[] //
         {
             .Name = "CT_Walk_000",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_000.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_000.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_022",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_022.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_022.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_045",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_045.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_045.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_067",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_067.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_067.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_090",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_090.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_090.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_112",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_112.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_112.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_135",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_135.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_135.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_157",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_157.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_157.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_180",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_180.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_180.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_202",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_202.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_202.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_225",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_225.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_225.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_247",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_247.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_247.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_270",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_270.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_270.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_292",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_292.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_292.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_315",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_315.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_315.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Walk_337",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Walk/Walk_Body_337.png",
+            .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_337.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
     };
@@ -471,97 +471,97 @@ constexpr const SpriteSequenceDef kCT_AnimSeq_Run[] //
         {
             .Name = "CT_Run_000",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_000.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_000.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_022",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_022.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_022.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_045",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_045.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_045.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_067",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_067.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_067.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_090",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_090.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_090.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_112",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_112.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_112.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_135",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_135.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_135.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_157",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_157.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_157.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_180",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_180.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_180.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_202",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_202.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_202.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_225",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_225.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_225.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_247",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_247.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_247.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_270",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_270.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_270.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_292",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_292.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_292.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_315",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_315.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_315.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
         },
         {
             .Name = "CT_Run_337",
             .Dim{ .w = 180, .h = 180 }, // NOLINT
-            .TexturePath = "/assets/Anims/Caretaker/Run/Run_Body_337.png",
+            .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_337.png",
             .Pivot{ .x = 0.5f, .y = 1.0f },
 
         },

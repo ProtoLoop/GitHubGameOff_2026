@@ -78,7 +78,7 @@ private:
 
     Renderer(const Params& params, const WebGpu& webGpu);
 
-    Result<> RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
+    Result<> RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
 
     Result<> RenderSprites(const wgpu::RenderPassEncoder& renderPass);
 

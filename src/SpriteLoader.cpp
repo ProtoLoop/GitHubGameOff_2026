@@ -32,6 +32,16 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
     Renderer& renderer,
     WebGpu& webGpu)
 {
+    if(spriteDefs.empty())
+    {
+        GG_WARN("Sprite definitions are empty");
+
+        return SpriteLoader(BoundedVector<TextureLoader>(0),
+            BoundedVector<size_t>(0),
+            BoundedVector<NamedSprite>(0),
+            renderer);
+    }
+
     GG_CHECKB(!spriteDefs.empty(), "Sprite definitions must not be empty");
 
     const wgpu::Texture defaultTexture = webGpu.GetDefaultTexture();

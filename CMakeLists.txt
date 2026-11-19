@@ -32,13 +32,35 @@ add_subdirectory(thirdparty/SDL EXCLUDE_FROM_ALL SYSTEM)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC CACHE STRING "Build static Dawn" FORCE)
-set(DAWN_FETCH_DEPENDENCIES ON CACHE BOOL "Fetch Dawn dependencies" FORCE)
 set(DAWN_BUILD_SAMPLES OFF CACHE BOOL "Disable Dawn samples" FORCE)
 set(DAWN_BUILD_TESTS OFF CACHE BOOL "Disable Dawn tests" FORCE)
 set(TINT_BUILD_TESTS OFF CACHE BOOL "Disable Tint tests" FORCE)
 set(DAWN_USE_GLFW OFF CACHE BOOL "Disable GLFW" FORCE)
 
-add_subdirectory(thirdparty/dawn EXCLUDE_FROM_ALL SYSTEM)
+# Cache the fetched Dawn revision per build directory to avoid slow dependency
+# checks on every configure. Fetch again for a fresh build or a changed revision.
+function(add_dawn_with_dependencies_fetched_once_per_revision)
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/dawn"
+        OUTPUT_VARIABLE dawn_revision
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+
+    if("${DAWN_FETCHED_REVISION}" STREQUAL "${dawn_revision}")
+        set(DAWN_FETCH_DEPENDENCIES OFF CACHE BOOL "Fetch Dawn dependencies" FORCE)
+    else()
+        set(DAWN_FETCH_DEPENDENCIES ON CACHE BOOL "Fetch Dawn dependencies" FORCE)
+    endif()
+
+    add_subdirectory(thirdparty/dawn EXCLUDE_FROM_ALL SYSTEM)
+
+    set(DAWN_FETCHED_REVISION "${dawn_revision}"
+        CACHE INTERNAL "Dawn revision whose dependencies were fetched" FORCE)
+endfunction()
+
+add_dawn_with_dependencies_fetched_once_per_revision()
 target_compile_definitions(dawn_utils_config INTERFACE
     "$<$<CONFIG:Debug>:DAWN_ENABLE_ASSERTS>"
 )
@@ -74,8 +96,6 @@ set(GAMEOFF_SOURCES
     src/Actors/LostSoul.cpp
     src/Resources/AnimResources.h
     src/Resources/AnimResources.cpp
-    src/Resources/SpriteResources.h
-    src/Resources/SpriteResources.cpp
     src/Angle.h
     src/BoundedVector.h
     src/CellMap.h
@@ -159,8 +179,14 @@ if(EMSCRIPTEN)
     set_property(TARGET gameoff2026 APPEND PROPERTY LINK_DEPENDS "${GAMEOFF_WEB_SHELL}")
     target_link_options(gameoff2026 PRIVATE
         "SHELL:--shell-file \"${GAMEOFF_WEB_SHELL}\""
+        "-lembind"
+        "-fno-rtti"
         "-sALLOW_MEMORY_GROWTH=1"
         "-sFETCH=1"
         "-sSTACK_OVERFLOW_CHECK=2"
     )
-endif()
+    # Required because we disable RTTI.
+    target_compile_definitions(gameoff2026 PRIVATE
+        EMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0
+    )
+  endif()

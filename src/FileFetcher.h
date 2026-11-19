@@ -1,7 +1,7 @@
 #pragma once
 
-#include "BoundedVector.h"
 #include "InlineString.h"
+#include "InlineVector.h"
 #include "Result.h"
 
 #include <memory>
@@ -162,9 +162,9 @@ private:
     static void onError(emscripten_fetch_t* fetch);
 #endif
 
-    static constexpr size_t kRequestHeapSize = 128;
+    static constexpr size_t kRequestHeapSize = 256;
 
-    BoundedVector<FileFetchRequest> m_RequestHeap{kRequestHeapSize};
+    InlineVector<FileFetchRequest, kRequestHeapSize> m_RequestHeap;
 
     FileFetchRequest* m_FreeList{ nullptr };
     FileFetchRequest* m_PendingList{ nullptr };

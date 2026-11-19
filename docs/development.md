@@ -161,6 +161,12 @@ When deploying, publish the required assets under `/assets/` on the same origin
 as the game, even if the HTML is hosted in a subdirectory. The build does not
 copy assets or package them into the WebAssembly filesystem.
 
+Sprite names must be unique within a level, including across subdirectories.
+The level loader derives each sprite name from its texture filename without the
+directory or extension. For example, `trees/oak.png` and `decoration/oak.png` both
+produce `oak` and cannot coexist in the same level’s sprite catalog. Duplicate
+names cause level loading to fail.
+
 ## macOS
 
 Native macOS builds require Xcode Command Line Tools with a C++23-capable Apple
@@ -399,9 +405,9 @@ lifecycle, initializes WebGPU asynchronously, and advances loading before
 starting `Game`.
 
 `Game` owns the level, renderer, and gameplay entities. Entities own their
-transforms and animation playback state. `Level` owns the cell map and shared
-animation resources. Entities are destroyed before the level so those resources
-remain valid.
+transforms and animation playback state. `Level` owns the cell map, sprite and
+animation resources, and decorative props. Entities are destroyed before the
+level so those resources remain valid.
 
 Each frame, `Game` accumulates elapsed time and advances entities in fixed
 1/60-second simulation steps. A frame can run zero or more steps. Elapsed time

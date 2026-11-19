@@ -331,7 +331,7 @@ Renderer::Render(const Level& level)
 
     GG_CHECK(EnsurePipelines(), "Failed to ensure pipeline");
 
-    GG_CHECK(RenderMap(level.GetCellMap(), renderPass), "Failed to render map");
+    GG_CHECK(RenderCellMap(level.GetCellMap(), renderPass), "Failed to render map");
     GG_CHECK(RenderSprites(renderPass), "Failed to render sprites");
 
     renderPass.End();
@@ -347,7 +347,7 @@ Renderer::Render(const Level& level)
 // private:
 
 Result<>
-Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
+Renderer::RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
 {
     GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
     GG_CHECK(EnsureCellMapBindGroups(), "Failed to ensure cell map bind groups");
@@ -363,9 +363,12 @@ Renderer::RenderMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& rende
     renderPass.SetBindGroup(1, cellMap.GetTileSetBindGroup());
     renderPass.SetPipeline(m_MapPipeline);
 
-    // Send all the cells.
-    const uint32_t instanceCount = cellMap.GetCellCount() * 3;
-    renderPass.Draw(kVerticesPerQuad, instanceCount, 0, 0);
+    const uint32_t instanceCount = cellMap.GetCellsPerLayer();
+    for(uint32_t layer = 0; layer < cellMap.GetLayerCount(); ++layer)
+    {
+        const uint32_t firstInstance = layer * instanceCount;
+        renderPass.Draw(kVerticesPerQuad, instanceCount, 0, firstInstance);
+    }
 
     return Result<>::Ok;
 }

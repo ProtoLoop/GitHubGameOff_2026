@@ -12,7 +12,7 @@ class WebGpu;
 struct CellMapDef
 {
     uint32_t CellsPerSide{ 0 };
-    std::vector<FilePath> TileSets;
+    std::span<const FilePath> TileSets;
 };
 
 class CellMapLoader
@@ -45,19 +45,23 @@ public:
     /// Returns the bind group for the map's tile set texture.
     wgpu::BindGroup GetTileSetBindGroup() const;
 
+    /// Returns the length of one side of the cell map.
     uint32_t GetCellsPerSide() const;
 
-    uint32_t GetCellCount() const
-    {
-        return GetCellsPerSide() * GetCellsPerSide();
-    }
+    /// Returns the number of cells in a single layer of the cell map.
+    uint32_t GetCellsPerLayer() const;
+
+    /// Returns the number of layers in the cell map.
+    uint32_t GetLayerCount() const;
 
 private:
-
     friend class CellMapLoader;
 
-    CellMap(wgpu::BindGroup m_TileSetBindGroup, const uint32_t cellsPerSide);
+    CellMap(wgpu::Texture tileSetTexture,
+        wgpu::BindGroup m_TileSetBindGroup,
+        const uint32_t cellsPerSide);
 
+    wgpu::Texture m_TileSetTexture;
     wgpu::BindGroup m_TileSetBindGroup;
     uint32_t m_CellsPerSide{ 0 };
 };

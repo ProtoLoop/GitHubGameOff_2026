@@ -3,7 +3,7 @@ struct VSOut
 {
     @builtin(position)  pos : vec4f,
     @location(0)        uv  : vec2f,
-    @location(1)        gridUV : vec2f, // Used to draw grid outlines
+    @location(1)        brectUV : vec2f, // Used to draw grid outlines
     @location(3) @interpolate(flat) texLayer : u32,
 };
 
@@ -46,6 +46,7 @@ const cellUVs = array<vec2f, 6>(
 
 // Isometric transformation matrix.
 const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
+//const iso = mat2x2f(vec2f(1, 0), vec2f(0, 1));
 
 // lowbias32 hash function for generating pseudo-random numbers from a 32-bit integer input.
 fn hash(value: u32) -> u32
@@ -143,10 +144,10 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
 
 // Returns true if a fragment is on the grid lines based on its UV coordinates.
 // Used to draw grid lines.
-fn isOnGrid(gridUV: vec2f) -> bool
+fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
 {
     let thickness = fwidth(gridUV);
-    return gridUV.x < thickness.x || gridUV.y < thickness.y;
+    return select(color, vec4f(0.0, 1.0, 1.0, 1.0), any(gridUV < thickness));
 }
 
 /// Used when outputting to an sRGB framebuffer.
@@ -154,7 +155,7 @@ fn isOnGrid(gridUV: vec2f) -> bool
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 {
     var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
-    // return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    //p = drawBoundingRect(i.brectUV, p);
     return p;
 }
 
@@ -163,7 +164,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
 {
     var p = linear_to_srgb(textureSample(tileSheets, smp, i.uv, i.texLayer));
-    // return select(p, vec4f(1.0, 0.0, 1.0, 1.0), isOnGrid(i.gridUV));
+    //p = drawBoundingRect(i.brectUV, p);
     return p;
 }
 )";

@@ -33,6 +33,8 @@ public:
     {
         using LogFunc = void (*)(int, const char*, ...);
 
+        InstallLogOutputInterceptor();
+
         LogFunc logFunc = nullptr;
         if constexpr(level == Level::Debug)
         {
@@ -78,6 +80,10 @@ public:
     static bool IsDebuggerAttached();
 
     static void ShowAlert();
+
+private:
+
+    static void InstallLogOutputInterceptor();
 };
 
 #define GG_DEBUG(...) Diag::Log<Diag::Level::Debug>(__FILE__, __LINE__, __VA_ARGS__)

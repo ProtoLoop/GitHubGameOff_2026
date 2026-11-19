@@ -6,16 +6,15 @@
 /// LevelLoader
 
 Result<LevelLoader>
-LevelLoader::Load(const std::span<const SpriteDef> spriteDefs,
-    const std::span<const SpriteAnimDef> spriteAnimDefs,
-    const CellMapDef& cellMapDef,
+LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
+    const LevelDef& levelDef,
     FileFetcher& fileFetcher,
     Renderer& renderer,
     WebGpu& webGpu)
 {
-    std::span spriteDefSubspan = spriteDefs;
+    std::span spriteDefSubspan = levelDef.SpriteDefs;
 
-    for(const SpriteDef& def : spriteDefs)
+    for(const SpriteDef& def : levelDef.SpriteDefs)
     {
         // Check for duplicate names.
         spriteDefSubspan = spriteDefSubspan.subspan(1);
@@ -26,8 +25,7 @@ LevelLoader::Load(const std::span<const SpriteDef> spriteDefs,
         }
     }
 
-    auto spriteLoadResult = SpriteLoader::Load(spriteDefs, fileFetcher, renderer, webGpu);
-
+    auto spriteLoadResult = SpriteLoader::Load(levelDef.SpriteDefs, fileFetcher, renderer, webGpu);
     GG_CHECK(spriteLoadResult, "Failed to load sprites");
 
     BoundedVector<SpriteAnimLoader> spriteAnimLoaders(spriteAnimDefs.size());
@@ -51,12 +49,20 @@ LevelLoader::Load(const std::span<const SpriteDef> spriteDefs,
         spriteAnimLoaders.push_back(std::move(*loadResult));
     }
 
-    auto cellResult = CellMapLoader::Load(cellMapDef, renderer, fileFetcher, webGpu);
+    auto cellResult = CellMapLoader::Load(levelDef.CellMapDef, renderer, fileFetcher, webGpu);
     GG_CHECK(cellResult, "Failed to load cell map");
+
+    BoundedVector<PropDef> propDefs(levelDef.PropDefs.size());
+
+    for(const PropDef& propDef : levelDef.PropDefs)
+    {
+        propDefs.push_back(propDef);
+    }
 
     return LevelLoader(std::move(*cellResult),
         std::move(*spriteLoadResult),
-        std::move(spriteAnimLoaders));
+        std::move(spriteAnimLoaders),
+        std::move(propDefs));
 }
 
 bool
@@ -124,18 +130,33 @@ LevelLoader::Take()
     auto spritesResult = m_SpriteLoader.Take();
     GG_CHECK(spritesResult, "Failed to load sprites");
 
-    return std::unique_ptr<Level>(
-        new Level(std::move(*cellMapResult), std::move(*spritesResult), std::move(spriteAnims)));
+    BoundedVector<Prop> props(m_PropDefs.size());
+
+    for(const PropDef& propDef : m_PropDefs)
+    {
+        GG_CHECKB(propDef.SpriteId < spritesResult->size(), "Invalid sprite ID for prop");
+
+        const Sprite& sprite = (*spritesResult)[propDef.SpriteId].GetSprite();
+
+        props.emplace_back(sprite, propDef.Transform);
+    }
+
+    return std::unique_ptr<Level>(new Level(std::move(*cellMapResult),
+        std::move(*spritesResult),
+        std::move(spriteAnims),
+        std::move(props)));
 }
 
 /// Level
 
 Level::Level(CellMap&& cellMap,
     BoundedVector<NamedSprite>&& sprites,
-    BoundedVector<SpriteAnim>&& spriteAnims)
+    BoundedVector<SpriteAnim>&& spriteAnims,
+    BoundedVector<Prop>&& props)
     : m_CellMap(std::move(cellMap)),
       m_Sprites(std::move(sprites)),
-      m_SpriteAnims(std::move(spriteAnims))
+      m_SpriteAnims(std::move(spriteAnims)),
+      m_Props(std::move(props))
 {
 }
 
@@ -189,4 +210,10 @@ Level::CreateSpriteAnimInstance(const std::string_view name) const
     const auto& anim = *animResult;
 
     return anim.CreateInstance();
+}
+
+std::span<const Prop>
+Level::GetProps() const
+{
+    return m_Props;
 }

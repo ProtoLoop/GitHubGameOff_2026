@@ -135,7 +135,7 @@ FileFetcher::Fetch(const FilePath& path)
 {
     GG_INFO("Fetching: {}", path.c_str());
 
-    GG_CHECKB(m_FreeList, "Fetch request pool exhausted");
+    GG_CHECKB(m_FreeList, "Fetch request pool max capacity reached: {}", m_RequestHeap.capacity());
 
     FileFetchRequest* request = m_FreeList;
 

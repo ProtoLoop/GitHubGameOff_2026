@@ -3,8 +3,9 @@ struct VSOut
 {
     @builtin(position) pos : vec4<f32>,
     @location(0)       uv  : vec2<f32>,
-    @location(1)       outlineUV : vec2f, // Used to draw outlines
+    @location(1)       brectUV : vec2f, // Used to draw bounding rectangle
     @location(2)       color : vec4<f32>,
+    @location(3)       pivot : vec2<f32>,
 };
 
 struct CellMapParams
@@ -59,6 +60,7 @@ const spriteUV = array<vec2f, 6>(
 
 // Isometric transformation matrix.
 const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
+//const iso = mat2x2f(vec2f(1, 0), vec2f(0, 1));
 
 @vertex
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: u32) -> VSOut
@@ -88,8 +90,9 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     return VSOut(
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
-        spriteUV[vid],  // outlineUV
-        sprite.color    // color
+        spriteUV[vid],  // brectUV
+        sprite.color,   // color
+        sprite.pivot    // pivot
     );
 }
 
@@ -101,20 +104,34 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
     return select(hi, lo, vec4(linear.rgb <= vec3f(0.0031308), true));
 }
 
-// Returns true if a fragment is on the grid lines based on its UV coordinates.
-// Used to draw sprite bounding boxes.
-fn isOnGrid(gridUV: vec2f) -> bool
+// Draws the bounding rectangle for a sprite based on its UV coordinates.
+fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
 {
     let thickness = fwidth(gridUV);
-    return gridUV.x < thickness.x || gridUV.y < thickness.y;
+    let edgeDistance = min(gridUV, vec2f(1.0) - gridUV);
+    return select(color, vec4f(1.0, 1.0, 0.0, 1.0), any(edgeDistance < thickness));
+}
+
+// Draws the pivot cross for a sprite. The pivot is specified in UV coordinates.
+fn drawPivot(i: VSOut, color: vec4f) -> vec4f
+{
+    let pixelUV = max(fwidth(i.brectUV), vec2f(0.000001));
+    let distance = abs(i.brectUV - i.pivot) / pixelUV;
+
+    let onCross =
+        (distance.x < 6.0 && distance.y < 1.0) ||
+        (distance.y < 6.0 && distance.x < 1.0);
+
+    return select(color, vec4f(1.0, 0.0, 1.0, 1.0), onCross);
 }
 
 /// Used when outputting to an sRGB framebuffer.
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = textureSample(texture, smp, i.uv, 0) * i.color;
-    //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
+    var p = textureSample(texture, smp, i.uv, 0) * i.color;
+    p = drawBoundingRect(i.brectUV, p);
+    p = drawPivot(i, p);
     return p;
 }
 
@@ -122,8 +139,9 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    let p = linear_to_srgb(textureSample(texture, smp, i.uv, 0) * i.color);
-    //return select(p, vec4f(1.0, 1.0, 0.0, 1.0), isOnGrid(i.outlineUV));
+    var p = linear_to_srgb(textureSample(texture, smp, i.uv, 0) * i.color);
+    p = drawBoundingRect(i.brectUV, p);
+    p = drawPivot(i, p);
     return p;
 }
 )";
