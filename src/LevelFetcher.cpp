@@ -15,20 +15,20 @@ namespace
 {
 
 class Layer
-    {
-    public:
-        Layer() = delete;
-        ~Layer() = default;
-        Layer(const Layer&) = delete;
-        Layer& operator=(const Layer&) = delete;
-        Layer(Layer&&) = default;
-        Layer& operator=(Layer&&) = default;
+{
+public:
+    Layer() = delete;
+    ~Layer() = default;
+    Layer(const Layer&) = delete;
+    Layer& operator=(const Layer&) = delete;
+    Layer(Layer&&) = default;
+    Layer& operator=(Layer&&) = default;
 
-        Layer(uint32_t sheetIndex, BoundedVector<uint32_t>&& cells)
-            : m_SheetIndex(sheetIndex),
-            m_Cells(std::move(cells))
-        {
-        }
+    Layer(uint32_t sheetIndex, BoundedVector<uint32_t>&& cells)
+        : m_SheetIndex(sheetIndex),
+          m_Cells(std::move(cells))
+    {
+    }
 
     uint32_t GetSheetIndex() const { return m_SheetIndex; }
     std::span<const uint32_t> GetCells() const { return m_Cells; }
@@ -61,64 +61,46 @@ struct ParsedLevel
 Result<SpriteDef>
 ParsePropAsset(const JsonObject& propAsset)
 {
-    std::optional<std::string_view> texPath;
-    std::optional<float> pivotX;
-    std::optional<float> pivotY;
-    std::optional<float> scale;
+    std::optional<std::string_view> optTexPath;
+    std::optional<Pivot2D> optPivot;
+    std::optional<float> optScale;
 
-    for(const auto& p : propAsset)
+    if(std::string_view path; propAsset.TryGetString("texPath", path))
     {
-        if(std::string_view key; !GG_VERIFYB(p.TryGetKey(key), "Failed to get property key"))
-        {
-            return Result<>::Error;
-        }
-        else if(key == "texPath")
-        {
-            GG_CHECKB(!texPath.has_value(), "Duplicate texture path");
-            GG_CHECKB(p.TryGetString(texPath.emplace()), "Failed to get texture path");
-        }
-        else if(key == "pivotX")
-        {
-            GG_CHECKB(!pivotX.has_value(), "Duplicate pivotX");
-            GG_CHECKB(p.TryGetFloat(pivotX.emplace()), "Failed to get pivotX");
-        }
-        else if(key == "pivotY")
-        {
-            GG_CHECKB(!pivotY.has_value(), "Duplicate pivotY");
-            GG_CHECKB(p.TryGetFloat(pivotY.emplace()), "Failed to get pivotY");
-        }
-        else if(key == "scale")
-        {
-            GG_CHECKB(!scale.has_value(), "Duplicate scale");
-            GG_CHECKB(p.TryGetFloat(scale.emplace()), "Failed to get scale");
+        optTexPath = path;
+    }
+    GG_CHECKB(optTexPath.has_value(), "Missing texture path");
 
-            GG_CHECKB(*scale > 0.0f, "Scale must be positive: {}", *scale);
+    if(JsonObject jsonObj; propAsset.TryGetObject("pivot", jsonObj))
+    {
+        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
+        {
+            optPivot = Pivot2D{ .x = x, .y = y };
         }
     }
 
-    GG_CHECKB(texPath.has_value(), "Missing texture path");
+    if(float scale{}; propAsset.TryGetFloat("scale", scale))
+    {
+        optScale = scale;
+    }
 
-    const Pivot2D pivot //
-        {
-            .x = pivotX ? *pivotX : Pivot2D::kDefault.x,
-            .y = pivotY ? *pivotY : Pivot2D::kDefault.y,
-        };
+    const Pivot2D pivot = optPivot ? *optPivot : Pivot2D::kDefault;
 
-    const float scaleValue = scale ? *scale : 1.0f;
+    const float scaleValue = optScale ? *optScale : 1.0f;
 
-    std::string_view name = *texPath;
+    std::string_view name = *optTexPath;
 
     // Extract the file name without the path and extension
     name = name.substr(name.find_last_of('/') + 1);
     name = name.substr(0, name.find_last_of('.'));
 
-    return SpriteDef//
-    {
-        .Name = name,
-        .TexturePath = *texPath,
-        .Pivot = pivot,
-        .Scale = scaleValue,
-    };
+    return SpriteDef //
+        {
+            .Name = name,
+            .TexturePath = *optTexPath,
+            .Pivot = pivot,
+            .Scale = scaleValue,
+        };
 }
 
 Result<BoundedVector<SpriteDef>>
@@ -151,53 +133,40 @@ ParsePropAssets(const JsonArray& propAssets)
 Result<PropDef>
 ParseProp(const JsonObject& prop)
 {
-    std::optional<uint32_t> assetIndex;
-    std::optional<float> posX;
-    std::optional<float> posY;
-    std::optional<float> rot;
+    std::optional<uint32_t> optAssetIndex;
+    std::optional<glm::vec2> optPos;
+    std::optional<float> optRot;
 
-    for(const auto& p : prop)
+    if(uint32_t assetIndex{}; prop.TryGetUint32("index", assetIndex))
     {
-        if(std::string_view key; !GG_VERIFYB(p.TryGetKey(key), "Failed to get property key"))
+        optAssetIndex = assetIndex;
+    }
+    GG_CHECKB(optAssetIndex.has_value(), "Missing asset index");
+
+    if(JsonObject jsonObj; prop.TryGetObject("pos", jsonObj))
+    {
+        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
         {
-            return Result<>::Error;
-        }
-        else if(key == "index")
-        {
-            GG_CHECKB(!assetIndex.has_value(), "Duplicate asset index");
-            GG_CHECKB(p.TryGetUint32(assetIndex.emplace()), "Failed to get asset index");
-        }
-        else if(key == "x")
-        {
-            GG_CHECKB(!posX.has_value(), "Duplicate x position");
-            GG_CHECKB(p.TryGetFloat(posX.emplace()), "Failed to get x position");
-        }
-        else if(key == "y")
-        {
-            GG_CHECKB(!posY.has_value(), "Duplicate y position");
-            GG_CHECKB(p.TryGetFloat(posY.emplace()), "Failed to get y position");
-        }
-        else if(key == "rot")
-        {
-            GG_CHECKB(!rot.has_value(), "Duplicate rotation");
-            GG_CHECKB(p.TryGetFloat(rot.emplace()), "Failed to get rotation");
+            optPos = glm::vec2{ x, y };
         }
     }
+    GG_CHECKB(optPos.has_value(), "Missing position");
 
-    GG_CHECKB(assetIndex.has_value(), "Missing asset index");
-    GG_CHECKB(posX.has_value(), "Missing x position");
-    GG_CHECKB(posY.has_value(), "Missing y position");
-    GG_CHECKB(rot.has_value(), "Missing rotation");
-
-    return PropDef//
+    if(float rot{}; prop.TryGetFloat("rot", rot))
     {
-        .SpriteId = *assetIndex,
-        .Transform//
+        optRot = rot;
+    }
+    GG_CHECKB(optRot.has_value(), "Missing rotation");
+
+    return PropDef //
         {
-            .Pos{*posX, *posY},
-            .Rot = Angle::FromDegrees(*rot)
-        },
-    };
+            .SpriteId = *optAssetIndex,
+            .Transform //
+            {
+                .Pos = *optPos,
+                .Rot = Angle::FromDegrees(*optRot),
+            },
+        };
 }
 
 Result<BoundedVector<PropDef>>
@@ -222,40 +191,25 @@ ParseProps(const JsonArray& jsonProps)
 Result<Layer>
 ParseLayer(const JsonObject& layer)
 {
-    std::optional<uint32_t> sheetIndex;
-    std::optional<JsonArray> cellsArray;
+    std::optional<uint32_t> optSheetIndex;
+    std::optional<JsonArray> optCellsArray;
 
-    for(const auto& prop : layer)
+    if(uint32_t sheetIndex{}; layer.TryGetUint32("sheet", sheetIndex))
     {
-        if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
-        {
-            return Result<>::Error;
-        }
-        else if(key == "sheet")
-        {
-            GG_CHECKB(!sheetIndex.has_value(), "Duplicate sheet index");
-
-            JsonValue value;
-            GG_CHECKB(prop.TryGetValue(value), "Failed to get property value");
-            GG_CHECKB(value.TryGetUint32(sheetIndex.emplace()), "Failed to get sheet index");
-        }
-        else if(key == "cells")
-        {
-            GG_CHECKB(!cellsArray.has_value(), "Duplicate cells array");
-
-            JsonValue value;
-            GG_CHECKB(prop.TryGetValue(value), "Failed to get property value");
-            GG_CHECKB(value.TryGetArray(cellsArray.emplace()), "Failed to get cells array");
-        }
+        optSheetIndex = sheetIndex;
     }
+    GG_CHECKB(optSheetIndex.has_value(), "Missing sheet index");
 
-    GG_CHECKB(sheetIndex.has_value(), "Missing sheet index");
-    GG_CHECKB(cellsArray.has_value(), "Missing cells array");
+    if(JsonArray cellsArray; layer.TryGetArray("cells", cellsArray))
+    {
+        optCellsArray = cellsArray;
+    }
+    GG_CHECKB(optCellsArray.has_value(), "Missing cells array");
 
-    const size_t cellCount = cellsArray->size();
+    const size_t cellCount = optCellsArray->size();
     BoundedVector<uint32_t> cells(cellCount);
 
-    for(const JsonValue& cell : *cellsArray)
+    for(const JsonValue& cell : *optCellsArray)
     {
         uint32_t cellValue{ 0 };
 
@@ -264,7 +218,7 @@ ParseLayer(const JsonObject& layer)
         cells.push_back(cellValue);
     }
 
-    return Layer{ *sheetIndex, std::move(cells) };
+    return Layer{ *optSheetIndex, std::move(cells) };
 }
 
 Result<BoundedVector<Layer>>
@@ -303,98 +257,64 @@ Parse(std::vector<std::byte>&& data)
     std::optional<BoundedVector<Layer>> optLayers;
     std::optional<BoundedVector<PropDef>> optPropDefs;
 
-    for(const auto& prop : jobj)
+    if(uint32_t gridSize{}; jobj.TryGetUint32("gridSize", gridSize))
     {
-        if(std::string_view key; !GG_VERIFYB(prop.TryGetKey(key), "Failed to get property key"))
+        optGridSize = gridSize;
+    }
+    GG_CHECKB(optGridSize.has_value(), "Missing grid size");
+
+    if(JsonArray tileSheetsArray; jobj.TryGetArray("tileSheets", tileSheetsArray))
+    {
+        optTileSheetPaths.emplace(tileSheetsArray.size());
+
+        for(const auto& sheet : tileSheetsArray)
         {
-            return Result<>::Error;
-        }
-        else if(JsonValue value;
-            !GG_VERIFYB(prop.TryGetValue(value), "Failed to get property value"))
-        {
-            return Result<>::Error;
-        }
-        else if(key == "gridSize")
-        {
-            GG_CHECKB(!optGridSize.has_value(), "Duplicate \"gridSize\"");
-            GG_CHECKB(value.TryGetUint32(optGridSize.emplace()), "Failed to get gridSize");
-        }
-        else if(key == "tileSheets")
-        {
-            GG_CHECKB(!optTileSheetPaths.has_value(), "Duplicate \"tileSheets\"");
-
-            JsonArray array;
-            GG_CHECKB(value.TryGetArray(array), "Failed to get tileSheets array");
-
-            const size_t count = array.size();
-
-            optTileSheetPaths.emplace(count);
-
-            for(const auto& sheet : array)
-            {
-                std::string_view str;
-                GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
-                optTileSheetPaths->push_back(str);
-            }
-        }
-        else if(key == "maskSheets")
-        {
-            GG_CHECKB(!optMaskSheetPaths.has_value(), "Duplicate \"maskSheets\"");
-
-            JsonArray array;
-            GG_CHECKB(value.TryGetArray(array), "Failed to get maskSheets array");
-
-            const size_t count = array.size();
-
-            optMaskSheetPaths.emplace(count);
-
-            for(const auto& sheet : array)
-            {
-                std::string_view str;
-                GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
-                optMaskSheetPaths->push_back(str);
-            }
-        }
-        else if(key == "propAssets")
-        {
-            GG_CHECKB(!optSpriteDefs.has_value(), "Duplicate \"propAssets\"");
-
-            JsonArray array;
-            GG_CHECKB(value.TryGetArray(array), "Failed to get propAssets array");
-
-            auto propAssetsResult = ParsePropAssets(array);
-            GG_CHECK(propAssetsResult, "Failed to parse prop assets");
-
-            optSpriteDefs = std::move(*propAssetsResult);
-        }
-        else if(key == "props")
-        {
-            GG_CHECKB(!optPropDefs.has_value(), "Duplicate \"props\"");
-
-            JsonArray array;
-            GG_CHECK(value.TryGetArray(array), "Failed to get props array");
-            auto propResult = ParseProps(array);
-            GG_CHECK(propResult, "Failed to parse props");
-
-            optPropDefs.emplace(std::move(*propResult));
-        }
-        else if(key == "layers")
-        {
-            GG_CHECKB(!optLayers.has_value(), "Duplicate \"layers\"");
-
-            JsonArray array;
-            GG_CHECK(value.TryGetArray(array), "Failed to get layers array");
-            auto layerResult = ParseLayers(array);
-            GG_CHECK(layerResult, "Failed to parse layer");
-
-            optLayers.emplace(std::move(*layerResult));
+            std::string_view str;
+            GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+            optTileSheetPaths->push_back(str);
         }
     }
+    GG_CHECKB(optTileSheetPaths.has_value(), "Missing tile sheet paths");
 
-    GG_CHECKB(optGridSize.has_value(), "Missing \"gridSize\"");
-    GG_CHECKB(optTileSheetPaths.has_value(), "Missing \"tileSheets\"");
-    GG_CHECKB(optMaskSheetPaths.has_value(), "Missing \"maskSheets\"");
-    GG_CHECKB(optLayers.has_value(), "Missing \"layers\"");
+    if(JsonArray maskSheetsArray; jobj.TryGetArray("maskSheets", maskSheetsArray))
+    {
+        optMaskSheetPaths.emplace(maskSheetsArray.size());
+
+        for(const auto& sheet : maskSheetsArray)
+        {
+            std::string_view str;
+            GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+            optMaskSheetPaths->push_back(str);
+        }
+    }
+    GG_CHECKB(optMaskSheetPaths.has_value(), "Missing mask sheet paths");
+
+    if(JsonArray propAssetsArray; jobj.TryGetArray("propAssets", propAssetsArray))
+    {
+        auto propAssetsResult = ParsePropAssets(propAssetsArray);
+        GG_CHECK(propAssetsResult, "Failed to parse prop assets");
+
+        optSpriteDefs = std::move(*propAssetsResult);
+    }
+    // propAssets is optional - it can be absent in the JSON
+
+    if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
+    {
+        auto propResult = ParseProps(propsArray);
+        GG_CHECK(propResult, "Failed to parse props");
+
+        optPropDefs.emplace(std::move(*propResult));
+    }
+    // props is optional - it can be absent in the JSON
+
+    if(JsonArray layersArray; jobj.TryGetArray("layers", layersArray))
+    {
+        auto layerResult = ParseLayers(layersArray);
+        GG_CHECK(layerResult, "Failed to parse layer");
+
+        optLayers.emplace(std::move(*layerResult));
+    }
+    GG_CHECKB(optLayers.has_value(), "Missing layers");
 
     if(!optSpriteDefs || optSpriteDefs->empty())
     {

@@ -176,6 +176,20 @@ public:
 
     JsonObject() = default;
 
+    Result<> TryGetValue(const std::string_view key, JsonValue& value) const;
+
+    Result<> TryGetUint32(const std::string_view key, uint32_t& value) const;
+
+    Result<> TryGetFloat(const std::string_view key, float& value) const;
+
+    Result<> TryGetBool(const std::string_view key, bool& value) const;
+
+    Result<> TryGetString(const std::string_view key, std::string_view& value) const;
+
+    Result<> TryGetObject(const std::string_view key, JsonObject& value) const;
+
+    Result<> TryGetArray(const std::string_view key, JsonArray& value) const;
+
     iterator begin() const;
 
     iterator end() const;

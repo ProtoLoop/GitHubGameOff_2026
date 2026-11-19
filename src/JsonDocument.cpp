@@ -18,7 +18,7 @@ ParseFloat(const std::string_view text, float& out) noexcept
     GG_CHECKB(!text.empty(), "Input text is empty");
 
     // Null terminate the string
-    const InlineString<32> str{text};
+    const InlineString<32> str{ text };
 
     const char* cstr = str.c_str();
     char* end{};
@@ -87,7 +87,7 @@ JsonValue::TryGetUint32(uint32_t& value) const
 
     const std::string_view sv = TokStr(tok, m_Json);
 
-    //NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
 
     GG_CHECK(ec == std::errc{},
@@ -115,8 +115,8 @@ JsonValue::TryGetFloat(float& value) const
         "Failed to parse number (line:{})",
         GetLine(m_Index, m_Tokens, m_Json));
 
-    //std::from_chars() not available in xcode
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    // std::from_chars() not available in xcode
+    //  NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     /*const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
 
     GG_CHECK(ec == std::errc{},
@@ -441,6 +441,115 @@ JsonObject::JsonObject(
 {
     GG_ASSERT(m_Index < m_Tokens.size(), "Object out of bounds");
     GG_ASSERT(m_Tokens[m_Index].type == JSMN_OBJECT, "Expected an object");
+}
+
+Result<>
+JsonObject::TryGetValue(const std::string_view key, JsonValue& value) const
+{
+    bool found = false;
+    for(const JsonProperty& prop : *this)
+    {
+        if(std::string_view propKey;
+            !GG_VERIFYB(prop.TryGetKey(propKey), "Failed to get property key"))
+        {
+            return Result<>::Error;
+        }
+        else if(propKey == key)
+        {
+            GG_CHECKB(!found, "Duplicate property: {}", key);
+
+            GG_CHECKB(prop.TryGetValue(value), "Failed to get value for property: {}", key);
+            found = true;
+        }
+    }
+
+    GG_CHECK(found, "Property not found: {}", key);
+
+    return Result<>::Ok;
+}
+
+Result<>
+JsonObject::TryGetUint32(const std::string_view key, uint32_t& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetUint32(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
+}
+
+Result<>
+JsonObject::TryGetFloat(const std::string_view key, float& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetFloat(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
+}
+
+Result<>
+JsonObject::TryGetBool(const std::string_view key, bool& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetBool(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
+}
+
+Result<>
+JsonObject::TryGetString(const std::string_view key, std::string_view& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetString(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
+}
+
+Result<>
+JsonObject::TryGetObject(const std::string_view key, JsonObject& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetObject(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
+}
+
+Result<>
+JsonObject::TryGetArray(const std::string_view key, JsonArray& value) const
+{
+    JsonValue jsonValue;
+    if(TryGetValue(key, jsonValue) && jsonValue.TryGetArray(value))
+    {
+        return Result<>::Ok;
+    }
+    else
+    {
+        return Result<>::Error;
+    }
 }
 
 JsonObject::iterator
