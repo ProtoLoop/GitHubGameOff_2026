@@ -8,6 +8,15 @@ export interface Asset
     readonly url: string;
 }
 
+/// Normalized sprite-local rectangle, measured from the upper-left corner.
+export interface PropBounds
+{
+    readonly x: number;
+    readonly y: number;
+    readonly w: number;
+    readonly h: number;
+}
+
 export interface PropAsset extends Asset
 {
     readonly kind: "prop";
@@ -18,6 +27,7 @@ export interface PropAsset extends Asset
     readonly pivotX: number;
     readonly pivotY: number;
     readonly scale: number;
+    readonly bounds: readonly PropBounds[];
 }
 
 export interface Prop
@@ -242,6 +252,12 @@ export function validateDocument(project: ProjectDocument): void
         {
             fail("invalid prop image");
         }
+        if(!Array.isArray(asset.bounds) || asset.bounds.some((bound) => !bound
+            || !Number.isFinite(bound.x) || !Number.isFinite(bound.y)
+            || !Number.isFinite(bound.w) || !Number.isFinite(bound.h) || bound.w <= 0 || bound.h <= 0))
+        {
+            fail("invalid prop collision bounds");
+        }
     }
     const propIds = new Set<number>();
     for(const prop of project.props)
@@ -339,7 +355,7 @@ export async function decodePropAsset(blob: Blob, label: string, id: string): Pr
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
         return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image,
-            pivotX: 0.5, pivotY: 0.5, scale: 1 };
+            pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     }
     finally { bitmap.close(); }
 }

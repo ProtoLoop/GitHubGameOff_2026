@@ -138,7 +138,7 @@ function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
 
 /// A transparent overlay keeps previews and selection separate from terrain rendering.
 export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
-    preview: ImagePreview | null, box: SelectionBox | null): void
+    preview: ImagePreview | null, box: SelectionBox | null, showBounds: boolean): void
 {
     const context = prepareCanvas(canvas, view);
     context.clearRect(0, 0, canvas.width, canvas.height);
@@ -170,6 +170,28 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         const rect = propImageRect(prop.asset);
         context.drawImage(prop.asset.image, rect.x, rect.y, rect.width, rect.height);
         context.restore();
+    }
+    if(showBounds)
+    {
+        // Bounds can extend beyond the image, so image culling must not hide them.
+        for(const prop of project.props)
+        {
+            if(prop.asset.bounds.length === 0) { continue; }
+            context.save();
+            const point = mapPixels(prop, project.gridSize);
+            context.translate(point.x, point.y);
+            context.rotate(prop.rotation * Math.PI / 180);
+            context.strokeStyle = "#00e5ff";
+            context.lineWidth = 2 / view.zoom;
+            const width = prop.asset.width * prop.asset.scale;
+            const height = prop.asset.height * prop.asset.scale;
+            for(const bound of prop.asset.bounds)
+            {
+                context.strokeRect((bound.x - prop.asset.pivotX) * width,
+                    (bound.y - prop.asset.pivotY) * height, bound.w * width, bound.h * height);
+            }
+            context.restore();
+        }
     }
     for(const selected of project.props)
     {

@@ -650,7 +650,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic project-root asset paths
 
-Date: 2026-11-19. Status: Accepted.
+Date: 2026-11-19. Status: Accepted. Version support is superseded by
+[Mosaic prop collision bounds](#mosaic-prop-collision-bounds).
 
 The game's root is the project directory, while Mosaic serves projects beneath
 `/projects/<name>/`. Version 15 requires a leading slash in `tileSheets`,
@@ -680,3 +681,48 @@ Date: 2026-11-19. Status: Accepted.
 loaded level. `Game` retains gameplay entities and coordinates sprite submission
 for both. This extends the
 [entity-owned state and sprite submission decision](#entity-owned-state-and-sprite-submission).
+
+
+## Mosaic prop collision bounds
+
+Date: 2026-11-19. Status: Accepted. Version support is superseded by
+[Mosaic prop position objects](#mosaic-prop-position-objects).
+
+Version 16 groups serialized prop pivots into `pivot: { x, y }` and adds optional
+asset-owned `bounds` arrays of rectangles with `x`, `y`, `w`, and `h`.
+Bounds use normalized sprite coordinates from the upper-left corner. This keeps
+bounds stable when artwork resolution changes and matches normalized pivots.
+Pixel coordinates were considered but would couple bounds to image resolution.
+Positive dimensions are required. Overlap and coordinates outside the image are
+allowed. Missing bounds mean no collision. Bounds follow the sprite transform.
+
+Metadata remains immutable and shared by history snapshots. Bounds are authored
+in JSON and displayed through a session-only overlay toggle. Picking continues
+to use image rectangles. Game collision behavior is separate work. Game loader compatibility with nested pivots is handled separately.
+
+Mosaic reads and writes version 16 only, without migration support or legacy
+pivot aliases. Project2 is converted while preserving pivots and placements and
+adding empty bounds. This supersedes version support in
+[project-root asset paths](#mosaic-project-root-asset-paths) and the serialized
+pivot structure in [prop asset pivots and scale](#mosaic-prop-asset-pivots-and-scale).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic prop position objects
+
+Date: 2026-11-19. Status: Accepted.
+
+Version 17 groups each serialized prop's position into required `pos: { x, y }`,
+replacing the flat `x` and `y` fields. This makes position an explicit value,
+consistent with the asset's nested pivot. Keeping flat fields was an alternative,
+but would retain different JSON shapes for these coordinate pairs.
+
+Centered Y-up cell coordinates, bounds validation, three-decimal rounding, and
+instance rotation are unchanged. The editor retains its existing in-memory
+coordinates. Mosaic reads and writes version 17 only, with no migration loader
+or flat-position aliases. Project2 is converted without changing position values
+or unrelated data. Game loader compatibility is separate work.
+
+This supersedes version support in
+[prop collision bounds](#mosaic-prop-collision-bounds).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

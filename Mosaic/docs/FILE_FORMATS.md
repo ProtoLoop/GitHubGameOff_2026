@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 15`. Only version 15 is supported.
+The container has `format: "mosaic"` and `version: 17`. Only version 17 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -32,7 +32,7 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `propAssets` | Ordered objects with `texPath`, normalized `pivotX`/`pivotY`, and positive `scale` |
+| `propAssets` | Ordered objects with `texPath`, normalized `pivot`, positive `scale`, and collision `bounds` |
 | `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
 
@@ -188,20 +188,31 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "propAssets": [
-    { "texPath": "/assets/props/headstone.png", "pivotX": 0.5, "pivotY": 0.5, "scale": 1 }
+    { "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "bounds": [] }
   ],
-  "props": [{ "index": 0, "x": 1.5, "y": 2.25, "rot": 45 }]
+  "props": [{ "index": 0, "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
 }
 ```
 
 Each asset entry requires `texPath`, a project-root image path under
-`/assets/props/`. `pivotX` and `pivotY` are finite numbers between 0 and 1, inclusive,
+`/assets/props/`. `pivot.x` and `pivot.y` are finite numbers between 0 and 1, inclusive,
 measured from the image's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
 omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
 zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
-write all four fields. Newly discovered prop images use the same defaults.
+write `texPath`, `pivot`, `scale`, and `bounds` explicitly. An omitted `pivot`
+uses both default components. Newly discovered prop images use the same defaults.
 
-Each instance uses `index` to reference a zero-based entry in `propAssets`. `x` and `y` are finite fractional
+`bounds` is an optional array of collision rectangles. Omission means `[]`, or
+no collision. Each rectangle requires finite `x`, `y`, `w`, and `h`, with positive
+`w` and `h`. Coordinates are normalized from the sprite's upper-left corner:
+X and width use image width, Y and height use image height. Rectangles may overlap
+or extend outside `[0, 1]`. For example, `{"x": 0.35, "y": 0.75, "w": 0.3, "h": 0.2}`.
+All instances share their asset's immutable bounds. Convert to source pixels,
+then apply the same pivot, scale, rotation, and position as the image. These are
+local rectangles, not world-axis-aligned rectangles. Bounds do not affect picking,
+placement limits, or resizing. The Show bounds toggle is session-only.
+
+Each instance uses `index` to reference a zero-based entry in `propAssets`. `pos.x` and `pos.y` are required finite fractional
 cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2`
 inclusive. The origin is at the map center, with X increasing rightward and Y
 increasing upward. `(0, 0)` is the corner shared by the four central cells.
@@ -213,7 +224,7 @@ For top-left, Y-down map pixels used by the editor renderer, convert with
 `pixelX = (x + gridSize / 2) * 64` and `pixelY = (gridSize / 2 - y) * 64`.
 For example, `(1.5, 2.25)` cells puts the pivot at `(2144, 1904)` pixels on a 64-cell map.
 Both scaling and clockwise rotation operate about that fixed pivot. For an image
-point `(u, v)` in source pixels, subtract `(pivotX * width, pivotY * height)`,
+point `(u, v)` in source pixels, subtract `(pivot.x * width, pivot.y * height)`,
 multiply by `scale`, rotate clockwise in Y-down image space, then add the pivot's
 map-pixel position. There is no snapping to whole cells. At scale 1, one source
 pixel covers one map pixel. Source alpha is preserved. Render all props above terrain,

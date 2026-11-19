@@ -4,7 +4,7 @@ import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelt
 
 const asset: PropAsset = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
     blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
 const prop: Prop = { id: 0, asset, x: 100 / 64, y: -200 / 64, rotation: 90 };
 
 Deno.test("prop picking respects rotation, native rectangular bounds and placement order", () => {

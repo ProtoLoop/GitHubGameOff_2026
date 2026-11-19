@@ -97,7 +97,7 @@ function renderPropOverlay(): void
             else { preview = { asset, ...point }; }
         }
     }
-    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPropIds, preview, editor.selectionBox);
+    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPropIds, preview, editor.selectionBox, required("show-bounds", HTMLInputElement).checked);
 }
 
 function updatePropControls(): void
@@ -645,6 +645,7 @@ controls.addLayer.addEventListener("click", addOverlay);
 controls.activeMask.addEventListener("change", () => edit("Change mask mode", () => {
     editor.document.maskMode = controls.activeMask.value === "random" ? "random" : Number(controls.activeMask.value);
 }));
+required("show-bounds", HTMLInputElement).addEventListener("change", drawPropOverlay);
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
 controls.mapViewport.addEventListener("scroll", () => {
     saveView();

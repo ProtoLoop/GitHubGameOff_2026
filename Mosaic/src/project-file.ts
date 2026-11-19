@@ -6,17 +6,19 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 15,
+        format: "mosaic", version: 17,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
         propAssets: project.propAssets.map((asset) => ({
-            texPath: "/" + asset.id, pivotX: asset.pivotX, pivotY: asset.pivotY, scale: asset.scale
+            texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
+            bounds: asset.bounds.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         props: project.props.map((prop) => ({
             index: project.propAssets.indexOf(prop.asset),
-            x: Math.round(prop.x * 1000) / 1000, y: Math.round(prop.y * 1000) / 1000, rot: prop.rotation
+            pos: { x: Math.round(prop.x * 1000) / 1000, y: Math.round(prop.y * 1000) / 1000 },
+            rot: prop.rotation
         })),
         layers: project.layers.map((layer, index) => ({
             sheet: project.tileSheets.indexOf(layer.sheet),
@@ -77,7 +79,7 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 15)
+    if(data.format !== "mosaic" || data.version !== 17)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -99,20 +101,34 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         const entry = object(item);
         const asset = lookup(entry.texPath);
         if(asset.kind !== "prop") { throw new Error("Expected prop image"); }
+        const pivot = entry.pivot === undefined ? {} : object(entry.pivot);
+        if(entry.bounds !== undefined && !Array.isArray(entry.bounds)) { throw new Error("Invalid prop bounds"); }
+        const bounds = ((entry.bounds ?? []) as unknown[]).map((value) => {
+            const bound = object(value);
+            for(const key of ["x", "y", "w", "h"])
+            {
+                if(typeof bound[key] !== "number" || !Number.isFinite(bound[key]))
+                {
+                    throw new Error("Invalid prop bounds component");
+                }
+            }
+            return { x: bound.x as number, y: bound.y as number, w: bound.w as number, h: bound.h as number };
+        });
         // Keep decoded images shared without changing metadata in another document.
         return { ...asset,
-            pivotX: numberOrDefault(entry.pivotX, 0.5),
-            pivotY: numberOrDefault(entry.pivotY, 0.5),
-            scale: numberOrDefault(entry.scale, 1) };
+            pivotX: numberOrDefault(pivot.x, 0.5),
+            pivotY: numberOrDefault(pivot.y, 0.5),
+            scale: numberOrDefault(entry.scale, 1), bounds };
     });
     const props = list(data.props, 0, 10000).map((item, id) => {
         const prop = object(item);
-        for(const key of ["x", "y", "rot"])
+        const pos = object(prop.pos);
+        if(typeof pos.x !== "number" || typeof pos.y !== "number" || typeof prop.rot !== "number")
         {
-            if(typeof prop[key] !== "number") { throw new Error("Invalid prop coordinate or rotation"); }
+            throw new Error("Invalid prop coordinate or rotation");
         }
         return { id, asset: propAssets[integer(prop.index, 0, propAssets.length - 1)],
-            x: prop.x as number, y: prop.y as number, rotation: prop.rot as number };
+            x: pos.x, y: pos.y, rotation: prop.rot };
     });
     const gridSize = integer(data.gridSize, kMinGridSize, kMaxGridSize);
     if(!validGridSize(gridSize)) { throw new Error("Map size must be a power of two from 2 to 512 cells"); }

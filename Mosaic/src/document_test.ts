@@ -85,7 +85,7 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
     const project = createDocument([asset("tile")], [asset("mask")]);
     const image: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     project.propAssets = [image];
     const emptyBytes = documentBytes(project);
     project.props = [{ id: 0, asset: image, x: 1.2, y: 2.3, rotation: 45 }];
@@ -150,7 +150,7 @@ Deno.test("prop metadata validates normalized pivots and finite positive scale",
     const project = createDocument([asset("tile")], [asset("mask")]);
     const image: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     for(const pivot of [0, 0.5, 1])
     {
         project.propAssets = [{ ...image, pivotX: pivot, pivotY: pivot, scale: 0.25 }];
@@ -170,7 +170,7 @@ Deno.test("nested tile and prop paths validate, but traversal, mismatched roots 
     const original = createDocument([asset("tile")], [asset("mask")]);
     const prop: PropAsset = { kind: "prop", id: "assets/props/graveyard/stone.png", label: "graveyard/stone.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     original.propAssets = [prop];
     validateDocument(original);
     for(const path of ["one/two/ground.png", "space #/100%.png", "literal%2F/stone.png"])
@@ -214,7 +214,7 @@ Deno.test("terrain comparison detects rendering inputs but ignores prop and edit
     }
     const prop: PropAsset = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const changed = cloneDocument(original);
     changed.propAssets = [prop];
     changed.props = [{ id: 0, asset: prop, x: 1, y: 2, rotation: 90 }];
@@ -245,7 +245,7 @@ Deno.test("map size controls occupancy lengths and prop bounds, and participates
         assert.equal(sameTerrainContent(project, original), size === 64);
         const image: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a", blob: new Blob(),
             url: "", width: 10, height: 10, image: {} as CanvasImageSource,
-        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
         project.propAssets = [image];
         project.props = [{ id: 0, asset: image, x: size / 2, y: -size / 2, rotation: 0 }];
         project.nextPropId = 1;
