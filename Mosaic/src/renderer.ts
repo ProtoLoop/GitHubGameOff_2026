@@ -1,22 +1,27 @@
-import { type SelectionBox } from "./props.ts";
+import { mapPixels, propImageRect, type SelectionBox } from "./props.ts";
 import { type ProjectDocument, type MaskPlacement, type PropAsset, type ImageAsset } from "./document.ts";
 import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
-import { kGridSize, kCellSize, kHalfCellSize } from "./grid.ts";
+import { kCellSize, kHalfCellSize } from "./grid.ts";
 
-/// Rendering consumes a validated document and integer cell bounds.
-function prepareCanvas(canvas: HTMLCanvasElement): CanvasRenderingContext2D
+/// A viewport origin is in map pixels. Width and height are display pixels.
+export interface RenderView
 {
-    const size = kGridSize * kCellSize;
-    if(canvas.width !== size || canvas.height !== size)
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly zoom: number;
+}
+
+function prepareCanvas(canvas: HTMLCanvasElement, view: RenderView): CanvasRenderingContext2D
+{
+    if(canvas.width !== view.width || canvas.height !== view.height)
     {
-        canvas.width = size;
-        canvas.height = size;
+        canvas.width = view.width;
+        canvas.height = view.height;
     }
     const context = canvas.getContext("2d");
-    if(context === null)
-    {
-        throw new Error("Canvas 2D is unavailable");
-    }
+    if(context === null) { throw new Error("Canvas 2D is unavailable"); }
     return context;
 }
 
@@ -27,96 +32,87 @@ function cellCoverage(project: ProjectDocument, masks: readonly (MaskPlacement |
         (x + kHalfCellSize) % kCellSize, (y + kHalfCellSize) % kCellSize);
 }
 
-/// Render a rectangle of whole cells. Painting includes the one-cell border
-/// touched by the four junction masks whose patterns may have changed.
-/// Other pixels remain untouched.
-export function drawTerrainRegion(project: ProjectDocument, canvas: HTMLCanvasElement, startX: number, startY: number, endX: number, endY: number): void
+/// Sample display-pixel centers directly, including when zoomed out. Temporary
+/// pixels and mask choices belong only to this draw, with no terrain cache.
+function drawRegion(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView,
+    startX: number, startY: number, endX: number, endY: number, coverageOnly: boolean): void
 {
-    const context = prepareCanvas(canvas);
-    const width = (endX - startX) * kCellSize;
-    const height = (endY - startY) * kCellSize;
-    const image = context.createImageData(width, height);
+    const resized = canvas.width !== view.width || canvas.height !== view.height;
+    const context = prepareCanvas(canvas, view);
+    if(resized) { startX = 0; startY = 0; endX = project.gridSize; endY = project.gridSize; }
+    const left = Math.max(0, Math.ceil((startX * kCellSize - view.x) * view.zoom - 0.5));
+    const top = Math.max(0, Math.ceil((startY * kCellSize - view.y) * view.zoom - 0.5));
+    const right = Math.min(view.width, Math.ceil((endX * kCellSize - view.x) * view.zoom - 0.5));
+    const bottom = Math.min(view.height, Math.ceil((endY * kCellSize - view.y) * view.zoom - 0.5));
+    if(right <= left || bottom <= top) { return; }
+    const width = right - left;
+    const image = context.createImageData(width, bottom - top);
     const base = project.layers[0];
-    const rowBytes = base.sheet.dimension * 4;
-    const overlays = project.layers.slice(1);
-    for(let tileY = startY; tileY < endY; tileY++)
+    const selected = project.layers.findIndex((layer) => layer.id === project.activeLayerId);
+    const layers = coverageOnly ? (selected === 0 ? [] : [project.layers[selected]]) : project.layers.slice(1);
+    for(let y = top; y < bottom; y++)
     {
-        for(let tileX = startX; tileX < endX; tileX++)
+        const worldY = Math.floor(view.y + (y + 0.5) / view.zoom);
+        const tileY = Math.floor(worldY / kCellSize);
+        let lastCell = -1;
+        let masks: (readonly (MaskPlacement | null)[])[] = [];
+        for(let x = left; x < right; x++)
         {
-            const cell = tileY * kGridSize + tileX;
-            // Equal texture dimensions give every layer the same source offset.
-            const start = terrainSourceOffset(project, base, cell, 0, 0);
-            const layers = overlays.map((layer) => {
-                return { pixels: layer.sheet.pixels, masks: cellMasks(project, layer, cell) };
-            });
-            for(let y = 0; y < kCellSize; y++)
+            const worldX = Math.floor(view.x + (x + 0.5) / view.zoom);
+            const tileX = Math.floor(worldX / kCellSize);
+            const cell = tileY * project.gridSize + tileX;
+            if(cell !== lastCell)
             {
-                for(let x = 0; x < kCellSize; x++)
+                masks = layers.map((layer) => cellMasks(project, layer, cell));
+                lastCell = cell;
+            }
+            const localX = worldX % kCellSize, localY = worldY % kCellSize;
+            const offset = ((y - top) * width + x - left) * 4;
+            if(coverageOnly)
+            {
+                image.data[offset] = image.data[offset + 1] = image.data[offset + 2] = 255;
+                image.data[offset + 3] = selected === 0 ? 255 : cellCoverage(project, masks[0], localX, localY);
+                continue;
+            }
+            const source = terrainSourceOffset(project, base, cell, localX, localY);
+            image.data[offset] = base.sheet.pixels[source];
+            image.data[offset + 1] = base.sheet.pixels[source + 1];
+            image.data[offset + 2] = base.sheet.pixels[source + 2];
+            image.data[offset + 3] = 255;
+            for(let index = 0; index < layers.length; index++)
+            {
+                const alpha = cellCoverage(project, masks[index], localX, localY);
+                for(let channel = 0; channel < 3; channel++)
                 {
-                    const source = start + y * rowBytes + x * 4;
-                    const offset = (((tileY - startY) * kCellSize + y) * width
-                        + (tileX - startX) * kCellSize + x) * 4;
-                    image.data[offset] = base.sheet.pixels[source];
-                    image.data[offset + 1] = base.sheet.pixels[source + 1];
-                    image.data[offset + 2] = base.sheet.pixels[source + 2];
-                    image.data[offset + 3] = 255;
-                    for(const layer of layers)
-                    {
-                        const alpha = cellCoverage(project, layer.masks, x, y);
-                        for(let channel = 0; channel < 3; channel++)
-                        {
-                            image.data[offset + channel] = Math.round((image.data[offset + channel] * (255 - alpha)
-                                + layer.pixels[source + channel] * alpha) / 255);
-                        }
-                    }
+                    image.data[offset + channel] = Math.round((image.data[offset + channel] * (255 - alpha)
+                        + layers[index].sheet.pixels[source + channel] * alpha) / 255);
                 }
             }
         }
     }
-    const originX = startX * kCellSize;
-    const originY = startY * kCellSize;
-    context.putImageData(image, originX, originY);
+    context.putImageData(image, left, top);
 }
 
-/// Draw only the selected layer's alpha, retaining full mask resolution.
-export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasElement, startX: number, startY: number, endX: number, endY: number): void
+/// Dirty bounds are whole map cells, including affected junction neighbors.
+export function drawTerrainRegion(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView,
+    startX: number, startY: number, endX: number, endY: number): void
 {
-    const context = prepareCanvas(canvas);
-    const width = (endX - startX) * kCellSize;
-    const height = (endY - startY) * kCellSize;
-    const coverage = context.createImageData(width, height);
-    coverage.data.fill(255);
-    const selected = project.layers.findIndex((layer) => layer.id === project.activeLayerId);
-    if(selected !== 0)
-    {
-        for(let tileY = startY; tileY < endY; tileY++)
-        {
-            for(let tileX = startX; tileX < endX; tileX++)
-            {
-                const cell = tileY * kGridSize + tileX;
-                const layer = project.layers[selected];
-                const masks = cellMasks(project, layer, cell);
-                for(let y = 0; y < kCellSize; y++)
-                {
-                    for(let x = 0; x < kCellSize; x++)
-                    {
-                        const offset = (((tileY - startY) * kCellSize + y) * width
-                            + (tileX - startX) * kCellSize + x) * 4;
-                        coverage.data[offset + 3] = cellCoverage(project, masks, x, y);
-                    }
-                }
-            }
-        }
-    }
-    context.putImageData(coverage, startX * kCellSize, startY * kCellSize);
+    drawRegion(project, canvas, view, startX, startY, endX, endY, false);
+}
+
+export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView,
+    startX: number, startY: number, endX: number, endY: number): void
+{
+    drawRegion(project, canvas, view, startX, startY, endX, endY, true);
 }
 
 
 export interface ImagePreview
 {
     readonly asset: PropAsset | ImageAsset;
-    /// Optional draw dimensions in map pixels. Omit to retain native image size.
+    /// Optional terrain preview dimensions in map pixels. Props use their asset scale.
     readonly size?: { readonly width: number; readonly height: number };
+    /// Prop pivot or terrain preview center in fractional cells.
     readonly x: number;
     readonly y: number;
 }
@@ -141,45 +137,70 @@ function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
 }
 
 /// A transparent overlay keeps previews and selection separate from terrain rendering.
-export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, selectedIds: ReadonlySet<number>,
+export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
     preview: ImagePreview | null, box: SelectionBox | null): void
 {
-    const context = prepareCanvas(canvas);
+    const context = prepareCanvas(canvas, view);
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.imageSmoothingEnabled = false;
+    context.save();
+    context.setTransform(view.zoom, 0, 0, view.zoom, -view.x * view.zoom, -view.y * view.zoom);
+    const visible = (prop: ProjectDocument["props"][number]): boolean => {
+        const point = mapPixels(prop, project.gridSize);
+        const angle = prop.rotation * Math.PI / 180;
+        const rect = propImageRect(prop.asset);
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const offsetX = rect.x + rect.width / 2, offsetY = rect.y + rect.height / 2;
+        const centerX = point.x + offsetX * cos - offsetY * sin;
+        const centerY = point.y + offsetX * sin + offsetY * cos;
+        const halfWidth = (Math.abs(cos) * rect.width + Math.abs(sin) * rect.height) / 2;
+        const halfHeight = (Math.abs(sin) * rect.width + Math.abs(cos) * rect.height) / 2;
+        const margin = 2 / view.zoom;
+        return centerX + halfWidth + margin >= view.x && centerY + halfHeight + margin >= view.y
+            && centerX - halfWidth - margin <= view.x + view.width / view.zoom
+            && centerY - halfHeight - margin <= view.y + view.height / view.zoom;
+    };
     for(const prop of project.props)
     {
+        if(!visible(prop)) { continue; }
         context.save();
-        context.translate(prop.x, prop.y);
+        const point = mapPixels(prop, project.gridSize);
+        context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
-        context.drawImage(prop.asset.image, -prop.asset.width / 2, -prop.asset.height / 2);
+        const rect = propImageRect(prop.asset);
+        context.drawImage(prop.asset.image, rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
     for(const selected of project.props)
     {
-        if(!selectedIds.has(selected.id)) { continue; }
+        if(!selectedIds.has(selected.id) || !visible(selected)) { continue; }
         context.save();
-        context.translate(selected.x, selected.y);
+        const point = mapPixels(selected, project.gridSize);
+        context.translate(point.x, point.y);
         context.rotate(selected.rotation * Math.PI / 180);
         context.strokeStyle = "#ffdc60";
-        context.lineWidth = 2 / project.view.zoom;
-        context.strokeRect(-selected.asset.width / 2, -selected.asset.height / 2,
-            selected.asset.width, selected.asset.height);
+        context.lineWidth = 2 / view.zoom;
+        const rect = propImageRect(selected.asset);
+        context.strokeRect(rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
     if(preview)
     {
         context.save();
         context.globalAlpha = 0.5;
+        const point = mapPixels(preview, project.gridSize);
         const asset = preview.asset;
-        const image = asset.kind === "prop" ? asset.image : terrainPreviewImage(asset);
-        const width = preview.size?.width ?? (asset.kind === "prop" ? asset.width : asset.dimension);
-        const height = preview.size?.height ?? (asset.kind === "prop" ? asset.height : asset.dimension);
-        if(preview.size)
+        if(asset.kind === "prop")
         {
-            context.drawImage(image, preview.x - width / 2, preview.y - height / 2, width, height);
+            const rect = propImageRect(asset);
+            context.drawImage(asset.image, point.x + rect.x, point.y + rect.y, rect.width, rect.height);
         }
-        else { context.drawImage(image, preview.x - width / 2, preview.y - height / 2); }
+        else
+        {
+            const width = preview.size?.width ?? asset.dimension;
+            const height = preview.size?.height ?? asset.dimension;
+            context.drawImage(terrainPreviewImage(asset), point.x - width / 2, point.y - height / 2, width, height);
+        }
         context.restore();
     }
     if(box)
@@ -187,13 +208,34 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, s
         context.save();
         context.strokeStyle = "#ffdc60";
         context.fillStyle = "rgba(255, 220, 96, 0.12)";
-        context.lineWidth = 1 / project.view.zoom;
-        const x = Math.min(box.start.x, box.end.x);
-        const y = Math.min(box.start.y, box.end.y);
-        const width = Math.abs(box.end.x - box.start.x);
-        const height = Math.abs(box.end.y - box.start.y);
+        context.lineWidth = 1 / view.zoom;
+        const start = mapPixels(box.start, project.gridSize);
+        const end = mapPixels(box.end, project.gridSize);
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const width = Math.abs(box.end.x - box.start.x) * kCellSize;
+        const height = Math.abs(box.end.y - box.start.y) * kCellSize;
         context.fillRect(x, y, width, height);
         context.strokeRect(x, y, width, height);
         context.restore();
     }
+    // Draw pivots last in screen pixels so they stay upright and readable at every zoom.
+    for(const selected of project.props)
+    {
+        if(!selectedIds.has(selected.id)) { continue; }
+        const point = mapPixels(selected, project.gridSize);
+        const x = (point.x - view.x) * view.zoom;
+        const y = (point.y - view.y) * view.zoom;
+        if(x + 7 < 0 || y + 7 < 0 || x - 7 > canvas.width || y - 7 > canvas.height) { continue; }
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.fillStyle = "#161b16";
+        context.fillRect(x - 7, y - 2, 14, 4);
+        context.fillRect(x - 2, y - 7, 4, 14);
+        context.fillStyle = "#ff00ff";
+        context.fillRect(x - 6, y - 1, 12, 2);
+        context.fillRect(x - 1, y - 6, 2, 12);
+        context.restore();
+    }
+    context.restore();
 }

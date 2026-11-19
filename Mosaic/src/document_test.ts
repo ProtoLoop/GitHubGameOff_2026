@@ -84,10 +84,11 @@ Deno.test("terrain textures share dimensions and use multiples of 64 up to 4096"
 Deno.test("prop snapshots share images, isolate transforms, and account for history memory", () => {
     const project = createDocument([asset("tile")], [asset("mask")]);
     const image: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
-        blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource };
+        blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
     project.propAssets = [image];
     const emptyBytes = documentBytes(project);
-    project.props = [{ id: 0, asset: image, x: 120, y: 230, rotation: 45 }];
+    project.props = [{ id: 0, asset: image, x: 1.2, y: 2.3, rotation: 45 }];
     project.nextPropId = 1;
     validateDocument(project);
     assert(documentBytes(project) > emptyBytes);
@@ -95,14 +96,14 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
     assert(sameContent(project, copy));
     assert.equal(copy.props[0].asset, image);
     copy.props[0].x++;
-    assert.equal(project.props[0].x, 120);
+    assert.equal(project.props[0].x, 1.2);
     assert(!sameContent(project, copy));
     assert(documentAssets(copy).includes(image));
     for(const corrupt of [
         (p: typeof project) => { p.props[0].rotation = 360; },
         (p: typeof project) => { p.props[0].x = NaN; },
-        (p: typeof project) => { p.props[0].y = -1; },
-        (p: typeof project) => { p.props[0].x = 4097; },
+        (p: typeof project) => { p.props[0].y = -32.001; },
+        (p: typeof project) => { p.props[0].x = 64.001; },
         (p: typeof project) => { p.nextPropId = 0; },
         (p: typeof project) => { p.props.push(p.props[0]); },
         (p: typeof project) => { p.propAssets = []; },
@@ -131,6 +132,7 @@ Deno.test("prop decoding accepts rectangular alpha images and releases temporary
         const decoded = await decodePropAsset(new Blob(), "stone", "assets/props/stone.png");
         assert.equal(decoded.width, 80);
         assert.equal(decoded.height, 20);
+        assert.deepEqual([decoded.pivotX, decoded.pivotY, decoded.scale], [0.5, 0.5, 1]);
         assert.equal(drawn, 1);
         URL.revokeObjectURL(decoded.url);
         width = 4097;
@@ -144,10 +146,31 @@ Deno.test("prop decoding accepts rectangular alpha images and releases temporary
     }
 });
 
+Deno.test("prop metadata validates normalized pivots and finite positive scale", () => {
+    const project = createDocument([asset("tile")], [asset("mask")]);
+    const image: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a",
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+    for(const pivot of [0, 0.5, 1])
+    {
+        project.propAssets = [{ ...image, pivotX: pivot, pivotY: pivot, scale: 0.25 }];
+        validateDocument(project);
+    }
+    for(const fields of [
+        ...["pivotX", "pivotY"].flatMap((key) => [-0.01, 1.01, NaN, Infinity, -Infinity].map((value) => ({ [key]: value }))),
+        ...[0, -1, NaN, Infinity, -Infinity].map((scale) => ({ scale }))
+    ])
+    {
+        project.propAssets = [{ ...image, ...fields }];
+        assert.throws(() => validateDocument(project));
+    }
+});
+
 Deno.test("nested tile and prop paths validate, but traversal, mismatched roots and nested masks fail", () => {
     const original = createDocument([asset("tile")], [asset("mask")]);
     const prop: PropAsset = { kind: "prop", id: "assets/props/graveyard/stone.png", label: "graveyard/stone.png",
-        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource };
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
     original.propAssets = [prop];
     validateDocument(original);
     for(const path of ["one/two/ground.png", "space #/100%.png", "literal%2F/stone.png"])
@@ -190,10 +213,11 @@ Deno.test("terrain comparison detects rendering inputs but ignores prop and edit
         assert(!sameTerrainContent(changed, original));
     }
     const prop: PropAsset = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
-        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource };
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
     const changed = cloneDocument(original);
     changed.propAssets = [prop];
-    changed.props = [{ id: 0, asset: prop, x: 100, y: 200, rotation: 90 }];
+    changed.props = [{ id: 0, asset: prop, x: 1, y: 2, rotation: 90 }];
     changed.nextPropId = 1;
     changed.view.zoom = 0.5;
     changed.activeLayerId = 0;
@@ -206,4 +230,34 @@ Deno.test("terrain comparison detects rendering inputs but ignores prop and edit
     const reordered = cloneDocument(original);
     reordered.masks = [...reordered.masks].reverse();
     assert(!sameTerrainContent(original, reordered));
+});
+
+Deno.test("map size controls occupancy lengths and prop bounds, and participates in equality", () => {
+    const original = createDocument([asset("tile")], [asset("mask")]);
+    for(const size of [2, 4, 8, 16, 32, 64, 128, 256, 512])
+    {
+        const project = cloneDocument(original);
+        project.gridSize = size;
+        project.layers = project.layers.map((layer, index) => ({ ...layer, painted: Array(size * size).fill(index === 0) }));
+        validateDocument(project);
+        assert.equal(sameContent(project, original), size === 64);
+        assert.equal(sameContent(original, project), size === 64);
+        assert.equal(sameTerrainContent(project, original), size === 64);
+        const image: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a", blob: new Blob(),
+            url: "", width: 10, height: 10, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
+        project.propAssets = [image];
+        project.props = [{ id: 0, asset: image, x: size / 2, y: -size / 2, rotation: 0 }];
+        project.nextPropId = 1;
+        validateDocument(project);
+        project.props[0].x += 0.001;
+        assert.throws(() => validateDocument(project), /prop/);
+    }
+    for(const size of [0, 1, 3, 6, 511, 513, -1, NaN, 2.5, Infinity])
+    {
+        assert.throws(() => validateDocument({ ...original, gridSize: size }), /dimensions/);
+    }
+    const smaller = cloneDocument(original);
+    smaller.gridSize = 2;
+    assert.throws(() => validateDocument(smaller), /painted-cell grid/);
 });

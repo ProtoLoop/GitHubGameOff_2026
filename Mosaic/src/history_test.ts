@@ -93,16 +93,17 @@ Deno.test("undo and redo restore terrain materials without changing occupancy or
 Deno.test("prop placement, multi-event movement, rotation and deletion undo as complete actions", () => {
     let project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
-        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource };
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
     project.propAssets = [asset];
     const history = new History(100, 64 * 1024 * 1024);
     history.begin(project, "Place prop");
-    project.props.push({ id: project.nextPropId++, asset, x: 100, y: 200, rotation: 0 });
+    project.props.push({ id: project.nextPropId++, asset, x: 1, y: 2, rotation: 0 });
     history.commit(project);
     history.begin(project, "Move prop");
-    project.props[0].x = 150;
-    project.props[0].x = 200;
-    assert.equal(history.committedState(project).props[0].x, 100);
+    project.props[0].x = 1.5;
+    project.props[0].x = 2.0;
+    assert.equal(history.committedState(project).props[0].x, 1);
     history.commit(project);
     history.begin(project, "Rotate prop");
     project.props[0].rotation = 45;
@@ -115,27 +116,28 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
     project = history.undo(project)!;
     assert.equal(project.props[0].rotation, 0);
     project = history.undo(project)!;
-    assert.equal(project.props[0].x, 100);
+    assert.equal(project.props[0].x, 1);
     project = history.undo(project)!;
     assert.equal(project.props.length, 0);
     project = history.redo(project)!;
     assert.equal(project.props[0].asset, asset);
     history.begin(project, "Cancelled drag");
-    project.props[0].x = 333;
+    project.props[0].x = 3.33;
     project = history.rollback()!;
-    assert.equal(project.props[0].x, 100);
+    assert.equal(project.props[0].x, 1);
     assert(history.retainedStates().some((state) => state.propAssets.includes(asset)));
 });
 
 Deno.test("terrain comparison skips prop edits through undo and redo but detects terrain edits and rollback", () => {
     let project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
-        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource };
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        pivotX: 0.5, pivotY: 0.5, scale: 1 };
     project.propAssets = [asset];
     const history = new History(100, 64 * 1024 * 1024);
     for(const mutate of [
-        () => { project.props.push({ id: project.nextPropId++, asset, x: 100, y: 200, rotation: 0 }); },
-        () => { project.props[0].x = 300; },
+        () => { project.props.push({ id: project.nextPropId++, asset, x: 1, y: 2, rotation: 0 }); },
+        () => { project.props[0].x = 3.0; },
         () => { project.props[0].rotation = 90; },
         () => { project.props = []; }
     ])
@@ -164,4 +166,29 @@ Deno.test("terrain comparison skips prop edits through undo and redo but detects
     project.layers[1].painted[66] = true;
     const restored = history.rollback()!;
     assert(!sameTerrainContent(project, restored));
+});
+
+Deno.test("history records both resize directions even when occupancy is otherwise empty", () => {
+    let project = fixture();
+    project.layers[1].painted.fill(false);
+    const history = new History(100, 64 * 1024 * 1024);
+    for(const size of [2, 64, 4])
+    {
+        history.begin(project, "Resize map");
+        project.gridSize = size;
+        project.layers = project.layers.map((layer, index) => ({ ...layer, painted: Array(size * size).fill(index === 0) }));
+        assert(history.commit(project));
+    }
+    for(const size of [64, 2, 64])
+    {
+        project = history.undo(project)!;
+        assert.equal(project.gridSize, size);
+        assert.equal(project.layers[0].painted.length, size * size);
+    }
+    for(const size of [2, 64, 4])
+    {
+        project = history.redo(project)!;
+        assert.equal(project.gridSize, size);
+        assert.equal(project.layers[1].painted.length, size * size);
+    }
 });

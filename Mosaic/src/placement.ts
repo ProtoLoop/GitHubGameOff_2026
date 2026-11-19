@@ -1,4 +1,4 @@
-import { kGridSize, kCellSize, kJunctionGridSize, kMaskPixelCount } from "./grid.ts";
+import { kCellSize, kMaskPixelCount } from "./grid.ts";
 import { type ImageAsset, type Layer, type MaskPlacement, type ProjectDocument, type Rotation } from "./document.ts";
 
 // Eight unique square symmetries, expressed as source-axis flips followed by
@@ -43,14 +43,16 @@ export function terrainSourceOffset(project: ProjectDocument, layer: Layer, cell
 
 function resolveMask(project: ProjectDocument, layer: Layer, cell: number): MaskPlacement | null
 {
-    const jx = cell % kJunctionGridSize;
-    const jy = Math.floor(cell / kJunctionGridSize);
+    const gridSize = project.gridSize;
+    const junctionGridSize = gridSize + 1;
+    const jx = cell % junctionGridSize;
+    const jy = Math.floor(cell / junctionGridSize);
     let pattern = 0;
     for(let bit = 0; bit < 4; bit++)
     {
         const x = jx - 1 + bit % 2;
         const y = jy - 1 + Math.floor(bit / 2);
-        if(x >= 0 && x < kGridSize && y >= 0 && y < kGridSize && layer.painted[y * kGridSize + x])
+        if(x >= 0 && x < gridSize && y >= 0 && y < gridSize && layer.painted[y * gridSize + x])
         {
             pattern |= 1 << bit;
         }
@@ -91,6 +93,8 @@ export function sampleMask(mask: MaskPlacement | null, sheets: readonly ImageAss
 
 export function cellMasks(project: ProjectDocument, layer: Layer, cell: number): readonly (MaskPlacement | null)[]
 {
-    const junction = Math.floor(cell / kGridSize) * kJunctionGridSize + cell % kGridSize;
-    return [0, 1, kJunctionGridSize, kJunctionGridSize + 1].map((offset) => resolveMask(project, layer, junction + offset));
+    const gridSize = project.gridSize;
+    const junctionGridSize = gridSize + 1;
+    const junction = Math.floor(cell / gridSize) * junctionGridSize + cell % gridSize;
+    return [0, 1, junctionGridSize, junctionGridSize + 1].map((offset) => resolveMask(project, layer, junction + offset));
 }

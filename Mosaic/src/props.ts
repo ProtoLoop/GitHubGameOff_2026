@@ -1,19 +1,31 @@
-import { type Prop } from "./document.ts";
-import { kCellSize, kGridSize } from "./grid.ts";
+import { kCellSize } from "./grid.ts";
+import { type Prop, type PropAsset } from "./document.ts";
 
-/// Coordinates use map pixels, with positive Y downward and clockwise degrees.
-export function mapPoint(clientX: number, clientY: number,
-    bounds: { left: number; top: number; width: number; height: number }): { x: number; y: number }
+/// Scaled image bounds in Y-down pixels relative to the pivot, before rotation.
+export function propImageRect(asset: PropAsset): { x: number; y: number; width: number; height: number }
 {
-    const size = kGridSize * kCellSize;
-    return { x: (clientX - bounds.left) * size / bounds.width,
-        y: (clientY - bounds.top) * size / bounds.height };
+    const width = asset.width * asset.scale;
+    const height = asset.height * asset.scale;
+    return { x: -asset.pivotX * width, y: -asset.pivotY * height, width, height };
 }
 
-export function clampPropPoint(x: number, y: number): { x: number; y: number }
+/// Convert client pixels to centered, Y-up fractional cells using the full map surface bounds.
+export function mapPoint(clientX: number, clientY: number,
+    bounds: { left: number; top: number; width: number; height: number }, size: number): { x: number; y: number }
 {
-    const size = kGridSize * kCellSize;
-    return { x: Math.max(0, Math.min(size, x)), y: Math.max(0, Math.min(size, y)) };
+    return { x: (clientX - bounds.left) * size / bounds.width - size / 2,
+        y: size / 2 - (clientY - bounds.top) * size / bounds.height };
+}
+
+/// Convert centered, Y-up cells to top-left, Y-down map pixels for drawing.
+export function mapPixels(point: Point, size: number): Point
+{
+    return { x: (point.x + size / 2) * kCellSize, y: (size / 2 - point.y) * kCellSize };
+}
+
+export function clampPropPoint(x: number, y: number, size: number): { x: number; y: number }
+{
+    return { x: Math.max(-size / 2, Math.min(size / 2, x)), y: Math.max(-size / 2, Math.min(size / 2, y)) };
 }
 
 /// Pick the last drawn rectangle under the pointer, including transparent pixels.
@@ -23,11 +35,13 @@ export function hitProp(props: readonly Prop[], x: number, y: number): Prop | nu
     {
         const prop = props[index];
         const angle = prop.rotation * Math.PI / 180;
-        const dx = x - prop.x;
-        const dy = y - prop.y;
+        const dx = (x - prop.x) * kCellSize;
+        const dy = (prop.y - y) * kCellSize;
         const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
         const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-        if(Math.abs(localX) <= prop.asset.width / 2 && Math.abs(localY) <= prop.asset.height / 2)
+        const rect = propImageRect(prop.asset);
+        if(localX >= rect.x && localX <= rect.x + rect.width
+            && localY >= rect.y && localY <= rect.y + rect.height)
         {
             return prop;
         }
@@ -36,9 +50,10 @@ export function hitProp(props: readonly Prop[], x: number, y: number): Prop | nu
 }
 
 export interface Point { readonly x: number; readonly y: number; }
+/// Selection bounds use centered, Y-up fractional cells.
 export interface SelectionBox { readonly start: Point; readonly end: Point; }
 
-/// Rectangle selection uses centers, independently of sprite rotation and transparent margins.
+/// Rectangle selection uses pivots, independently of sprite rotation and transparent margins.
 export function propsInBox(props: readonly Prop[], box: SelectionBox): number[]
 {
     const left = Math.min(box.start.x, box.end.x);
@@ -49,12 +64,12 @@ export function propsInBox(props: readonly Prop[], box: SelectionBox): number[]
         .map((prop) => prop.id);
 }
 
-/// Clamp one shared translation so every center stays in bounds without deforming the group.
-export function groupMoveDelta(points: readonly Point[], dx: number, dy: number): Point
+/// Clamp one shared translation so every pivot stays in bounds without deforming the group.
+export function groupMoveDelta(points: readonly Point[], dx: number, dy: number, size: number): Point
 {
     if(points.length === 0) { return { x: 0, y: 0 }; }
-    const size = kGridSize * kCellSize;
-    let minX = size, minY = size, maxX = 0, maxY = 0;
+    const half = size / 2;
+    let minX = half, minY = half, maxX = -half, maxY = -half;
     for(const point of points)
     {
         minX = Math.min(minX, point.x);
@@ -62,6 +77,6 @@ export function groupMoveDelta(points: readonly Point[], dx: number, dy: number)
         maxX = Math.max(maxX, point.x);
         maxY = Math.max(maxY, point.y);
     }
-    return { x: Math.max(-minX, Math.min(size - maxX, dx)),
-        y: Math.max(-minY, Math.min(size - maxY, dy)) };
+    return { x: Math.max(-half - minX, Math.min(half - maxX, dx)),
+        y: Math.max(-half - minY, Math.min(half - maxY, dy)) };
 }

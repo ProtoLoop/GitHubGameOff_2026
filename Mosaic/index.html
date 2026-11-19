@@ -126,6 +126,10 @@
         #mask-links { overflow-wrap: anywhere; }
         a { color: #a4c78a; }
 
+        #map-size-form { display: grid; gap: 8px; width: 100%; }
+        #map-size { width: 100%; min-width: 0; box-sizing: border-box; }
+        #map-size-hint { display: block; }
+
         .layer-list { display: grid; gap: 10px; margin-top: 12px; }
         .layer-card
         {
@@ -189,23 +193,21 @@
         #map { cursor: crosshair; touch-action: none; }
         #map[data-tool="select"] { cursor: move; }
         #map[data-tool="place"] { cursor: default; }
-        .map-surface { position: relative; width: max-content; }
+        .map-surface { position: relative; overflow: hidden; }
+        #map { position: absolute; }
         .prop-preview { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
         #prop-palette button[aria-pressed="true"] { outline: 2px solid #ffdc60; }
-        #prop-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        #prop-overlay { position: absolute; pointer-events: none; }
         #map-grid
         {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
             pointer-events: none;
             fill: none;
             stroke: rgb(230, 238, 225);
             stroke-width: 1px;
             shape-rendering: crispEdges;
         }
-        #map-viewport { min-height: 0; min-width: 0; touch-action: none; overscroll-behavior: contain; }
+        #map-viewport { padding: 0; min-height: 0; min-width: 0; touch-action: none; overscroll-behavior: contain; }
         #map-viewport.panning, #map-viewport.panning #map { cursor: grabbing; }
         .coverage-panel { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
         .coverage-panel .canvas-wrap { overflow: hidden; }
@@ -277,6 +279,12 @@
                 <details aria-labelledby="settings-heading">
                     <summary id="settings-heading">Map settings</summary>
                     <div class="settings">
+                        <form id="map-size-form">
+                            <label for="map-size">Map size (cells per side)</label>
+                            <select id="map-size" aria-describedby="map-size-hint"></select>
+                            <output id="map-size-hint" class="hint" for="map-size" aria-live="polite"></output>
+                            <button id="map-size-apply" type="submit">Apply</button>
+                        </form>
                         <label>Mask set
                             <select id="active-mask" title="Choose the mask sheet used for overlay junctions. Changing this regenerates overlay masks."><option value="random">Random per junction</option></select>
                         </label>
@@ -286,7 +294,7 @@
                 <details>
                     <summary>Help</summary>
                     <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
-                    <p class="hint">Choose a prop image to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to prop selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to prop selection, clearing palette highlights. In Select, Shift-click adds or removes a prop. Drag empty space to select prop centers inside a box, or Shift-drag to add them. Drag a selected prop to move the group. Delete or Backspace removes the selection. Escape in prop selection cancels a drag, or clears selection when idle. Props use native image size. Later placements draw on top. Selection uses image rectangles, including transparent pixels.</p>
+                    <p class="hint">The app starts in Select mode. Later project switches and reloads retain the current tool. Choose a prop image to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to prop selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to prop selection, clearing palette highlights. In Select, Shift-click adds or removes a prop. Drag empty space to select prop pivots inside a box, or Shift-drag to add them. Drag a selected prop to move the group. Delete or Backspace removes the selection. Escape in prop selection cancels a drag, or clears selection when idle. Props use their asset scale and rotate about their pivots. Selected props show a magenta crosshair with a dark border at each pivot. Crosshairs stay upright and the same screen size at every zoom. Later placements draw on top. Selection uses image rectangles, including transparent pixels.</p>
                     <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
                     <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
                     <p class="hint">Layers composite from bottom to top. Terrain textures must be square, have identical dimensions, and be 64–4096 pixels per side in multiples of 64. Each whole texture repeats from the map origin at one texture pixel per world pixel. Texture edges must be seamless. Masks always cover 64×64 pixels.</p>
@@ -297,10 +305,10 @@
             <div class="editor-area" aria-label="Map editor">
                 <div class="layout">
                     <section class="map-panel" aria-labelledby="map-heading">
-                        <h2 id="map-heading">Tilemap · 64 × 64</h2>
+                        <h2 id="map-heading">Tilemap</h2>
                         <div id="map-viewport" class="canvas-wrap">
-                            <div class="map-surface">
-                                <canvas id="map" tabindex="0" aria-label="Editable 64 by 64 layered material tilemap"></canvas>
+                            <div id="map-surface" class="map-surface">
+                                <canvas id="map" tabindex="0" aria-label="Editable layered material tilemap"></canvas>
                                 <canvas id="prop-overlay" aria-hidden="true"></canvas>
                                 <svg id="map-grid" aria-hidden="true" focusable="false"></svg>
                             </div>
@@ -312,7 +320,7 @@
                             <p class="hint">White shows coverage. Transparent areas reveal the layers below.</p>
                         </div>
                         <div class="canvas-wrap">
-                            <canvas id="coverage" aria-label="Selected layer alpha mask for the full 64 by 64 tilemap"></canvas>
+                            <canvas id="coverage" aria-label="Selected layer alpha mask"></canvas>
                         </div>
                     </section>
                 </div>
@@ -332,6 +340,16 @@
             <button id="project-refresh" title="Refresh the list of available project folders." type="button">Refresh Projects</button>
             <button id="project-cancel" title="Close the chooser without opening another project (Escape)." type="button">Cancel</button>
             <button id="project-confirm" title="Save pending changes and open the selected project." type="button" disabled>Open</button>
+        </div>
+    </dialog>
+    <dialog id="resize-dialog" aria-labelledby="resize-heading" aria-describedby="resize-dimensions resize-consequences resize-undo">
+        <h2 id="resize-heading">Resize map?</h2>
+        <p id="resize-dimensions"></p>
+        <p id="resize-consequences"></p>
+        <p id="resize-undo">This change autosaves. You can undo it, including any cropped terrain and removed props, using Undo in this editor session.</p>
+        <div class="controls chooser-actions">
+            <button id="resize-cancel" type="button" autofocus>Cancel</button>
+            <button id="resize-confirm" type="button">Resize map</button>
         </div>
     </dialog>
     <script type="module" src="app.js"></script>

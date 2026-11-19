@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 10`. Only version 10 is supported.
+The container has `format: "mosaic"` and `version: 14`. Only version 14 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -27,12 +27,12 @@ algorithms below are part of the versioned format contract.
 
 | Field | Meaning |
 | --- | --- |
-| `gridSize` | `64` painted cells along each map axis |
+| `gridSize` | Power of two from 2 to 512 painted cells along each square map axis |
 | `tileSheets` | Ordered project-relative terrain-sheet paths |
 | `maskSheets` | Ordered project-relative mask-sheet paths |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `propAssets` | Ordered project-relative individual prop-image paths |
+| `propAssets` | Ordered objects with `texPath`, normalized `pivotX`/`pivotY`, and positive `scale` |
 | `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
 
@@ -53,8 +53,8 @@ An overlay layer records only painted cells:
 }
 ```
 
-`cell = y * 64 + x` identifies a position in the 64×64 grid, from 0 through
-4095. Presence means painted. Omitted cells are unpainted. A cell may appear
+`cell = y * gridSize + x` identifies a position in the square grid, from 0
+through `gridSize * gridSize - 1`. Presence means painted. Omitted cells are unpainted. A cell may appear
 only once. Entries must be integer indices. The writer orders them numerically,
 but input order is irrelevant.
 
@@ -95,7 +95,7 @@ function hash(x, y, seed) {
 
 `layerIndex` is the layer's zero-based position in `layers`.
 
-There are 65×65 junctions. Junction `(jx, jy)` is surrounded by NW, NE, SW,
+There are `(gridSize + 1) × (gridSize + 1)` junctions. Junction `(jx, jy)` is surrounded by NW, NE, SW,
 and SE painted cells, contributing bits 0, 1, 2, and 3 respectively. Cells outside
 the map are unpainted. The resulting pattern is the row-major mask tile index.
 Pattern 0 supplies zero coverage without sampling an image. Pattern 15 is opaque.
@@ -187,22 +187,38 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 
 ```json
 {
-  "propAssets": ["assets/props/headstone.png"],
-  "props": [{ "index": 0, "x": 250.5, "y": 300, "rot": 45 }]
+  "propAssets": [
+    { "texPath": "assets/props/headstone.png", "pivotX": 0.5, "pivotY": 0.5, "scale": 1 }
+  ],
+  "props": [{ "index": 0, "x": 1.5, "y": 2.25, "rot": 45 }]
 }
 ```
 
-Each instance uses `index` to reference a zero-based entry in `propAssets`. `x` and `y` are finite map
-pixel coordinates for the image center, between 0 and 4096 inclusive. The map
-origin is at its top-left, with X increasing rightward and Y increasing downward.
-Prop coordinates are rounded to the nearest 0.001 map pixels during placement,
+Each asset entry requires `texPath`, a project-relative image path under
+`assets/props/`. `pivotX` and `pivotY` are finite numbers between 0 and 1, inclusive,
+measured from the image's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
+omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
+zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
+write all four fields. Newly discovered prop images use the same defaults.
+
+Each instance uses `index` to reference a zero-based entry in `propAssets`. `x` and `y` are finite fractional
+cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2`
+inclusive. The origin is at the map center, with X increasing rightward and Y
+increasing upward. `(0, 0)` is the corner shared by the four central cells.
+Prop coordinates are rounded to the nearest 0.001 cells during placement,
 movement, loading, and saving. JSON numbers use at most three decimal places
 without padded trailing zeros.
 `rot` is a finite clockwise angle in degrees, at least 0 and less than 360.
-Images rotate around their centers, without scaling or snapping. One source pixel
-covers one map pixel. Source alpha is preserved. Render all props above terrain,
+For top-left, Y-down map pixels used by the editor renderer, convert with
+`pixelX = (x + gridSize / 2) * 64` and `pixelY = (gridSize / 2 - y) * 64`.
+For example, `(1.5, 2.25)` cells puts the pivot at `(2144, 1904)` pixels on a 64-cell map.
+Both scaling and clockwise rotation operate about that fixed pivot. For an image
+point `(u, v)` in source pixels, subtract `(pivotX * width, pivotY * height)`,
+multiply by `scale`, rotate clockwise in Y-down image space, then add the pivot's
+map-pixel position. There is no snapping to whole cells. At scale 1, one source
+pixel covers one map pixel. Source alpha is preserved. Render all props above terrain,
 in array order, using ordinary source-over alpha blending and nearest sampling.
-Clip artwork at map edges, even when its center lies inside the map.
+Clip artwork at map edges, even when its pivot lies inside the map.
 
 A prop asset is a single image, not an atlas. Rectangular images are allowed,
 with each dimension from 1 to 4096 pixels. The catalog supports at most 256 prop
@@ -211,18 +227,18 @@ images. Missing referenced images, incorrect asset kinds, invalid transforms,
 and invalid catalog references fail loading before installation.
 
 The document owns prop placements. Snapshots copy their transforms and share
-immutable decoded images. Placement, movement, and deletion are undoable,
+immutable decoded images and asset pivot/scale settings. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
-retains the current view. Saved rotation is preserved and rendered, but has no editing control.
+retains the current view. Saved rotation, asset pivots, and asset scale are preserved and rendered, but have no editing controls.
 Prop selection, tool mode, and palette selection are transient editor state
 and are not saved or undoable. Instance IDs and the next-ID counter are session-only.
-The loader reconstructs IDs in array order. Picking checks rotated image rectangles
+The loader reconstructs IDs in array order. Picking checks scaled, rotated image rectangles
 from front to back, including transparent pixels.
 
-The game does not yet consume these records. Its coordinate system and sprite
-resources remain separate from this editor-only capability.
+This format change applies to Mosaic only. The game loader has not been updated
+to consume version 14 prop asset objects.
 
 ### Editor settings and editing
 
@@ -245,9 +261,28 @@ redraws coverage with the new setting. Material changes preserve painted cells.
 Undo and redo restore occupancy
 and settings, reproducing the corresponding rendering choices.
 
+Map size is document state. New projects default to 64×64 cells, and the Map
+settings control accepts powers of two from 2–512 cells per side. Apply opens a warning dialog with
+old and new dimensions, crop/growth behavior, and the number of props removed.
+Cancel is initially focused. Only confirmation performs the resize.
+
+Resizing keeps the map center fixed. Occupancy stays in top-left row-major
+storage. Copy the centered overlap using source offset `(oldSize - overlap) / 2`
+and destination offset `(newSize - overlap) / 2` on both axes. Allowed sizes are
+all even, so these offsets are whole cells. Growing adds base terrain and empty
+overlays equally on all four sides. Shrinking crops equally on all four sides
+and removes props whose absolute X or Y exceeds `newSize / 2`. Pivots exactly
+on the boundary remain. Retained prop coordinates do not change.
+
+Texture repeats and procedural mask choices still use top-left row/column
+indices. Resizing can change their appearance even where occupancy is retained,
+and the confirmation dialog explains this. Terrain scale, mask size, and retained
+layer IDs stay unchanged. A resize is one autosaved history action. Undo restores
+size, occupancy, and removed props from the prior snapshot.
+
 ### Assets and limits
 
-Catalog entries are paths such as `assets/tiles/ground/grass.png`,
+Terrain and mask catalog entries, and prop entries' `texPath` fields, are paths such as `assets/tiles/ground/grass.png`,
 `assets/props/graveyard/headstone.png`, and `assets/masks/alpha.png`. Paths contain
 actual filenames, not URL escapes. Every path must start with its asset kind's
 root. Tile and prop paths may include subfolders, while mask paths must be flat.
@@ -267,7 +302,8 @@ read or write.
 
 Catalog order is preserved on load. Discovered images are sorted by their full
 encoded resource URLs. Newly discovered images append in that deterministic order,
-without changing existing catalog indices or prop placement order. Newly discovered terrain textures
+without changing existing catalog indices or prop placement order. Saved prop pivots
+and scales are preserved, and new prop entries default to pivot `(0.5, 0.5)` and scale `1`. Newly discovered terrain textures
 must match the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
 selection because the sheet count participates in the algorithm. Fixed mask

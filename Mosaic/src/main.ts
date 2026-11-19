@@ -4,8 +4,8 @@ import { documentAssets, sameTerrainContent,
 import { Editor, type Tool, type EditResult } from "./editor.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
-import { drawTerrainRegion, drawCoverageRegion, drawProps, type ImagePreview } from "./renderer.ts";
-import { kGridSize, kCellSize, kCellCount } from "./grid.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawProps, type ImagePreview, type RenderView } from "./renderer.ts";
+import { kCellSize, kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
 import { mapPoint, type Point } from "./props.ts";
 
@@ -15,6 +15,8 @@ let fileBusy = false;
 const assets = new Set<TileAtlas | PropAsset>();
 let hoverClient: Point | null = null;
 let overlayFrame: number | null = null;
+let viewportFrame: number | null = null;
+let renderedView: RenderView | null = null;
 
 interface Controls
 {
@@ -65,15 +67,16 @@ function drawPropOverlay(): void
 
 function renderPropOverlay(): void
 {
+    if(overlayFrame !== null) { cancelAnimationFrame(overlayFrame); overlayFrame = null; }
     let preview: ImagePreview | null = null;
     const asset = editor.tool === "place" ? editor.selectedPropAsset : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
     if(asset && hoverClient && editor.activeGesture?.kind !== "pan" && !fileBusy
-        && !required("project-dialog", HTMLDialogElement).open)
+        && !dialogOpen())
     {
-        const bounds = controls.map.getBoundingClientRect();
-        const point = mapPoint(hoverClient.x, hoverClient.y, bounds);
-        const size = kGridSize * kCellSize;
-        if(point.x >= 0 && point.y >= 0 && point.x <= size && point.y <= size)
+        const bounds = required("map-surface", HTMLDivElement).getBoundingClientRect();
+        const point = mapPoint(hoverClient.x, hoverClient.y, bounds, editor.document.gridSize);
+        const size = editor.document.gridSize;
+        if(Math.abs(point.x) <= size / 2 && Math.abs(point.y) <= size / 2)
         {
             if(editor.tool === "terrain")
             {
@@ -86,15 +89,15 @@ function renderPropOverlay(): void
                     const width = rect.width || Number.parseFloat(style.width);
                     const height = rect.height || Number.parseFloat(style.height);
                     preview = { asset, ...point, size: {
-                        width: width * size / bounds.width,
-                        height: height * size / bounds.height
+                        width: width * size * kCellSize / bounds.width,
+                        height: height * size * kCellSize / bounds.height
                     } };
                 }
             }
             else { preview = { asset, ...point }; }
         }
     }
-    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), editor.selectedPropIds, preview, editor.selectionBox);
+    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPropIds, preview, editor.selectionBox);
 }
 
 function updatePropControls(): void
@@ -152,31 +155,90 @@ function setTool(next: Tool): void
 
 function propPoint(event: PointerEvent): Point
 {
-    return mapPoint(event.clientX, event.clientY, controls.map.getBoundingClientRect());
+    return mapPoint(event.clientX, event.clientY, required("map-surface", HTMLDivElement).getBoundingClientRect(), editor.document.gridSize);
 }
 
 function clientPoint(event: PointerEvent): Point { return { x: event.clientX, y: event.clientY }; }
 
+/// The surface supplies scroll extent and input coordinates, never pixel storage.
+function layoutViewport(): RenderView
+{
+    const viewport = controls.mapViewport;
+    const zoom = editor.document.view.zoom;
+    const size = editor.document.gridSize * kCellSize * zoom;
+    const left = Math.min(viewport.scrollLeft, Math.max(0, size - viewport.clientWidth));
+    const top = Math.min(viewport.scrollTop, Math.max(0, size - viewport.clientHeight));
+    const width = Math.max(1, Math.ceil(Math.min(viewport.clientWidth, size - left)));
+    const height = Math.max(1, Math.ceil(Math.min(viewport.clientHeight, size - top)));
+    for(const element of [controls.map, required("prop-overlay", HTMLCanvasElement), controls.grid])
+    {
+        element.style.left = `${left}px`;
+        element.style.top = `${top}px`;
+        element.style.width = `${width}px`;
+        element.style.height = `${height}px`;
+    }
+    controls.grid.setAttribute("viewBox", `${left / zoom} ${top / zoom} ${width / zoom} ${height / zoom}`);
+    return { x: left / zoom, y: top / zoom, width, height, zoom };
+}
+
+function coverageView(): RenderView
+{
+    const width = Math.max(1, Math.floor(controls.coverage.getBoundingClientRect().width));
+    return { x: 0, y: 0, width, height: width, zoom: width / (editor.document.gridSize * kCellSize) };
+}
+
+function drawCoverage(startX: number, startY: number, endX: number, endY: number): void
+{
+    drawCoverageRegion(editor.document, controls.coverage, coverageView(), startX, startY, endX, endY);
+}
+
+function drawMapRegion(startX: number, startY: number, endX: number, endY: number): void
+{
+    const view = layoutViewport();
+    if(!renderedView || view.x !== renderedView.x || view.y !== renderedView.y
+        || view.width !== renderedView.width || view.height !== renderedView.height || view.zoom !== renderedView.zoom)
+    {
+        startX = 0; startY = 0; endX = editor.document.gridSize; endY = editor.document.gridSize;
+    }
+    drawTerrainRegion(editor.document, controls.map, view, startX, startY, endX, endY);
+    renderedView = view;
+}
+
 function drawRegion(startX: number, startY: number, endX: number, endY: number): void
 {
-    drawTerrainRegion(editor.document, controls.map, startX, startY, endX, endY);
-    drawCoverageRegion(editor.document, controls.coverage, startX, startY, endX, endY);
+    drawMapRegion(startX, startY, endX, endY);
+    drawCoverage(startX, startY, endX, endY);
 }
 
 function draw(): void
 {
-    drawRegion(0, 0, kGridSize, kGridSize);
+    drawRegion(0, 0, editor.document.gridSize, editor.document.gridSize);
     drawPropOverlay();
+}
+
+/// Coalesce scrolling and layout changes into one redraw per animation frame.
+function requestViewportDraw(): void
+{
+    if(!ready || viewportFrame !== null) { return; }
+    viewportFrame = requestAnimationFrame(() => {
+        viewportFrame = null;
+        drawMapRegion(0, 0, editor.document.gridSize, editor.document.gridSize);
+        if(controls.coverage.width !== coverageView().width)
+        {
+            drawCoverage(0, 0, editor.document.gridSize, editor.document.gridSize);
+        }
+        renderPropOverlay();
+    });
 }
 
 /// Keep the grid vector-based so terrain scaling cannot discard thin lines.
 function initializeGrid(): void
 {
-    const size = kGridSize * kCellSize;
+    const size = editor.document.gridSize * kCellSize;
     controls.grid.setAttribute("viewBox", `0 0 ${size} ${size}`);
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     const segments: string[] = [];
-    for(let cell = 0; cell <= kGridSize; cell++)
+    for(let cell = 0; cell <= editor.document.gridSize; cell++)
     {
         const position = cell * kCellSize;
         segments.push(`M ${position} 0 V ${size}`, `M 0 ${position} H ${size}`);
@@ -196,14 +258,14 @@ function updateGrid(): void
 
 function cellAt(event: PointerEvent): number
 {
-    const bounds = controls.map.getBoundingClientRect();
-    const tileX = Math.floor((event.clientX - bounds.left) * kGridSize / bounds.width);
-    const tileY = Math.floor((event.clientY - bounds.top) * kGridSize / bounds.height);
-    if(tileX < 0 || tileX >= kGridSize || tileY < 0 || tileY >= kGridSize)
+    const bounds = required("map-surface", HTMLDivElement).getBoundingClientRect();
+    const tileX = Math.floor((event.clientX - bounds.left) * editor.document.gridSize / bounds.width);
+    const tileY = Math.floor((event.clientY - bounds.top) * editor.document.gridSize / bounds.height);
+    if(tileX < 0 || tileX >= editor.document.gridSize || tileY < 0 || tileY >= editor.document.gridSize)
     {
         return -1;
     }
-    return tileY * kGridSize + tileX;
+    return tileY * editor.document.gridSize + tileX;
 }
 
 function updateInteraction(event: PointerEvent): void
@@ -218,7 +280,7 @@ function updateInteraction(event: PointerEvent): void
         if(region)
         {
             const layer = editor.getLayer(editor.document.activeLayerId);
-            const position = `${cell % kGridSize + 1}, ${Math.floor(cell / kGridSize) + 1}`;
+            const position = `${cell % editor.document.gridSize + 1}, ${Math.floor(cell / editor.document.gridSize) + 1}`;
             setMessage(controls.status, !layer.painted[cell]
                 ? `${layer.sheet.label}: cleared ${position}`
                 : `${layer.sheet.label}: ${layer === editor.document.layers[0] ? "revealed" : "occupied"} ${position}; higher layers cleared`, false);
@@ -243,7 +305,7 @@ function updateInteraction(event: PointerEvent): void
 
 function startInteraction(event: PointerEvent): void
 {
-    if(!ready || fileBusy || editor.activeGesture) { return; }
+    if(!ready || fileBusy || dialogOpen() || editor.activeGesture) { return; }
     if(event.button !== 1 && event.target !== controls.map) { return; }
     if(event.button !== 0 && event.button !== 1 && event.button !== 2) { return; }
     event.preventDefault();
@@ -327,10 +389,10 @@ function finishInteraction(outcome: "commit" | "cancel" | "escape"): void
     collectAssets();
 }
 
-/// Resize only the displayed canvas and retain the map point under the cursor.
+/// Retain the map point under the cursor while changing display scale.
 function zoomMap(event: WheelEvent): void
 {
-    if(!event.altKey) { return; }
+    if(!ready || fileBusy || dialogOpen() || !event.altKey) { return; }
     event.preventDefault();
     if(editor.activeGesture !== null)
     {
@@ -340,19 +402,19 @@ function zoomMap(event: WheelEvent): void
     const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? viewport.clientHeight : 1;
     const nextZoom = Math.max(1 / 16, Math.min(4, editor.document.view.zoom * Math.exp(-event.deltaY * unit * 0.002)));
-    const bounds = controls.map.getBoundingClientRect();
+    const bounds = required("map-surface", HTMLDivElement).getBoundingClientRect();
     const ratio = nextZoom / editor.document.view.zoom;
     const offsetX = event.clientX - bounds.left;
     const offsetY = event.clientY - bounds.top;
     const scrollLeft = viewport.scrollLeft;
     const scrollTop = viewport.scrollTop;
-    const size = kGridSize * kCellSize * nextZoom;
-    controls.map.style.width = `${size}px`;
-    controls.map.style.height = `${size}px`;
+    const size = editor.document.gridSize * kCellSize * nextZoom;
+    required("map-surface", HTMLDivElement).style.width = `${size}px`;
+    required("map-surface", HTMLDivElement).style.height = `${size}px`;
     viewport.scrollLeft = scrollLeft + offsetX * (ratio - 1);
     viewport.scrollTop = scrollTop + offsetY * (ratio - 1);
     editor.document.view.zoom = nextZoom;
-    drawPropOverlay();
+    requestViewportDraw();
     session.changed();
     updateGrid();
     saveView();
@@ -401,7 +463,7 @@ function setActiveLayer(id: number): void
     setMessage(controls.status, editor.getLayer(id) === editor.document.layers[0]
         ? "Base selected. Left-click or drag to clear overlays and reveal the background."
         : `${editor.getLayer(id).sheet.label} selected. Left-click or drag to fill and clear higher layers, right-click to clear this layer.`, false);
-    drawCoverageRegion(editor.document, controls.coverage, 0, 0, kGridSize, kGridSize);
+    drawCoverage(0, 0, editor.document.gridSize, editor.document.gridSize);
     drawPropOverlay();
 }
 
@@ -470,7 +532,7 @@ function addOverlay(): void
         const choices = availableTiles();
         const sheet = choices[Math.min(2, choices.length - 1)];
         const layer: Layer = {
-            id: editor.document.nextLayerId++, painted: Array(kCellCount).fill(false),
+            id: editor.document.nextLayerId++, painted: Array((editor.document.gridSize * editor.document.gridSize)).fill(false),
             sheet
         };
         editor.document.layers.push(layer);
@@ -486,24 +548,85 @@ function resetSample(): void
             const sheet = choices[Math.min(index, choices.length - 1)];
             const id = editor.document.nextLayerId++;
             return { id, sheet,
-                painted: Array(kCellCount).fill(index === 0) };
+                painted: Array((editor.document.gridSize * editor.document.gridSize)).fill(index === 0) };
         };
         editor.document.layers = [makeLayer(0), makeLayer(1), makeLayer(2)];
         const full = editor.document.layers[1];
         const patch = editor.document.layers[2];
-        for(let y = 0; y < kGridSize; y++)
+        for(let y = 0; y < editor.document.gridSize; y++)
         {
-            for(let x = 0; x < kGridSize; x++) { full.painted[y * kGridSize + x] = true; }
+            for(let x = 0; x < editor.document.gridSize; x++) { full.painted[y * editor.document.gridSize + x] = true; }
         }
-        for(let y = 1; y <= 3; y++)
+        for(let y = 1; y < Math.min(4, editor.document.gridSize); y++)
         {
-            for(let x = 1; x <= 3; x++) { patch.painted[y * kGridSize + x] = true; }
+            for(let x = 1; x < Math.min(4, editor.document.gridSize); x++) { patch.painted[y * editor.document.gridSize + x] = true; }
         }
-        patch.painted[3 * kGridSize + 2] = false;
-        patch.painted[kGridSize + 1] = false;
+        if(editor.document.gridSize >= 4) { patch.painted[3 * editor.document.gridSize + 2] = false; }
+        if(editor.document.gridSize >= 2) { patch.painted[editor.document.gridSize + 1] = false; }
         editor.document.activeLayerId = patch.id;
     });
 }
+
+function dialogOpen(): boolean
+{
+    return required("project-dialog", HTMLDialogElement).open || required("resize-dialog", HTMLDialogElement).open;
+}
+
+let pendingMapSize: number | null = null;
+
+function updateMapSizeInput(): void
+{
+    const input = required("map-size", HTMLSelectElement);
+    const size = Number(input.value);
+    required("map-size-hint", HTMLOutputElement).value = validGridSize(size)
+        ? `${size * kCellSize} × ${size * kCellSize} pixels · cells remain ${kCellSize} × ${kCellSize} pixels`
+        : `Choose a power of two from ${kMinGridSize} to ${kMaxGridSize}.`;
+    required("map-size-apply", HTMLButtonElement).disabled = !ready || (validGridSize(size) && size === editor.document.gridSize);
+}
+
+function requestMapResize(event: SubmitEvent): void
+{
+    event.preventDefault();
+    if(!ready || fileBusy || dialogOpen()) { return; }
+    const input = required("map-size", HTMLSelectElement);
+    const size = Number(input.value);
+    if(!input.reportValidity() || !validGridSize(size) || size === editor.document.gridSize) { return; }
+    finishInteraction("commit");
+    const oldSize = editor.document.gridSize;
+    pendingMapSize = size;
+    const removed = editor.document.props.filter((prop) => Math.abs(prop.x) > size / 2 || Math.abs(prop.y) > size / 2).length;
+    required("resize-dimensions", HTMLParagraphElement).textContent =
+        `Change from ${oldSize} × ${oldSize} cells (${oldSize * kCellSize} × ${oldSize * kCellSize} pixels) to ${size} × ${size} cells (${size * kCellSize} × ${size * kCellSize} pixels).`;
+    required("resize-consequences", HTMLParagraphElement).textContent = size > oldSize
+        ? "The map center stays fixed. New space is added equally on all four sides, filled with base terrain and empty overlays. Existing props keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid."
+        : `The map center stays fixed. Terrain is cropped equally from all four sides of every layer. ${removed} ${removed === 1 ? "prop will" : "props will"} be removed because their pivots lie outside the new map. Remaining props keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid. Props with pivots on the boundary are kept, with artwork clipped at the map edge.`;
+    hoverClient = null;
+    required("resize-dialog", HTMLDialogElement).showModal();
+    required("resize-cancel", HTMLButtonElement).focus();
+    drawPropOverlay();
+}
+
+for(let size = kMinGridSize; size <= kMaxGridSize; size *= 2)
+{
+    const option = document.createElement("option");
+    option.value = String(size);
+    option.textContent = `${size} × ${size}`;
+    required("map-size", HTMLSelectElement).append(option);
+}
+required("map-size", HTMLSelectElement).addEventListener("input", updateMapSizeInput);
+required("map-size-form", HTMLFormElement).addEventListener("submit", requestMapResize);
+required("resize-cancel", HTMLButtonElement).addEventListener("click", () => {
+    pendingMapSize = null;
+    required("resize-dialog", HTMLDialogElement).close();
+});
+required("resize-dialog", HTMLDialogElement).addEventListener("cancel", () => { pendingMapSize = null; });
+required("resize-dialog", HTMLDialogElement).addEventListener("close", () => { pendingMapSize = null; });
+required("resize-confirm", HTMLButtonElement).addEventListener("click", () => {
+    const size = pendingMapSize;
+    pendingMapSize = null;
+    required("resize-dialog", HTMLDialogElement).close();
+    if(size !== null) { applyEdit(() => editor.resizeMap(size)); }
+});
 
 controls.mapViewport.addEventListener("pointerdown", startInteraction);
 controls.mapViewport.addEventListener("pointermove", moveInteraction);
@@ -525,13 +648,14 @@ controls.activeMask.addEventListener("change", () => edit("Change mask mode", ()
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
 controls.mapViewport.addEventListener("scroll", () => {
     saveView();
-    if(ready) { drawPropOverlay(); }
+    requestViewportDraw();
 });
 controls.mapViewport.addEventListener("pointerleave", () => {
     hoverClient = null;
     if(ready) { drawPropOverlay(); }
 });
-globalThis.addEventListener("resize", () => { if(ready) { drawPropOverlay(); } });
+new ResizeObserver(requestViewportDraw).observe(controls.mapViewport);
+new ResizeObserver(requestViewportDraw).observe(controls.coverage.parentElement!);
 globalThis.addEventListener("blur", () => {
     hoverClient = null;
     if(ready) { finishInteraction("cancel"); drawPropOverlay(); }
@@ -613,9 +737,18 @@ function collectAssets(): void
 function refreshDocument(previous: ProjectDocument | null): void
 {
     controls.showGrid.checked = editor.document.view.showGrid;
-    const size = kGridSize * kCellSize * editor.document.view.zoom;
-    controls.map.style.width = `${size}px`;
-    controls.map.style.height = `${size}px`;
+    if(previous === null || previous.gridSize !== editor.document.gridSize) { initializeGrid(); }
+    const dimensions = `${editor.document.gridSize} × ${editor.document.gridSize}`;
+    required("map-heading", HTMLHeadingElement).textContent = `Tilemap · ${dimensions}`;
+    controls.map.setAttribute("aria-label", `Editable ${dimensions} cell layered material tilemap`);
+    controls.coverage.setAttribute("aria-label", `Selected layer alpha mask for the ${dimensions} cell tilemap`);
+    required("map-size", HTMLSelectElement).value = String(editor.document.gridSize);
+    updateMapSizeInput();
+    const size = editor.document.gridSize * kCellSize * editor.document.view.zoom;
+    required("map-surface", HTMLDivElement).style.width = `${size}px`;
+    required("map-surface", HTMLDivElement).style.height = `${size}px`;
+    controls.mapViewport.scrollLeft = editor.document.view.scrollLeft;
+    controls.mapViewport.scrollTop = editor.document.view.scrollTop;
     renderMaskChoices();
     renderLayers();
     renderPropPalette();
@@ -631,13 +764,11 @@ function refreshDocument(previous: ProjectDocument | null): void
         const activeLayer = editor.document.layers.findIndex((layer) => layer.id === editor.document.activeLayerId);
         if(previousLayer !== activeLayer)
         {
-            drawCoverageRegion(editor.document, controls.coverage, 0, 0, kGridSize, kGridSize);
+            drawCoverage(0, 0, editor.document.gridSize, editor.document.gridSize);
         }
         drawPropOverlay();
     }
     updateGrid();
-    controls.mapViewport.scrollLeft = editor.document.view.scrollLeft;
-    controls.mapViewport.scrollTop = editor.document.view.scrollTop;
     updateProjectButtons();
 }
 
@@ -646,11 +777,11 @@ function installDocument(next: ProjectDocument): void
     const nextEditor = new Editor(next, new History(100, 64 * 1024 * 1024));
     if(ready) { nextEditor.setTool(editor.tool); }
     editor = nextEditor;
+    renderedView = null;
     hoverClient = null;
     ready = true;
     for(const asset of documentAssets(next)) { assets.add(asset); }
     required("editor", HTMLDivElement).inert = false;
-    initializeGrid();
     refreshDocument(null);
     collectAssets();
     setMessage(controls.status, "", false);
@@ -691,7 +822,7 @@ function edit(label: string, mutate: () => void): void
 
 function changeHistory(redo: boolean): void
 {
-    if(!ready || fileBusy) { return; }
+    if(!ready || fileBusy || dialogOpen()) { return; }
     applyEdit(() => editor.changeHistory(redo));
 }
 
@@ -762,7 +893,7 @@ async function refreshProjects(): Promise<void>
 
 async function showProjectChooser(): Promise<void>
 {
-    if(fileBusy) { return; }
+    if(fileBusy || dialogOpen()) { return; }
     finishInteraction("commit");
     const dialog = required("project-dialog", HTMLDialogElement);
     if(dialog.open) { return; }
@@ -775,7 +906,7 @@ async function showProjectChooser(): Promise<void>
 
 async function fileAction(action: "open" | "save" | "reload"): Promise<void>
 {
-    if(fileBusy || (action === "open" && projectListing)) { return; }
+    if(fileBusy || required("resize-dialog", HTMLDialogElement).open || (action === "open" && projectListing)) { return; }
     finishInteraction("commit");
     fileBusy = true;
     hoverClient = null;
@@ -813,7 +944,7 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
 }
 
 globalThis.addEventListener("keydown", (event) => {
-    if(!ready || fileBusy || required("project-dialog", HTMLDialogElement).open) { return; }
+    if(!ready || fileBusy || dialogOpen()) { return; }
     if(event.key === "Escape")
     {
         event.preventDefault();
@@ -865,7 +996,7 @@ globalThis.addEventListener("beforeunload", (event) => {
 });
 globalThis.addEventListener("keydown", (event) => {
     if(!(event.ctrlKey || event.metaKey) || event.altKey || fileBusy
-        || required("project-dialog", HTMLDialogElement).open) { return; }
+        || dialogOpen()) { return; }
     const target = event.target;
     if(target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) { return; }
     const key = event.key.toLowerCase();

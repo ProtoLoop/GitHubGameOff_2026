@@ -1,7 +1,12 @@
-/// Occupancy grid dimensions, in cells.
-export const kGridSize = 64;
-export const kCellCount = kGridSize * kGridSize;
-export const kJunctionGridSize = kGridSize + 1;
+/// Square map dimensions, in cells. New projects retain the default size.
+export const kDefaultGridSize = 64;
+export const kMinGridSize = 2;
+export const kMaxGridSize = 512;
+
+export function validGridSize(size: number): boolean
+{
+    return Number.isInteger(size) && size >= kMinGridSize && size <= kMaxGridSize && (size & (size - 1)) === 0;
+}
 
 /// Cell and junction-mask dimensions, in world pixels.
 export const kCellSize = 64;

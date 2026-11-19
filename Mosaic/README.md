@@ -24,7 +24,7 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The included
 `sample` project provides assets. Copy its asset folders to make a new project.
-Mosaic reads and writes version 10 only, with no migration support. Existing
+Mosaic reads and writes version 14 only, with no migration support. Existing
 level files from earlier versions, including the checked-in sample, cannot be
 opened by this version. A project without `level.json` starts a new level.
 
@@ -47,9 +47,28 @@ instructions under **Help**. The map and selected-layer coverage preview occupy
 the right side. The sidebar and map scroll independently. On smaller windows,
 the toolbar wraps and the coverage preview moves below the map.
 
+Map canvases cover only the visible viewport. Scrolling and zooming redraw that
+view directly, without cached terrain chunks or full-map pixel buffers. The
+coverage preview remains a whole-map overview, sampled at its displayed size.
+Canvas memory depends on window size. Map data and Undo snapshots still grow
+with the number of cells, layers, and props.
+
+The app starts in **Select** mode. Later project switches and reloads retain the current tool.
+
 - Click **Open Project**, select a project in the chooser, then click **Open**.
   **Refresh Projects** updates the list. **Cancel** or Escape closes the chooser.
 - **Reload Project** picks up external level or asset changes, with no rebuild.
+- Under **Map settings**, choose **Map size (cells per side)** from
+  2, 4, 8, 16, 32, 64, 128, 256, or 512, then click **Apply**. Maps are square and cells stay 64×64 pixels.
+  New projects start at 64×64 cells. The confirmation dialog shows old and new
+  cell/pixel dimensions and explains the consequences. Cancel is focused initially.
+  Growing adds base terrain equally on all four sides, keeping the map center fixed.
+  Shrinking crops terrain equally on all four sides and removes props outside the new bounds.
+  Retained props keep their coordinates. Terrain repeats and mask variations are
+  regenerated using the resized grid. The dialog reports how many props will be removed. Props with pivots exactly on an
+  edge remain, with their artwork clipped there. **Resize map** applies one
+  undoable, autosaved change. Undo restores the previous size, cropped terrain,
+  and removed props within the editor's bounded, session-only history.
 - Select a swatch and drag left to paint. Right-click erases the selected overlay.
 - Choose a prop palette swatch for placement or a terrain swatch for painting.
   The active swatch is highlighted. Escape cancels the active gesture and always
@@ -62,22 +81,31 @@ the toolbar wraps and the coverage preview moves below the map.
   disappears outside the map or after Escape. Painting still affects individual
   cells. The preview does not change terrain sampling or brush size.
 - Choose a prop swatch to enter **Place**. A translucent preview follows the cursor
-  at native image size. Left-click places one copy and stays in Place for repeated
+  at the asset scale, with its pivot under the cursor. Left-click places one copy and stays in Place for repeated
   stamping. Escape or right-click returns to Select, keeping the last copy selected.
   Choose a prop swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
   reload to update the palette. Rectangular images support 1–4096 pixels per axis.
+- Each `propAssets` entry in `level.json` stores `texPath`, `pivotX`, `pivotY`, and
+  `scale`. Pivots are normalized from the image's upper-left `(0, 0)` to lower-right
+  `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale is finite and positive, defaulting to
+  `1`. Scale and rotation both operate about the pivot. Edit these asset settings
+  in JSON and reload the project to apply them.
 - In **Select**, click a prop to select it. Shift-click adds or removes it from the
-  selection. Drag empty space to box-select props whose centers lie inside the box.
+  selection. Drag empty space to box-select props whose pivots lie inside the box.
   Shift-drag empty space adds those props to the selection. Clicking without dragging
   selects only the clicked prop, while dragging a selected prop moves the group.
-- Selected props have outlines and the sidebar shows the selection count. Delete
-  or Backspace removes the group as one undo action.
+- Selected props have outlines and a magenta crosshair with a dark border at each
+  pivot. Crosshairs stay upright and the same screen size at every zoom. The sidebar
+  shows the selection count. Delete or Backspace removes the group as one undo action.
   Escape cancels an active move or box selection, otherwise it clears selection.
-  Picking uses rotated image rectangles, including transparent pixels. Later
+  Picking uses scaled, rotated image rectangles, including transparent pixels. Later
   placements draw on top.
-- Props move freely in map pixels. Their
-  centers stay within the map, with group spacing preserved at the edges. Artwork
+- Props move freely in fractional cell coordinates, rounded to three decimal
+  places during editing and saving. `(1.5, 2.25)` places the image pivot 1.5 cells
+  right and 2.25 cells up from the map center. `(0, 0)` is the corner shared by
+  the four central cells. Each cell spans 64 pixels. Their
+  pivots stay within the map, with group spacing preserved at the edges. Artwork
   is clipped at map edges. Each drag is
   one undo action. Choose a material swatch to resume painting.
 - Drag the middle mouse button to pan. Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor.

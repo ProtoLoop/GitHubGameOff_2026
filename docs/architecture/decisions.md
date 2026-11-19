@@ -467,7 +467,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).
 
 ## Mosaic prop JSON field names
 
-Date: 2026-11-18. Status: Accepted.
+Date: 2026-11-18. Status: Accepted. Version support is superseded by
+[Mosaic configurable square map size](#mosaic-configurable-square-map-size).
 
 Version 10 names each serialized prop's catalog reference `index` and its
 clockwise angle in degrees `rot`, replacing `asset` and `rotation`. Coordinates,
@@ -482,4 +483,165 @@ Existing project files are not rewritten as part of this change.
 
 This supersedes version 9 support in
 [nested tile and prop assets](#mosaic-nested-tile-and-prop-assets).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic configurable square map size
+
+Date: 2026-11-19. Status: Accepted. Version support and prop coordinate units are
+superseded by [Mosaic prop cell coordinates](#mosaic-prop-cell-coordinates).
+
+Map size belongs to the project document rather than global editor constants.
+Version 11 permits an integer `gridSize` from 1 to 512, with 64 as the default.
+Cells remain 64×64 world pixels. Cell indices use the document's row width,
+junction grids have one extra row and column, and prop bounds follow map pixels.
+
+The user-selected maximum is 512 cells per side. The renderer still allocates
+full-map canvases, so this bound does not guarantee that a browser can render
+the largest maps. At 512 cells, one 32768×32768 RGBA buffer requires 4 GiB.
+Separate width and height are not part of this change.
+The allocation approach is superseded by
+[Mosaic viewport rendering](#mosaic-viewport-rendering).
+
+Resizing is a controller edit using the existing snapshot history and save queue.
+It anchors the top-left corner, remaps retained occupancy by coordinates, and
+fills new space with base terrain. Shrinking crops occupancy and removes props
+whose centers lie beyond the new bottom or right boundary. Clamping those props
+would instead relocate and potentially stack decoration, so they are removed.
+A confirmation dialog reports both dimensions and the number of props removed.
+The entire resize can be undone while its snapshot remains in session history.
+
+Mosaic reads and writes version 11 only, without migration support. This
+supersedes version 10 support in [prop JSON field names](#mosaic-prop-json-field-names).
+The project2 file receives a version-only update, keeping its 64×64 dimensions
+and contents. Runtime consumers must use `gridSize` for bounds and row strides.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md) and the
+[user guide](../../Mosaic/README.md).
+
+
+## Mosaic viewport rendering
+
+Date: 2026-11-19. Status: Accepted.
+
+The map surface provides the scrollable extent without allocating map-sized
+pixels. Terrain and prop canvases cover the visible viewport at display-pixel
+resolution. Their shared view describes the world origin, display dimensions,
+and zoom. Input coordinates continue to use the full map surface, so scrolling
+and zooming do not change placement, selection, or painting coordinates.
+The SVG grid uses the same visible world rectangle.
+
+Terrain samples display-pixel centers directly from source materials and masks.
+Zooming out does not create a larger intermediate image. Dirty cell bounds,
+including affected junction neighbors, intersect the visible viewport. Scrolling,
+zooming, and viewport layout changes redraw visible terrain, coalesced to an
+animation frame. Prop edits retain the existing separation from terrain redraws.
+Rotated prop bounds determine visibility, preserving sprites whose centers are
+offscreen but whose artwork overlaps the viewport.
+
+The coverage panel retains its whole-map overview, sampled directly at panel
+resolution. Scrolling the map does not redraw that overview. Neither view keeps
+terrain chunks or rendered map pixels outside its canvas. This trades repeated
+sampling during scrolling for bounded canvas memory and straightforward
+invalidation. Document and history storage still scale with map content.
+
+This supersedes the full-map canvas allocation described in
+[configurable square map size](#mosaic-configurable-square-map-size).
+Serialization, cell dimensions, mask rules, and the version 11 format are
+unchanged. There are no new dependencies or build requirements.
+
+
+## Mosaic prop cell coordinates
+
+Date: 2026-11-19. Status: Superseded by
+[Mosaic centered coordinates and resizing](#mosaic-centered-coordinates-and-resizing).
+
+Version 12 stores prop image centers in fractional cell coordinates. The origin
+remains at the top-left, X increases rightward, and Y increases downward.
+Valid coordinates lie between zero and `gridSize`, inclusive. Placement and
+movement round to 0.001 cells during editing. Loading and saving use the same
+rounding, with validation before rounding so out-of-bounds input is rejected.
+
+The document, prop gestures, box selection, and resize bounds all use cells.
+Rendering multiplies coordinates by the 64-pixel cell size. Picking converts
+cell offsets to pixels before testing the rotated native image rectangle.
+Image dimensions and terrain rendering remain in pixels, and `rot` remains
+clockwise degrees. This changes the meaning of serialized coordinates, so
+Mosaic reads and writes version 12 only and rejects older versions without
+migration support.
+
+The existing project2 file is updated once by dividing its prop coordinates by
+64, rounding to three decimal places, and setting version 12. Other content is
+preserved. Game-side resources are outside this editor change.
+
+This supersedes the version support and pixel-valued prop coordinates in
+[configurable square map size](#mosaic-configurable-square-map-size).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic centered coordinates and resizing
+
+Date: 2026-11-19. Status: Accepted. Version support and prop anchoring are superseded by
+[Mosaic prop asset pivots and scale](#mosaic-prop-asset-pivots-and-scale).
+
+Version 13 uses fractional cell coordinates centered on the map, with positive X
+rightward and positive Y upward, matching the game's map coordinate convention.
+Allowed map sizes are powers of two from 2 through 512. Size 1 is excluded so
+centered resizing always moves terrain storage by whole cells. The origin is a
+corner shared by the four central cells, whose centers are at plus or minus 0.5.
+Prop centers lie within plus or minus half the map size on each axis and retain
+three-decimal rounding. Rotation remains clockwise in image space. Scale and
+pivot changes are deferred.
+
+Resizing copies the centered terrain overlap, adding or cropping equally on all
+four sides. Retained props keep their coordinates. Shrinking removes props beyond
+the centered bounds, while keeping centers exactly on the boundary. The existing
+confirmation dialog reports these consequences, and snapshots retain the full
+prior document for Undo.
+
+Terrain occupancy, procedural mask hashing, and texture repeat sampling retain
+their top-left row/column conventions. Resizing remaps occupancy and may change
+texture phase or mask variations, which the dialog explains. Rendering converts
+centered prop coordinates to top-left map pixels at its boundary. Picking reverses
+the Y direction before testing the native image rectangle. No full-map canvas
+allocation or terrain caching is introduced.
+
+Mosaic reads and writes version 13 only, without migration support. Project2 is
+updated once using `x = oldX - gridSize / 2` and `y = gridSize / 2 - oldY`, keeping
+all other content intact. This supersedes the origin in
+[prop cell coordinates](#mosaic-prop-cell-coordinates) and the resize anchoring
+and size constraints in [configurable square map size](#mosaic-configurable-square-map-size).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic prop asset pivots and scale
+
+Date: 2026-11-19. Status: Accepted.
+
+Version 14 changes `propAssets` from image paths to objects containing `texPath`,
+`pivotX`, `pivotY`, and `scale`. Each omitted pivot component defaults to 0.5 and
+omitted scale defaults to 1. Pivot components are finite normalized coordinates
+in [0, 1], measured from the image's upper-left to lower-right corner. Scale must
+be finite and positive. Saves write all four fields explicitly.
+
+Each instance's centered, Y-up cell coordinates now locate its asset pivot.
+Scaling and clockwise rotation both operate about that fixed point. Drawing,
+placement previews, selection outlines, picking, and viewport culling use the
+same scaled image bounds relative to the pivot. Box selection and map bounds
+use pivots, keeping group movement and resizing anchored consistently.
+
+These settings belong to the asset because all instances of that image share
+its anchor and size. Loaded catalog entries retain immutable settings and share
+decoded image resources with their source assets. History snapshots continue to
+share those entries. Discovery appends new images with default metadata without
+changing saved catalog order or settings. Metadata can be edited in JSON and
+reloaded. This change adds no editing controls.
+
+Mosaic reads and writes version 14 only, without migration support. Project2 is
+converted once with explicit center pivots and scale 1, preserving its existing
+placements. This supersedes the version support and center-only anchoring in
+[centered coordinates and resizing](#mosaic-centered-coordinates-and-resizing).
+Map coordinates, terrain rendering, and instance rotation fields remain unchanged.
+The C++ loader is outside this change and still expects the previous string catalog.
+
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

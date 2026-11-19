@@ -143,3 +143,26 @@ Deno.test("whole terrain textures repeat at native resolution across cells and m
         assert.deepEqual(cellMasks(project, layer, 65), masks);
     }
 });
+
+Deno.test("junction strides, perimeter masks and texture coordinates follow each document size", () => {
+    for(const size of [2, 4, 8, 32, 64])
+    {
+        const project = createDocument([asset("tile", "grass")], [asset("mask", "alpha")]);
+        project.gridSize = size;
+        project.layers = project.layers.map((layer) => ({ ...layer, painted: Array(size * size).fill(true) }));
+        const layer = project.layers[1];
+        assert.deepEqual(cellMasks(project, layer, 0).map((mask) => mask!.tile), [8, 12, 10, 15]);
+        const last = size * size - 1;
+        const masks = cellMasks(project, layer, last);
+        assert.deepEqual(masks.map((mask) => mask!.tile), [15, 5, 3, 1]);
+        assert.equal(masks[3]!.cell, (size + 1) * (size + 1) - 1);
+        const pixel = ((size - 1) * 64 + 17) % 256;
+        assert.equal(terrainSourceOffset(project, layer, last, 17, 17), (pixel * 256 + pixel) * 4);
+        if(size > 1)
+        {
+            const edgeMask = cellMasks(project, layer, size - 1)[1]!;
+            // The last column's top-right junction must not wrap into another row.
+            assert.equal(edgeMask.tile, 4);
+        }
+    }
+});

@@ -1,4 +1,4 @@
-import { kGridSize, kCellSize, kCellCount, kMaskAtlasGridSize, kMaskAtlasPixelSize, kMaskPixelCount } from "./grid.ts";
+import { kDefaultGridSize, validGridSize, kCellSize, kMaskAtlasGridSize, kMaskAtlasPixelSize, kMaskPixelCount } from "./grid.ts";
 
 export interface Asset
 {
@@ -14,12 +14,17 @@ export interface PropAsset extends Asset
     readonly width: number;
     readonly height: number;
     readonly image: CanvasImageSource;
+    /// Normalized image pivot, measured from the upper-left corner.
+    readonly pivotX: number;
+    readonly pivotY: number;
+    readonly scale: number;
 }
 
 export interface Prop
 {
     readonly id: number;
     readonly asset: PropAsset;
+    /// Pivot in centered, Y-up fractional cells, rounded to three decimal places during editing.
     x: number;
     y: number;
     rotation: number;
@@ -55,7 +60,7 @@ export interface Layer
 
 export interface ProjectDocument
 {
-    readonly gridSize: typeof kGridSize;
+    gridSize: number;
     propAssets: readonly PropAsset[];
     props: Prop[];
     nextPropId: number;
@@ -76,12 +81,12 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     }
     const sheets = [tiles[0], tiles[Math.min(1, tiles.length - 1)]];
     const project: ProjectDocument = {
-        gridSize: kGridSize, nextLayerId: 2, activeLayerId: 1,
+        gridSize: kDefaultGridSize, nextLayerId: 2, activeLayerId: 1,
         propAssets: [], props: [], nextPropId: 0,
         tileSheets: [...tiles], masks: [...masks], maskMode: "random",
         view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true },
         layers: sheets.map((sheet, id) => ({
-            id, sheet, painted: Array(kCellCount).fill(id === 0)
+            id, sheet, painted: Array(kDefaultGridSize * kDefaultGridSize).fill(id === 0)
         }))
     };
     validateDocument(project);
@@ -108,7 +113,7 @@ export function documentBytes(project: ProjectDocument): number
 /// View changes and swatch selection do not create undo actions.
 export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
 {
-    if(a.nextPropId !== b.nextPropId || a.props.length !== b.props.length
+    if(a.gridSize !== b.gridSize || a.nextPropId !== b.nextPropId || a.props.length !== b.props.length
         || a.propAssets.length !== b.propAssets.length
         || a.propAssets.some((asset, index) => asset !== b.propAssets[index])
         || a.props.some((prop, index) => {
@@ -126,7 +131,7 @@ export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
     }
     return a.layers.every((layer, index) => {
         const other = b.layers[index];
-        return layer.id === other.id && layer.sheet === other.sheet
+        return layer.id === other.id && layer.sheet === other.sheet && layer.painted.length === other.painted.length
             && layer.painted.every((painted, cell) => painted === other.painted[cell]);
     });
 }
@@ -169,7 +174,7 @@ function validAssetPath(asset: ImageAsset | PropAsset): boolean
 export function validateDocument(project: ProjectDocument): void
 {
     const fail = (message: string): never => { throw new Error(`Invalid project: ${message}`); };
-    if(project.gridSize !== kGridSize
+    if(!validGridSize(project.gridSize)
         || project.tileSheets.length < 1 || project.tileSheets.length > 256
         || project.layers.length < 1 || project.layers.length > 256 || project.masks.length < 1
         || project.masks.length > 64)
@@ -201,7 +206,7 @@ export function validateDocument(project: ProjectDocument): void
         {
             fail(`${layer.sheet.label} is not in the terrain texture catalog`);
         }
-        if(layer.painted.length !== kCellCount || layer.painted.some((value) => typeof value !== "boolean"))
+        if(layer.painted.length !== project.gridSize * project.gridSize || layer.painted.some((value) => typeof value !== "boolean"))
         {
             fail("invalid painted-cell grid");
         }
@@ -230,7 +235,10 @@ export function validateDocument(project: ProjectDocument): void
     {
         if(asset.kind !== "prop"
             || !Number.isSafeInteger(asset.width) || !Number.isSafeInteger(asset.height)
-            || asset.width < 1 || asset.height < 1 || asset.width > 4096 || asset.height > 4096)
+            || asset.width < 1 || asset.height < 1 || asset.width > 4096 || asset.height > 4096
+            || !Number.isFinite(asset.pivotX) || asset.pivotX < 0 || asset.pivotX > 1
+            || !Number.isFinite(asset.pivotY) || asset.pivotY < 0 || asset.pivotY > 1
+            || !Number.isFinite(asset.scale) || asset.scale <= 0)
         {
             fail("invalid prop image");
         }
@@ -241,7 +249,7 @@ export function validateDocument(project: ProjectDocument): void
         if(!Number.isSafeInteger(prop.id) || prop.id < 0 || propIds.has(prop.id)
             || !project.propAssets.includes(prop.asset)
             || !Number.isFinite(prop.x) || !Number.isFinite(prop.y)
-            || prop.x < 0 || prop.y < 0 || prop.x > kGridSize * kCellSize || prop.y > kGridSize * kCellSize
+            || Math.abs(prop.x) > project.gridSize / 2 || Math.abs(prop.y) > project.gridSize / 2
             || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360)
         {
             fail("invalid prop placement");
@@ -330,7 +338,8 @@ export async function decodePropAsset(blob: Blob, label: string, id: string): Pr
         const context = image.getContext("2d");
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
-        return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image };
+        return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image,
+            pivotX: 0.5, pivotY: 0.5, scale: 1 };
     }
     finally { bitmap.close(); }
 }

@@ -1,6 +1,6 @@
 import { validateDocument, type ProjectDocument, type Layer, type Prop, type PropAsset, type ImageAsset } from "./document.ts";
 import { History } from "./history.ts";
-import { kGridSize, kCellCount } from "./grid.ts";
+import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
 
 export type Tool = "terrain" | "place" | "select";
@@ -51,7 +51,7 @@ export class Editor
 {
     private project: ProjectDocument;
     private selection = new Set<number>();
-    private mode: Tool = "terrain";
+    private mode: Tool = "select";
     private propAsset: PropAsset | null;
     private gesture: Gesture | null = null;
 
@@ -131,13 +131,14 @@ export class Editor
         }
     }
 
+    /// Prop positions and selection gestures use fractional cell coordinates.
     placeProp(point: Point): EditResult
     {
         return this.edit("Place prop", (project) => {
             if(!this.propAsset) { throw new Error("Add an image to assets/props/ and reload the project."); }
             if(project.props.length >= 10000) { throw new Error("The level already contains 10,000 props."); }
             const id = project.nextPropId++;
-            const position = clampPropPoint(point.x, point.y);
+            const position = clampPropPoint(point.x, point.y, this.project.gridSize);
             project.props.push({ id, asset: this.propAsset,
                 x: Math.round(position.x * 1000) / 1000,
                 y: Math.round(position.y * 1000) / 1000, rotation: 0 });
@@ -179,6 +180,29 @@ export class Editor
         });
     }
 
+    /// Keep the map center fixed. Cropped cells and props are retained by the history snapshot.
+    resizeMap(size: number): EditResult
+    {
+        if(!validGridSize(size)) { throw new Error(`Map size must be a power of two from ${kMinGridSize} to ${kMaxGridSize} cells.`); }
+        return this.edit("Resize map", (project) => {
+            const oldSize = project.gridSize;
+            if(size === oldSize) { return; }
+            const overlap = Math.min(oldSize, size);
+            const sourceOffset = (oldSize - overlap) / 2;
+            const targetOffset = (size - overlap) / 2;
+            project.layers = project.layers.map((layer, index) => {
+                const painted: boolean[] = Array(size * size).fill(index === 0);
+                for(let y = 0; y < overlap; y++)
+                {
+                    for(let x = 0; x < overlap; x++) { painted[(y + targetOffset) * size + x + targetOffset] = layer.painted[(y + sourceOffset) * oldSize + x + sourceOffset]; }
+                }
+                return { ...layer, painted };
+            });
+            project.props = project.props.filter((prop) => Math.abs(prop.x) <= size / 2 && Math.abs(prop.y) <= size / 2);
+            project.gridSize = size;
+        });
+    }
+
     changeHistory(redo: boolean): EditResult | null
     {
         this.requireIdle();
@@ -203,20 +227,21 @@ export class Editor
     {
         const gesture = this.gesture;
         if(gesture?.kind !== "paint" || gesture.pointerId !== pointerId) { return null; }
-        if(cell < 0 || cell >= kCellCount) { gesture.lastCell = -1; return null; }
+        const gridSize = this.project.gridSize;
+        if(cell < 0 || cell >= gridSize * gridSize) { gesture.lastCell = -1; return null; }
         if(cell === gesture.lastCell) { return null; }
         const layerIndex = this.project.layers.findIndex((layer) => layer.id === gesture.layerId);
         const layer = this.project.layers[layerIndex];
-        const endX = cell % kGridSize, endY = Math.floor(cell / kGridSize);
-        let x = gesture.lastCell < 0 ? endX : gesture.lastCell % kGridSize;
-        let y = gesture.lastCell < 0 ? endY : Math.floor(gesture.lastCell / kGridSize);
+        const endX = cell % gridSize, endY = Math.floor(cell / gridSize);
+        let x = gesture.lastCell < 0 ? endX : gesture.lastCell % gridSize;
+        let y = gesture.lastCell < 0 ? endY : Math.floor(gesture.lastCell / gridSize);
         const startX = x, startY = y;
         const dx = Math.abs(endX - x), dy = -Math.abs(endY - y);
         const stepX = x < endX ? 1 : -1, stepY = y < endY ? 1 : -1;
         let error = dx + dy;
         for(;;)
         {
-            const index = y * kGridSize + x;
+            const index = y * gridSize + x;
             layer.painted[index] = !gesture.erase;
             if(!gesture.erase)
             {
@@ -232,7 +257,7 @@ export class Editor
         }
         gesture.lastCell = cell;
         return { left: Math.max(0, Math.min(startX, endX) - 1), top: Math.max(0, Math.min(startY, endY) - 1),
-            right: Math.min(kGridSize, Math.max(startX, endX) + 2), bottom: Math.min(kGridSize, Math.max(startY, endY) + 2) };
+            right: Math.min(gridSize, Math.max(startX, endX) + 2), bottom: Math.min(gridSize, Math.max(startY, endY) + 2) };
     }
 
     /// Shift-click toggles immediately. Other clicks begin a move or box gesture.
@@ -270,12 +295,12 @@ export class Editor
         if(!gesture.moved) { return; }
         if(gesture.kind === "box")
         {
-            gesture.end = clampPropPoint(point.x, point.y);
+            gesture.end = clampPropPoint(point.x, point.y, this.project.gridSize);
             this.selection = new Set([...gesture.baseSelection, ...propsInBox(this.project.props, gesture)]);
         }
         else
         {
-            const delta = groupMoveDelta(gesture.positions, point.x - gesture.start.x, point.y - gesture.start.y);
+            const delta = groupMoveDelta(gesture.positions, point.x - gesture.start.x, point.y - gesture.start.y, this.project.gridSize);
             for(const original of gesture.positions)
             {
                 original.prop.x = Math.round((original.x + delta.x) * 1000) / 1000;
