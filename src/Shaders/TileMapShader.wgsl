@@ -60,11 +60,11 @@ fn hash(value: u32) -> u32
 @vertex
 fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCellIndex: u32) -> VSOut
 {
-    // The cell index identifies a cell in the map, including it's layer.
-    // The number of cells in a map is cellMapGridSize * cellMapGridSize * layerCount.
+    // The cell index identifies a cell in the map, including its layer.
+    // The number of cells in a map is cellMapCellsPerSide * cellMapCellsPerSide * layerCount.
 
-    // The upper left corner of the map is at (-cellMapGridSize/2, cellMapGridSize/2).
-    // The lower right is at (cellMapGridSize/2, -cellMapGridSize/2)
+    // The upper left corner of the map is at (-cellMapCellsPerSide/2, cellMapCellsPerSide/2).
+    // The lower right is at (cellMapCellsPerSide/2, -cellMapCellsPerSide/2)
     // The origin (0,0) is at the center of the map.
 
     let cellsPerLayer = cellMapParams.cellMapCellsPerSide * cellMapParams.cellMapCellsPerSide;
@@ -77,13 +77,14 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
 
     let halfMapGridSize = f32(cellMapParams.cellMapCellsPerSide) / 2.0;
 
-    // Coords of the cell in cell map space
+    // Column and row, measured from the map’s top-left with Y down
     let mapCellXY = vec2u(layerCellIndex % cellMapParams.cellMapCellsPerSide, layerCellIndex / cellMapParams.cellMapCellsPerSide);
 
-    // Round to the nearest pixel in camera space.
-    // This duplicates the rounding logic used for sprites to ensure pixel-perfect alignment.
+    // The camera is rounded in projected logical pixels.
+    // Matching this in the sprite shader keeps camera movement consistent across shaders
+    // and avoid sub-pixel jitter.
     let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
-    // Coords of the cell in world space.
+    // Top-left corner in centered (origin at map center), Y-up world-cell coordinates.
     let worldXY = vec2f(f32(mapCellXY.x) - halfMapGridSize, halfMapGridSize - f32(mapCellXY.y));
     // Position of the vertex (corner of the cell) in screen space.
     let screenVertXY = iso * (cellVtx + worldXY) * f32(cellPixelsPerSide) - cameraPixels;
@@ -114,7 +115,7 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
     let sheetTileIndex = hash(mapTileIndex) % (sheetTilesPerSide * sheetTilesPerSide);
 
     // Coords of the cell in tile space (within the tile).
-    // IOW, if the sheet contains 4x4 tiles, then a cell's position within
+    // IOW, if a tile contains 4 × 4 cells, then a cell's position within
     // the tile would be (0,0) for the top-left cell, (1,0) for the cell to its right, etc.
     let tileCellXY = vec2f(f32(mapCellXY.x % tileCellSize), f32(mapCellXY.y % tileCellSize));
     // Position of the vertex (corner of the cell) within the tile.
@@ -142,8 +143,7 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
     return select(hi, lo, vec4(linear.rgb <= vec3f(0.0031308), true));
 }
 
-// Returns true if a fragment is on the grid lines based on its UV coordinates.
-// Used to draw grid lines.
+// Returns the grid line color when the fragment coincides with the top/left edges of a cell.
 fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
 {
     let thickness = fwidth(gridUV);
@@ -163,8 +163,8 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
 {
-    var p = linear_to_srgb(textureSample(tileSheets, smp, i.uv, i.texLayer));
+    var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
     //p = drawBoundingRect(i.brectUV, p);
-    return p;
+    return linear_to_srgb(p);
 }
 )";

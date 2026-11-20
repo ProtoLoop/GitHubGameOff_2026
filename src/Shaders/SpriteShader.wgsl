@@ -17,11 +17,11 @@ struct CellMapParams
 
 struct SpriteState
 {
-    mapXY: vec2f,   // Map space cell coordinates of the sprite.
-    pivot: vec2f,   // Pivot point of the sprite.
-    color : vec4f,  // Color tint for the sprite
-    srcRect: vec4f, // Source rectangle in the texture (x, y, w, h)
-    scale : f32,    // Scale factor for the sprite
+    cellXY: vec2f,   // World-cell position of the sprite’s pivot.
+    pivot: vec2f,   // Normalized position within the sprite frame, with (0,0) top-left and (1,1) bottom-right.
+    color : vec4f,  // Linear RGBA tint.
+    srcRect: vec4f, // Source rectangle in texture pixels, before scaling.
+    scale : f32,    // Uniform scale applied to image offsets and dimensions.
     pad0: u32,
     pad1: u32,
     pad2: u32,
@@ -48,16 +48,6 @@ const spriteVerts = array<vec2f, 6>(
     vec2f(0, 1)
 );
 
-const spriteUV = array<vec2f, 6>(
-    vec2f(0.0, 0.0),
-    vec2f(1.0, 0.0),
-    vec2f(1.0, 1.0),
-
-    vec2f(0.0, 0.0),
-    vec2f(1.0, 1.0),
-    vec2f(0.0, 1.0)
-);
-
 // Isometric transformation matrix.
 const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
 //const iso = mat2x2f(vec2f(1, 0), vec2f(0, 1));
@@ -72,11 +62,12 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     // Apply the pivot in Y-down sprite coordinates, then convert the offset to Y-up screen space.
     let spriteVtx = (spriteVerts[vid] - sprite.pivot) * vec2f(1.0, -1.0);
 
-    // Round to the nearest pixel in camera space.
-    // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment.
+    // The camera is rounded in projected logical pixels.
+    // Matching this in the tile map shader keeps camera movement consistent across shaders
+    // and avoid sub-pixel jitter.
     let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
-    // Coords of the sprite in world space (in pixels).
-    let worldPixels = iso * sprite.mapXY * f32(cellPixelsPerSide);
+    // Projected anchor position in logical pixels, before camera subtraction.
+    let worldPixels = iso * sprite.cellXY * f32(cellPixelsPerSide);
     // Position of the vertex (corner of the sprite) in screen space.
     let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.srcRect.zw * sprite.scale;
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
@@ -85,12 +76,12 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let uvOffset = sprite.srcRect.xy / texDims;
     let uvDims = sprite.srcRect.zw / texDims;
 
-    let uv = uvOffset + (spriteUV[vid] * uvDims);
+    let uv = uvOffset + (spriteVerts[vid] * uvDims);
 
     return VSOut(
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
-        spriteUV[vid],  // brectUV
+        spriteVerts[vid],  // brectUV
         sprite.color,   // color
         sprite.pivot    // pivot
     );
@@ -112,7 +103,7 @@ fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
     return select(color, vec4f(1.0, 1.0, 0.0, 1.0), any(edgeDistance < thickness));
 }
 
-// Draws the pivot cross for a sprite. The pivot is specified in UV coordinates.
+// Draws the pivot cross for a sprite. The pivot is specified in sprite-local normalized coordinates.
 fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 {
     let pixelUV = max(fwidth(i.brectUV), vec2f(0.000001));
@@ -130,8 +121,8 @@ fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
     var p = textureSample(texture, smp, i.uv, 0) * i.color;
-    p = drawBoundingRect(i.brectUV, p);
-    p = drawPivot(i, p);
+    //p = drawBoundingRect(i.brectUV, p);
+    //p = drawPivot(i, p);
     return p;
 }
 
@@ -139,9 +130,9 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    var p = linear_to_srgb(textureSample(texture, smp, i.uv, 0) * i.color);
-    p = drawBoundingRect(i.brectUV, p);
-    p = drawPivot(i, p);
-    return p;
+    var p = textureSample(texture, smp, i.uv, 0) * i.color;
+    //p = drawBoundingRect(i.brectUV, p);
+    //p = drawPivot(i, p);
+    return linear_to_srgb(p);
 }
 )";

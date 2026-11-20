@@ -19,13 +19,19 @@ constexpr wgpu::TextureFormat kDefaultTextureFormat = wgpu::TextureFormat::RGBA8
 bool
 TryGetWindowDims(SDL_Window* window, uint32_t& width, uint32_t& height)
 {
-    GG_ASSERT(window, "Window must not be null");
+    if(!GG_VERIFYB(window, "Window must not be null"))
+    {
+        return false;
+    }
 
-    int w{}, h{};
-    SDL_GetWindowSize(window, &w, &h);
-    width = scast<uint32_t>(w);
-    height = scast<uint32_t>(h);
-    return true;
+    if(int w{}, h{}; GG_VERIFYB(SDL_GetWindowSize(window, &w, &h)))
+    {
+        width = scast<uint32_t>(w);
+        height = scast<uint32_t>(h);
+        return true;
+    }
+
+    return false;
 }
 
 const char*
@@ -79,16 +85,22 @@ wgpu::TextureFormat
 GetPreferredCanvasFormat()
 {
 #ifdef __EMSCRIPTEN__
-  const std::string format = emscripten::val::global("navigator")["gpu"]
-      .call<std::string>("getPreferredCanvasFormat");
+    const std::string format =
+        emscripten::val::global("navigator")["gpu"].call<std::string>("getPreferredCanvasFormat");
 
-  // Convert it to the C++ enum explicitly:
+    // Convert it to the C++ enum explicitly:
 
-  if(format == "bgra8unorm") { return wgpu::TextureFormat::BGRA8Unorm; }
-  if(format == "rgba8unorm") { return wgpu::TextureFormat::RGBA8Unorm; }
-  return wgpu::TextureFormat::Undefined;
+    if(format == "bgra8unorm")
+    {
+        return wgpu::TextureFormat::BGRA8Unorm;
+    }
+    if(format == "rgba8unorm")
+    {
+        return wgpu::TextureFormat::RGBA8Unorm;
+    }
+    return wgpu::TextureFormat::Undefined;
 #else
-  return wgpu::TextureFormat::RGBA8Unorm;
+    return wgpu::TextureFormat::RGBA8Unorm;
 #endif
 }
 
@@ -146,7 +158,7 @@ GetSwapchainTextureViewFormat(const wgpu::Device& device, const wgpu::TextureFor
         }
     }
 
-    return  swapchainFormat;
+    return swapchainFormat;
 }
 
 Result<wgpu::Surface>
@@ -407,7 +419,7 @@ WebGpu::Start(SDL_Window* window)
     m_Instance = wgpu::CreateInstance(nullptr);
     GG_CHECK(m_Instance, "Failed to create WebGPU instance");
 
-    const wgpu::RequestAdapterOptions options//
+    const wgpu::RequestAdapterOptions options //
         {
             .featureLevel = wgpu::FeatureLevel::Compatibility,
         };
@@ -439,7 +451,7 @@ WebGpu::Update()
                     std::string_view(info.vendor),
                     std::string_view(info.device));
             }
-            
+
             constexpr auto core = wgpu::FeatureName::CoreFeaturesAndLimits;
 
             wgpu::DeviceDescriptor descriptor{};

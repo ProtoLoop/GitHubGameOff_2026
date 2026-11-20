@@ -4,6 +4,7 @@
 #include "Level.h"
 #include "WebGpu.h"
 
+#include <glm/mat2x2.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 namespace
@@ -17,9 +18,11 @@ struct ShaderInfo
 
 #include "Shaders/SpriteShader.wgsl"
 #include "Shaders/TileMapShader.wgsl"
+#include "Shaders/RectangleShader.wgsl"
 
 const ShaderInfo kSpriteShaderInfo{ .Label = "SpriteShader", .Code = kSpriteShaderCode };
 const ShaderInfo kTileMapShaderInfo{ .Label = "TileMapShader", .Code = kTileMapShaderCode };
+const ShaderInfo kRectangleShaderInfo{ .Label = "RectangleShader", .Code = kRectangleShaderCode };
 
 constexpr uint32_t kVerticesPerQuad = 6;
 
@@ -205,6 +208,33 @@ CreateMapShaderBindGroup0(const wgpu::Device& gpuDevice,
 
     return gpuDevice.CreateBindGroup(&desc);
 }
+
+wgpu::BindGroup
+CreateRectangleShaderBindGroup0(const wgpu::Device& gpuDevice,
+    const wgpu::BindGroupLayout& layout,
+    const wgpu::Buffer& rectangleStateBuffer,
+    const wgpu::Buffer& cellMapParamsBuffer)
+{
+    const wgpu::BindGroupEntry entries[] //
+        { {
+              .binding = 0,
+              .buffer = rectangleStateBuffer,
+          },
+            {
+                .binding = 1,
+                .buffer = cellMapParamsBuffer,
+            } };
+
+    const wgpu::BindGroupDescriptor desc //
+        {
+            .label = "RectangleShaderBindGroup0",
+            .layout = layout,
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return gpuDevice.CreateBindGroup(&desc);
+}
 } // namespace
 
 Result<std::unique_ptr<Renderer>>
@@ -333,6 +363,7 @@ Renderer::Render(const Level& level)
 
     GG_CHECK(RenderCellMap(level.GetCellMap(), renderPass), "Failed to render map");
     GG_CHECK(RenderSprites(renderPass), "Failed to render sprites");
+    GG_CHECK(RenderRectangles(renderPass), "Failed to render rectangles");
 
     renderPass.End();
 
@@ -406,16 +437,12 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         const Sprite& sprite = rec.Sprite;
         SpriteState& spriteState = m_SpriteStates.emplace_back();
 
-        spriteState.mapXY[0] = rec.Transform.Pos.x;
-        spriteState.mapXY[1] = rec.Transform.Pos.y;
+        spriteState.cellXY = rec.Transform.Pos;
 
-        spriteState.pivot[0] = sprite.GetPivot().x;
-        spriteState.pivot[1] = sprite.GetPivot().y;
+        spriteState.pivot.x = sprite.GetPivot().x;
+        spriteState.pivot.y = sprite.GetPivot().y;
 
-        spriteState.color[0] = sprite.GetColor().r;
-        spriteState.color[1] = sprite.GetColor().g;
-        spriteState.color[2] = sprite.GetColor().b;
-        spriteState.color[3] = sprite.GetColor().a;
+        spriteState.color = sprite.GetColor();
 
         const Rect& rect = sprite.GetRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
@@ -448,6 +475,57 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         renderPass.Draw(kVerticesPerQuad, 1, 0, instanceIndex);
         ++instanceIndex;
     }
+
+    return Result<>::Ok;
+}
+
+Result<>
+Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
+{
+    if(m_SpriteDrawQueue.empty())
+    {
+        return Result<>::Ok;
+    }
+
+    auto cleanup = GG_DEFER
+    {
+        m_RectangleStates.clear();
+    };
+
+    // Copy rectangle data to GPU
+    for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
+    {
+        const Sprite& sprite = rec.Sprite;
+        RectangleState& rectState = m_RectangleStates.emplace_back();
+
+        rectState.cellXY = rec.Transform.Pos;
+
+        rectState.pixelWH.x = static_cast<float>(sprite.GetRect().w);
+        rectState.pixelWH.y = static_cast<float>(sprite.GetRect().h);
+
+        rectState.pixelOffset.x = -rec.Sprite.GetPivot().x * rectState.pixelWH.x;
+        rectState.pixelOffset.y = -rec.Sprite.GetPivot().y * rectState.pixelWH.y;
+
+        rectState.color = glm::vec4(1, 1, 0, 1);
+
+        rectState.scale = sprite.GetScale();
+    }
+
+    GG_CHECK(EnsureRectangleStateBuffer(sizeof(RectangleState) * m_RectangleStates.size()),
+        "Failed to ensure rectangle state buffer");
+    GG_CHECK(EnsureRectangleBindGroups(), "Failed to ensure rectangle bind groups");
+
+    // Update the rectangle state buffer with the current rectangle states
+    m_WebGpu->GetQueue().WriteBuffer(m_RectangleStateBuffer,
+        0,
+        m_RectangleStates.data(),
+        sizeof(RectangleState) * std::size(m_RectangleStates));
+
+    renderPass.SetBindGroup(0, m_RectangleBindGroup0);
+    renderPass.SetPipeline(m_RectanglePipeline);
+
+    const uint32_t rectangleCount = static_cast<uint32_t>(m_SpriteDrawQueue.size());
+    renderPass.Draw(kVerticesPerQuad, rectangleCount, 0, 0);
 
     return Result<>::Ok;
 }
@@ -519,6 +597,17 @@ Renderer::EnsurePipelines()
         m_MapPipeline = std::move(*pipelineResult);
     }
 
+    if(!m_RectanglePipeline || m_RenderTargetFormat != targetFormat)
+    {
+        auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
+            targetFormat,
+            kRectangleShaderInfo,
+            nullptr, //*layoutResult,
+            vsConstantEntries);
+        GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kRectangleShaderInfo.Label);
+        m_RectanglePipeline = std::move(*pipelineResult);
+    }
+
     m_RenderTargetFormat = targetFormat;
 
     return Result<>::Ok;
@@ -554,6 +643,22 @@ Renderer::EnsureCellMapParamsBuffer()
 }
 
 Result<>
+Renderer::EnsureRectangleStateBuffer(const size_t size)
+{
+    if(!m_RectangleStateBuffer || m_RectangleStateBuffer.GetSize() < size)
+    {
+        m_RectangleStateBuffer =
+            m_WebGpu->CreateStorageBuffer(static_cast<uint32_t>(size), "RectangleStateBuffer");
+        GG_CHECK(m_RectangleStateBuffer, "Failed to create rectangle state buffer");
+
+        // Need to recreate the bind group.
+        m_RectangleBindGroup0 = {};
+    }
+
+    return Result<>::Ok;
+}
+
+Result<>
 Renderer::EnsureSpriteBindGroups()
 {
     if(!m_SpriteBindGroup0)
@@ -563,7 +668,7 @@ Renderer::EnsureSpriteBindGroups()
             m_SpriteStateBuffer,
             m_CellMapParamsBuffer);
 
-        GG_CHECK(m_SpriteBindGroup0, "Failed to create sprite ");
+        GG_CHECK(m_SpriteBindGroup0, "Failed to create sprite bind group 0");
     }
 
     return Result<>::Ok;
@@ -579,6 +684,22 @@ Renderer::EnsureCellMapBindGroups()
             m_CellMapParamsBuffer);
 
         GG_CHECK(m_MapBindGroup0, "Failed to create map bind group 0");
+    }
+
+    return Result<>::Ok;
+}
+
+Result<>
+Renderer::EnsureRectangleBindGroups()
+{
+    if(!m_RectangleBindGroup0)
+    {
+        m_RectangleBindGroup0 = CreateRectangleShaderBindGroup0(m_WebGpu->GetDevice(),
+            m_RectanglePipeline.GetBindGroupLayout(0),
+            m_RectangleStateBuffer,
+            m_CellMapParamsBuffer);
+
+        GG_CHECK(m_RectangleBindGroup0, "Failed to create rectangle bind group 0");
     }
 
     return Result<>::Ok;

@@ -4,6 +4,8 @@
 #include "Sprite.h"
 #include "Transform2D.h"
 
+#include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
 #include <webgpu/webgpu_cpp.h>
 
 class CellMap;
@@ -15,6 +17,7 @@ class Renderer
 public:
 
     static constexpr size_t kMaxSpritesPerFrame = 1024;
+    static constexpr size_t kMaxRectanglesPerFrame = kMaxSpritesPerFrame * 3 / 2;
 
     struct Params
     {
@@ -50,17 +53,44 @@ public:
     Result<> Render(const Level& level);
 
 private:
-    struct SpriteState
+    static constexpr size_t k16ByteAlignment = 16;
+
+    struct alignas(k16ByteAlignment) SpriteState
     {
-        float mapXY[2]{};    // Map space cell coordinates of the sprite.
-        float pivot[2]{};    // Pivot point of the sprite.
-        float color[4]{};    // Color tint for the sprite.
-        float srcRect[4]{};  // Source rectangle in the texture (x, y, w, h)
+        glm::vec2 cellXY{};   // Map space cell coordinates of the sprite.
+        glm::vec2 pivot{};   // Pivot point of the sprite.
+        glm::vec4 color{};   // Color tint for the sprite.
+        glm::vec4 srcRect{}; // Source rectangle in the texture (x, y, w, h)
         float scale{ 1.0f }; // Scale factor for the sprite.
         uint32_t pad0{ 0 };
         uint32_t pad1{ 0 };
         uint32_t pad2{ 0 };
     };
+
+    struct alignas(k16ByteAlignment) RectangleState
+    {
+        glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
+        glm::vec2 pixelWH{}; // Unscaled rectangle size in pixels.  Typically representing a rectangle drawn on a sprite image.
+        glm::vec4 color{};   // linear RGBA outline color
+        glm::vec2 pixelOffset{}; // Unscaled Y-down offset of upper left corner of the rectangle in pixels from the pivot point
+        float scale{ 1.0f }; // Scale factor for the rectangle
+        uint32_t pad0{ 0 };
+    };
+
+    // NOLINTBEGIN(readability-magic-numbers)
+    static_assert(offsetof(SpriteState, cellXY) == 0, "SpriteState::cellXY must be at offset 0");
+    static_assert(offsetof(SpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
+    static_assert(offsetof(SpriteState, color) == 16, "SpriteState::color must be at offset 16");
+    static_assert(offsetof(SpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
+    static_assert(offsetof(SpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
+
+    static_assert(offsetof(RectangleState, cellXY) == 0, "RectangleState::cellXY must be at offset 0");
+    static_assert(offsetof(RectangleState, pixelWH) == 8, "RectangleState::pixelWH must be at offset 8");
+    static_assert(offsetof(RectangleState, color) == 16, "RectangleState::color must be at offset 16");
+    static_assert(offsetof(RectangleState, pixelOffset) == 32, "RectangleState::pixelOffset must be at offset 32");
+    static_assert(offsetof(RectangleState, scale) == 40, "RectangleState::scale must be at offset 40");
+    static_assert(offsetof(RectangleState, pad0) == 44, "RectangleState::pad0 must be at offset 44");
+    // NOLINTEND(readability-magic-numbers)
 
     struct CellMapParams
     {
@@ -82,16 +112,23 @@ private:
 
     Result<> RenderSprites(const wgpu::RenderPassEncoder& renderPass);
 
+    Result<> RenderRectangles(const wgpu::RenderPassEncoder& renderPass);
+
     Result<> SetViewport(const wgpu::Texture& renderTarget,
         const wgpu::RenderPassEncoder& renderPass) const;
     Result<> EnsurePipelines();
     Result<> EnsureSpriteStateBuffer(const size_t size);
     Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureRectangleStateBuffer(const size_t size);
     Result<> EnsureSpriteBindGroups();
     Result<> EnsureCellMapBindGroups();
+    Result<> EnsureRectangleBindGroups();
 
     /// Backing storage for GPU sprite state data.
     InlineVector<SpriteState, kMaxSpritesPerFrame> m_SpriteStates;
+
+    /// Backing storage for GPU rectangle state data.
+    InlineVector<RectangleState, kMaxRectanglesPerFrame> m_RectangleStates;
 
     /// Queue of sprites to be drawn this frame.
     InlineVector<SpriteDrawRecord, kMaxSpritesPerFrame> m_SpriteDrawQueue;
@@ -103,10 +140,14 @@ private:
     wgpu::TextureFormat m_RenderTargetFormat{ wgpu::TextureFormat::Undefined };
     wgpu::Buffer m_SpriteStateBuffer;
     wgpu::Buffer m_CellMapParamsBuffer;
+    wgpu::Buffer m_RectangleStateBuffer;
 
     wgpu::RenderPipeline m_SpritePipeline;
     wgpu::BindGroup m_SpriteBindGroup0;
 
     wgpu::RenderPipeline m_MapPipeline;
     wgpu::BindGroup m_MapBindGroup0;
+
+    wgpu::RenderPipeline m_RectanglePipeline;
+    wgpu::BindGroup m_RectangleBindGroup0;
 };
