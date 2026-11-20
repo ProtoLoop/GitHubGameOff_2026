@@ -55,6 +55,8 @@ private:
 
     Result<> RenderSprites(Renderer& renderer);
 
+    void CheckCollisions();
+
     Stage m_Stage{Stage::None};
 
     Input* m_Input;

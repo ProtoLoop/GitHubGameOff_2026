@@ -4,6 +4,7 @@
 #include "Sprite.h"
 #include "Transform2D.h"
 
+#include <glm/mat2x2.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <webgpu/webgpu_cpp.h>
@@ -18,6 +19,13 @@ public:
 
     static constexpr size_t kMaxSpritesPerFrame = 1024;
     static constexpr size_t kMaxRectanglesPerFrame = kMaxSpritesPerFrame * 3 / 2;
+
+    enum class ProjectionType
+    {
+        Orthographic,   // 1:1 aspect ratio, top-down view (square tiles)
+        Isometric,      // 2:1 aspect ratio, angled top-down view (diamond shaped tiles)
+        ThreeQuarter    // 3/4 view, commonly used in isometric games (rectangular tiles)
+    };
 
     struct Params
     {
@@ -35,6 +43,16 @@ public:
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
+
+    /// Returns the number of pixels along each axis of a cell.
+    uint32_t GetCellPixelsPerSide() const;
+
+    /// Returns the current projection type used for rendering.
+    ProjectionType GetProjectionType() const;
+
+    /// Returns the current projection matrix used for rendering.
+    /// Isometric, orthographic, or 3/4.
+    const glm::mat2x2& GetProjectionMatrix() const;
 
     /// Copies a sprite and its world position for the next Render() call.
     /// Transform rotation does not rotate the sprite.
@@ -55,7 +73,7 @@ public:
 private:
     static constexpr size_t k16ByteAlignment = 16;
 
-    struct alignas(k16ByteAlignment) SpriteState
+    struct alignas(k16ByteAlignment) GpuSpriteState
     {
         glm::vec2 cellXY{};   // Map space cell coordinates of the sprite.
         glm::vec2 pivot{};   // Pivot point of the sprite.
@@ -67,7 +85,7 @@ private:
         uint32_t pad2{ 0 };
     };
 
-    struct alignas(k16ByteAlignment) RectangleState
+    struct alignas(k16ByteAlignment) GpuRectangleState
     {
         glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
         glm::vec2 pixelWH{}; // Unscaled rectangle size in pixels.  Typically representing a rectangle drawn on a sprite image.
@@ -77,25 +95,11 @@ private:
         uint32_t pad0{ 0 };
     };
 
-    // NOLINTBEGIN(readability-magic-numbers)
-    static_assert(offsetof(SpriteState, cellXY) == 0, "SpriteState::cellXY must be at offset 0");
-    static_assert(offsetof(SpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
-    static_assert(offsetof(SpriteState, color) == 16, "SpriteState::color must be at offset 16");
-    static_assert(offsetof(SpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
-    static_assert(offsetof(SpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
-
-    static_assert(offsetof(RectangleState, cellXY) == 0, "RectangleState::cellXY must be at offset 0");
-    static_assert(offsetof(RectangleState, pixelWH) == 8, "RectangleState::pixelWH must be at offset 8");
-    static_assert(offsetof(RectangleState, color) == 16, "RectangleState::color must be at offset 16");
-    static_assert(offsetof(RectangleState, pixelOffset) == 32, "RectangleState::pixelOffset must be at offset 32");
-    static_assert(offsetof(RectangleState, scale) == 40, "RectangleState::scale must be at offset 40");
-    static_assert(offsetof(RectangleState, pad0) == 44, "RectangleState::pad0 must be at offset 44");
-    // NOLINTEND(readability-magic-numbers)
-
-    struct CellMapParams
+    struct alignas(k16ByteAlignment) GpuCellMapParams
     {
-        float viewXY[2]{};                 // Camera view position in map space
-        uint32_t cellMapCellsPerSide{ 0 }; // Number of cells along each axis in the map
+        glm::mat2x2 proj{};                 // projection matrix (isometric, orthographic, etc)
+        glm::vec2 viewXY{};                 // Camera view position in map space
+        uint32_t cellMapCellsPerSide{ 0 };  // Number of cells along each axis in the map
         uint32_t pad1{ 0 };
     };
 
@@ -105,6 +109,26 @@ private:
         Sprite Sprite;
         size_t SortTieBreaker{};
     };
+
+    // NOLINTBEGIN(readability-magic-numbers)
+    static_assert(offsetof(GpuSpriteState, cellXY) == 0, "SpriteState::cellXY must be at offset 0");
+    static_assert(offsetof(GpuSpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
+    static_assert(offsetof(GpuSpriteState, color) == 16, "SpriteState::color must be at offset 16");
+    static_assert(offsetof(GpuSpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
+    static_assert(offsetof(GpuSpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
+
+    static_assert(offsetof(GpuRectangleState, cellXY) == 0, "RectangleState::cellXY must be at offset 0");
+    static_assert(offsetof(GpuRectangleState, pixelWH) == 8, "RectangleState::pixelWH must be at offset 8");
+    static_assert(offsetof(GpuRectangleState, color) == 16, "RectangleState::color must be at offset 16");
+    static_assert(offsetof(GpuRectangleState, pixelOffset) == 32, "RectangleState::pixelOffset must be at offset 32");
+    static_assert(offsetof(GpuRectangleState, scale) == 40, "RectangleState::scale must be at offset 40");
+    static_assert(offsetof(GpuRectangleState, pad0) == 44, "RectangleState::pad0 must be at offset 44");
+
+    static_assert(offsetof(GpuCellMapParams, proj) == 0, "CellMapParams::proj must be at offset 0");
+    static_assert(offsetof(GpuCellMapParams, viewXY) == 16, "CellMapParams::viewXY must be at offset 16");
+    static_assert(offsetof(GpuCellMapParams, cellMapCellsPerSide) == 24, "CellMapParams::cellMapCellsPerSide must be at offset 24");
+    static_assert(offsetof(GpuCellMapParams, pad1) == 28, "CellMapParams::pad1 must be at offset 28");
+    // NOLINTEND(readability-magic-numbers)
 
     Renderer(const Params& params, const WebGpu& webGpu);
 
@@ -125,15 +149,15 @@ private:
     Result<> EnsureRectangleBindGroups();
 
     /// Backing storage for GPU sprite state data.
-    InlineVector<SpriteState, kMaxSpritesPerFrame> m_SpriteStates;
+    InlineVector<GpuSpriteState, kMaxSpritesPerFrame> m_SpriteStates;
 
     /// Backing storage for GPU rectangle state data.
-    InlineVector<RectangleState, kMaxRectanglesPerFrame> m_RectangleStates;
+    InlineVector<GpuRectangleState, kMaxRectanglesPerFrame> m_RectangleStates;
 
     /// Queue of sprites to be drawn this frame.
     InlineVector<SpriteDrawRecord, kMaxSpritesPerFrame> m_SpriteDrawQueue;
     
-    CellMapParams m_CellMapParams;
+    GpuCellMapParams m_CellMapParams;
 
     Params m_Params;
     const WebGpu* m_WebGpu{ nullptr };

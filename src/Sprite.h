@@ -202,7 +202,7 @@ public:
     /// Returns the sprite frame corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    Sprite GetFrame(const float phase, const Angle& angle) const;
+    Sprite GetSprite(const float phase, const Angle& angle) const;
 
 private:
     friend class SpriteAnimLoader;
@@ -250,7 +250,12 @@ public:
     const Angle& GetAngle() const;
 
     /// Returns the sprite frame corresponding to the current animation phase and angle.
-    Sprite GetFrame() const;
+    Sprite GetSprite() const;
+
+    /// Returns the sprite frame corresponding to the given animation phase and angle.
+    /// phase is a value between 0 and 1 representing the animation progress.
+    /// angle is the direction for which to retrieve the sprite.
+    Sprite GetSprite(const float phase, const Angle& angle) const;
 
 private:
     friend SpriteAnim;

@@ -11,7 +11,7 @@ namespace
 constexpr uint32_t kNullXYWH = std::numeric_limits<uint32_t>::max();
 // Sentinel rect to use if no rect is specified in the sprite def.
 // Will use the entire texture as the sprite rect.
-constexpr Rect kNullRect{ .x = kNullXYWH, .y = kNullXYWH, .w = kNullXYWH, .h = kNullXYWH };
+constexpr Rect kNullRect{ kNullXYWH, kNullXYWH, kNullXYWH, kNullXYWH };
 
 }
 
@@ -167,7 +167,7 @@ SpriteLoader::Take()
         // If no rect was specified, use the entire texture.
         if(kNullRect == rect)
         {
-            rect = Rect{ .x = 0, .y = 0, .w = texDims.w, .h = texDims.h };
+            rect = Rect{ 0, 0, texDims.w, texDims.h };
         }
 
         GG_CHECKB(

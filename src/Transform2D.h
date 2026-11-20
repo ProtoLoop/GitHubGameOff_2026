@@ -2,7 +2,6 @@
 
 #include "Angle.h"
 
-#include <glm/ext/vector_float2.hpp>
 #include <glm/vec2.hpp>
 
 /// Represents a 2D transform with position and rotation.

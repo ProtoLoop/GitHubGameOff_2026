@@ -50,6 +50,8 @@ Game::Tick(const float deltaSec)
         GG_CHECK(TickEntities(kSecondsPerTick));
     }
 
+    CheckCollisions();
+
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 
     GG_CHECK(RenderSprites(*m_Renderer));
@@ -86,4 +88,34 @@ Game::RenderSprites(Renderer& renderer)
     }
 
     return Result<>::Ok;
+}
+
+void
+Game::CheckCollisions()
+{
+    const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
+
+    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
+
+    const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
+
+    const Sprite& ctSprite = m_Caretaker->GetSprite();
+    const Rectf ctRect = ctSprite.GetRect();
+    Rectf ctBounds = Rectf(ctRect.Size()) - (ctRect.Size() * ctSprite.GetPivot());
+    ctBounds *= ctSprite.GetScale();
+    ctBounds += (proj * m_Caretaker->GetPos() * pixelScale); // Offset by projected position
+
+    for(const Prop& prop : m_Level->GetProps())
+    {
+        const Sprite& propSprite = prop.GetSprite();
+        const Rectf propRect{ propSprite.GetRect().Size() };
+        Rectf propBounds = Rectf(propRect.Size()) - (propRect.Size() * propSprite.GetPivot());
+        propBounds *= propSprite.GetScale();
+        propBounds += (proj * prop.GetPos() * pixelScale); // Offset by projected position
+
+        if(ctBounds.Intersects(propBounds))
+        {
+            //GG_INFO("Caretaker collided with prop");
+        }
+    }
 }

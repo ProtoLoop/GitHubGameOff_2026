@@ -32,6 +32,27 @@ constexpr const char* kFragmentEntry_non_srgb = "fs_main_non_srgb";
 /// Entry point for the fragment shader when outputting to an sRGB framebuffer.
 constexpr const char* kFragmentEntry_srgb = "fs_main_srgb";
 
+/// 1:1 Orthographic projection matrix.
+[[maybe_unused]] constexpr glm::mat2x2 kOrthographicProj //
+    {
+        glm::vec2(1, 0), // +X east -> right
+        glm::vec2(0, 1), // +Y north -> up
+    };
+
+/// 2:1 (45 degree yaw, 30 degree pitch) isometric projection matrix.
+[[maybe_unused]] constexpr glm::mat2x2 kIsometricProj //
+    {
+        glm::vec2(0.5, -0.25), // +X east -> right/down
+        glm::vec2(0.5, 0.25),  // +Y north -> right/up
+    };
+
+/// 3/4 (0 degree yaw, 45 degree pitch) projection matrix.
+[[maybe_unused]] constexpr glm::mat2x2 kThreeQuarterProj //
+    {
+        glm::vec2(1.0f, 0.0f),        // +X east -> right
+        glm::vec2(0.0f, 0.70710678f), // +Y north -> up
+    };
+
 wgpu::ShaderModule
 CreateShaderModule(const wgpu::Device& gpuDevice, const ShaderInfo& shaderInfo)
 {
@@ -248,6 +269,33 @@ Renderer::Renderer(const Params& params, const WebGpu& webGpu)
       m_WebGpu(&webGpu)
 {
 }
+
+uint32_t
+Renderer::GetCellPixelsPerSide() const
+{
+    return m_Params.CellPixelsPerSide;
+}
+Renderer::ProjectionType
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+Renderer::GetProjectionType() const
+{
+    return ProjectionType::ThreeQuarter;
+}
+
+const glm::mat2x2&
+Renderer::GetProjectionMatrix() const
+{
+    switch(GetProjectionType())
+    {
+        case ProjectionType::Orthographic:
+            return kOrthographicProj;
+        case ProjectionType::Isometric:
+            return kIsometricProj;
+        case ProjectionType::ThreeQuarter:
+            return kThreeQuarterProj;
+    }
+}
+
 Result<>
 Renderer::QueueSprite(const Sprite& sprite, const Transform2D& transform)
 {
@@ -333,8 +381,8 @@ Renderer::CreateTileSetTextureBindGroup(const wgpu::Texture& texture)
 void
 Renderer::SetView(const float viewX, const float viewY)
 {
-    m_CellMapParams.viewXY[0] = viewX;
-    m_CellMapParams.viewXY[1] = viewY;
+    m_CellMapParams.viewXY.x = viewX;
+    m_CellMapParams.viewXY.y = viewY;
 }
 
 Result<>
@@ -383,6 +431,7 @@ Renderer::RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& r
     GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
     GG_CHECK(EnsureCellMapBindGroups(), "Failed to ensure cell map bind groups");
 
+    m_CellMapParams.proj = GetProjectionMatrix();
     m_CellMapParams.cellMapCellsPerSide = cellMap.GetCellsPerSide();
 
     m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
@@ -417,25 +466,44 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         m_SpriteStates.clear();
     };
 
-    // Sort so that sprites render in the correct order for an isometric projection.
-    std::ranges::sort(m_SpriteDrawQueue,
-        [](const SpriteDrawRecord& a, const SpriteDrawRecord& b)
-        {
-            const float aval = a.Transform.Pos.y - a.Transform.Pos.x;
-            const float bval = b.Transform.Pos.y - b.Transform.Pos.x;
-
-            if(aval != bval)
+    if(GetProjectionType() == ProjectionType::Isometric)
+    {
+        // Sort so that sprites render in the correct order for an isometric projection.
+        std::ranges::sort(m_SpriteDrawQueue,
+            [](const SpriteDrawRecord& a, const SpriteDrawRecord& b)
             {
-                return aval > bval;
-            }
-            return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
-        });
+                const float aval = a.Transform.Pos.y - a.Transform.Pos.x;
+                const float bval = b.Transform.Pos.y - b.Transform.Pos.x;
+
+                if(aval != bval)
+                {
+                    return aval > bval;
+                }
+                return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
+            });
+    }
+    else
+    {
+        // Sort so that sprites render in the correct order for a top-down projection.
+        std::ranges::sort(m_SpriteDrawQueue,
+            [](const SpriteDrawRecord& a, const SpriteDrawRecord& b)
+            {
+                const float aval = a.Transform.Pos.y;
+                const float bval = b.Transform.Pos.y;
+
+                if(aval != bval)
+                {
+                    return aval > bval;
+                }
+                return std::less<>()(a.SortTieBreaker, b.SortTieBreaker);
+            });
+    }
 
     // Copy sprite data to GPU
     for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
         const Sprite& sprite = rec.Sprite;
-        SpriteState& spriteState = m_SpriteStates.emplace_back();
+        GpuSpriteState& spriteState = m_SpriteStates.emplace_back();
 
         spriteState.cellXY = rec.Transform.Pos;
 
@@ -453,7 +521,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         spriteState.scale = sprite.GetScale();
     }
 
-    GG_CHECK(EnsureSpriteStateBuffer(sizeof(SpriteState) * m_SpriteStates.size()),
+    GG_CHECK(EnsureSpriteStateBuffer(sizeof(GpuSpriteState) * m_SpriteStates.size()),
         "Failed to ensure sprite state buffer");
     GG_CHECK(EnsureSpriteBindGroups(), "Failed to ensure sprite bind groups");
 
@@ -461,7 +529,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
     m_WebGpu->GetQueue().WriteBuffer(m_SpriteStateBuffer,
         0,
         m_SpriteStates.data(),
-        sizeof(SpriteState) * std::size(m_SpriteStates));
+        sizeof(GpuSpriteState) * std::size(m_SpriteStates));
 
     renderPass.SetBindGroup(0, m_SpriteBindGroup0);
     renderPass.SetPipeline(m_SpritePipeline);
@@ -496,7 +564,7 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
     for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
         const Sprite& sprite = rec.Sprite;
-        RectangleState& rectState = m_RectangleStates.emplace_back();
+        GpuRectangleState& rectState = m_RectangleStates.emplace_back();
 
         rectState.cellXY = rec.Transform.Pos;
 
@@ -511,7 +579,7 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
         rectState.scale = sprite.GetScale();
     }
 
-    GG_CHECK(EnsureRectangleStateBuffer(sizeof(RectangleState) * m_RectangleStates.size()),
+    GG_CHECK(EnsureRectangleStateBuffer(sizeof(GpuRectangleState) * m_RectangleStates.size()),
         "Failed to ensure rectangle state buffer");
     GG_CHECK(EnsureRectangleBindGroups(), "Failed to ensure rectangle bind groups");
 
@@ -519,7 +587,7 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
     m_WebGpu->GetQueue().WriteBuffer(m_RectangleStateBuffer,
         0,
         m_RectangleStates.data(),
-        sizeof(RectangleState) * std::size(m_RectangleStates));
+        sizeof(GpuRectangleState) * std::size(m_RectangleStates));
 
     renderPass.SetBindGroup(0, m_RectangleBindGroup0);
     renderPass.SetPipeline(m_RectanglePipeline);
@@ -635,7 +703,7 @@ Renderer::EnsureCellMapParamsBuffer()
     if(!m_CellMapParamsBuffer)
     {
         m_CellMapParamsBuffer =
-            m_WebGpu->CreateUniformBuffer(sizeof(CellMapParams), "CellMapParams");
+            m_WebGpu->CreateUniformBuffer(sizeof(GpuCellMapParams), "CellMapParams");
         GG_CHECK(m_CellMapParamsBuffer, "Failed to create cell map params buffer");
     }
 

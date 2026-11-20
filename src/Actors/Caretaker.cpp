@@ -97,7 +97,7 @@ Caretaker::Tick(const float deltaTime, Game& game)
     }
 
     m_CurAnim.SetPeriod(m_CurAnimPeriod);
-    m_CurAnim.SetAngle(GetRot() + kIsoAngleOffset);
+    m_CurAnim.SetAngle(GetRot());
     m_CurAnim.Tick(deltaTime);
 
     return Result<>::Ok;
@@ -106,14 +106,14 @@ Caretaker::Tick(const float deltaTime, Game& game)
 Result<>
 Caretaker::Render(Renderer& renderer) const
 {
-    const Sprite sprite = m_CurAnim.GetFrame();
+    // If in isometric view then apply the isometric angle offset to the sprite.
+    const Angle angleOffset = renderer.GetProjectionType() == Renderer::ProjectionType::Isometric
+        ? kIsoAngleOffset
+        : Angle(0.0f);
+        
+    const Sprite sprite =
+        m_CurAnim.GetSprite(m_CurAnim.GetPhase(), m_CurAnim.GetAngle() + angleOffset);
     GG_CHECKB(renderer.QueueSprite(sprite, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
-}
-
-Rect
-Caretaker::GetBounds() const
-{
-    return m_CurAnim.GetFrame().GetRect();
 }

@@ -8,6 +8,7 @@ struct VSOut
 
 struct CellMapParams
 {
+    proj : mat2x2f, // projection matrix (isometric, orthographic, etc)
     viewXY : vec2f, // Camera view position in world space
     cellMapCellsPerSide : u32, // Number of cells along each axis in the map
     pad1 : u32,
@@ -41,10 +42,6 @@ const rectVerts = array<vec2f, 6>(
     vec2f(0, 1)
 );
 
-// Isometric transformation matrix.
-const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
-//const iso = mat2x2f(vec2f(1, 0), vec2f(0, 1));
-
 @vertex
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) rectId: u32) -> VSOut
 {
@@ -58,11 +55,14 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) rectId: u3
     // Round to the nearest pixel in camera space.
     // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment
     // to minimize sub-pixel jitter.
-    let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
+    let cameraPixels = round(cellMapParams.proj * cellMapParams.viewXY * f32(cellPixelsPerSide));
+
     // Projected anchor position in logical pixels, before camera subtraction.
-    let worldPixels = iso * rect.cellXY * f32(cellPixelsPerSide);
+    let worldPixels = cellMapParams.proj * rect.cellXY * f32(cellPixelsPerSide);
+
     // Position of the vertex (corner of the rect) in screen space.
     let screenVertXY = worldPixels - cameraPixels + offset;
+    
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 
     return VSOut(

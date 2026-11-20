@@ -9,6 +9,7 @@ struct VSOut
 
 struct CellMapParams
 {
+    proj : mat2x2f, // projection matrix (isometric, orthographic, etc)
     viewXY : vec2f, // Camera view position in world space
     cellMapCellsPerSide : u32, // Number of cells along each axis in the map
     pad1 : u32,
@@ -43,10 +44,6 @@ const cellUVs = array<vec2f, 6>(
     vec2f(1.0, 1.0),
     vec2f(0.0, 1.0)
 );
-
-// Isometric transformation matrix.
-const iso = mat2x2f(vec2f(0.5, -0.25), vec2f(0.5, 0.25));
-//const iso = mat2x2f(vec2f(1, 0), vec2f(0, 1));
 
 // lowbias32 hash function for generating pseudo-random numbers from a 32-bit integer input.
 fn hash(value: u32) -> u32
@@ -83,11 +80,14 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
     // The camera is rounded in projected logical pixels.
     // Matching this in the sprite shader keeps camera movement consistent across shaders
     // and avoid sub-pixel jitter.
-    let cameraPixels = round(iso * cellMapParams.viewXY * f32(cellPixelsPerSide));
+    let cameraPixels = round(cellMapParams.proj * cellMapParams.viewXY * f32(cellPixelsPerSide));
+
     // Top-left corner in centered (origin at map center), Y-up world-cell coordinates.
     let worldXY = vec2f(f32(mapCellXY.x) - halfMapGridSize, halfMapGridSize - f32(mapCellXY.y));
+
     // Position of the vertex (corner of the cell) in screen space.
-    let screenVertXY = iso * (cellVtx + worldXY) * f32(cellPixelsPerSide) - cameraPixels;
+    let screenVertXY = cellMapParams.proj * (cellVtx + worldXY) * f32(cellPixelsPerSide) - cameraPixels;
+    
     let ndc = (screenVertXY / vec2f(logicalTargetWidth, logicalTargetHeight)) * vec2f(2.0, 2.0);
 
     // Dimensions of the tile sheet in pixels.

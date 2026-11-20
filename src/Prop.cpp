@@ -16,9 +16,3 @@ Prop::Render(Renderer& renderer) const
 
     return Result<>::Ok;
 }
-
-Rect
-Prop::GetBounds() const
-{
-    return m_Sprite.GetRect();
-}

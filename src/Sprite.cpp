@@ -2,10 +2,6 @@
 
 #include "Angle.h"
 
-#include <cstdint>
-#include <glm/ext/vector_float4.hpp>
-#include <webgpu/webgpu_cpp.h>
-
 /// Sprite
 
 Sprite::Sprite(wgpu::BindGroup bindGroup,
@@ -49,10 +45,10 @@ SpriteSequence::GetSprite(const uint32_t index) const
     const uint32_t col = index % spritesPerRow;
     const Rect rect //
         {
-            .x = m_Rect.x + (col * m_Dim.w),
-            .y = m_Rect.y + (row * m_Dim.h),
-            .w = m_Dim.w,
-            .h = m_Dim.h,
+            m_Rect.x + (col * m_Dim.w),
+            m_Rect.y + (row * m_Dim.h),
+            m_Dim.w,
+            m_Dim.h,
         };
 
     return Sprite(m_BindGroup, rect, m_Pivot, m_Color, 1.0f);
@@ -79,7 +75,7 @@ SpriteAnim::CreateInstance() const
 }
 
 Sprite
-SpriteAnim::GetFrame(const float phase, const Angle& angle) const
+SpriteAnim::GetSprite(const float phase, const Angle& angle) const
 {
     const size_t dirCount = m_SpriteSequences.size();
     const float fdir = angle.ToTurns() * static_cast<float>(dirCount);
@@ -156,7 +152,13 @@ SpriteAnim::Instance::GetAngle() const
 }
 
 Sprite
-SpriteAnim::Instance::GetFrame() const
+SpriteAnim::Instance::GetSprite() const
 {
-    return m_Anim->GetFrame(m_Phase, m_Angle);
+    return m_Anim->GetSprite(m_Phase, m_Angle);
+}
+
+Sprite
+SpriteAnim::Instance::GetSprite(const float phase, const Angle& angle) const
+{
+    return m_Anim->GetSprite(phase, angle);
 }
