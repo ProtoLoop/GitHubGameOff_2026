@@ -111,3 +111,9 @@ Caretaker::Render(Renderer& renderer) const
 
     return Result<>::Ok;
 }
+
+Rect
+Caretaker::GetBounds() const
+{
+    return m_CurAnim.GetFrame().GetRect();
+}

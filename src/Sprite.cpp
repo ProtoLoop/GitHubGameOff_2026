@@ -10,7 +10,7 @@
 
 Sprite::Sprite(wgpu::BindGroup bindGroup,
     const Rect& rect,
-    const Pivot2D& pivot,
+    const glm::vec2& pivot,
     const glm::vec4& color,
     const float scale)
     : m_TextureBindGroup(std::move(bindGroup)),
@@ -27,7 +27,7 @@ SpriteSequence::SpriteSequence(const ResourceName& name,
     wgpu::BindGroup bindGroup,
     const Dimension2D& dim,
     const Rect& rect,
-    const Pivot2D& pivot,
+    const glm::vec2& pivot,
     const glm::vec4& color)
     : m_Name(name),
       m_BindGroup(std::move(bindGroup)),

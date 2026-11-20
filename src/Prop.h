@@ -15,6 +15,8 @@ public:
     Transform2D& GetTransform() { return m_Transform; }
     const Transform2D& GetTransform() const { return m_Transform; }
 
+    Rect GetBounds() const;
+
     Result<> Render(Renderer& renderer) const;
 
 private:

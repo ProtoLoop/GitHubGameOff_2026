@@ -62,7 +62,7 @@ Result<SpriteDef>
 ParsePropAsset(const JsonObject& propAsset)
 {
     std::optional<std::string_view> optTexPath;
-    std::optional<Pivot2D> optPivot;
+    std::optional<glm::vec2> optPivot;
     std::optional<float> optScale;
 
     if(std::string_view path; propAsset.TryGetString("texPath", path))
@@ -75,7 +75,7 @@ ParsePropAsset(const JsonObject& propAsset)
     {
         if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
         {
-            optPivot = Pivot2D{ .x = x, .y = y };
+            optPivot = glm::vec2{ x, y };
         }
     }
 
@@ -84,7 +84,7 @@ ParsePropAsset(const JsonObject& propAsset)
         optScale = scale;
     }
 
-    const Pivot2D pivot = optPivot ? *optPivot : Pivot2D::kDefault;
+    const glm::vec2 pivot = optPivot ? *optPivot : glm::vec2{0.5f, 0.5f};
 
     const float scaleValue = optScale ? *optScale : 1.0f;
 
