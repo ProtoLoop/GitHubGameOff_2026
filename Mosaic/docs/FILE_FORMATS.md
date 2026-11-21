@@ -35,6 +35,16 @@ algorithms below are part of the versioned format contract.
 | `propAssets` | Ordered objects with `texPath`, pixel `srcRect`, normalized `pivot`, positive `scale`, and `collisionRects` |
 | `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
+| `extensions` | Optional opaque JSON preserved across loads and saves |
+
+Mosaic retains `extensions` without interpreting or editing its contents. Objects,
+arrays, strings, numbers, booleans, and explicit `null` are supported. When absent,
+the key remains absent on save, including for new projects. History and save
+snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
+Preservation applies to parsed JSON values, not whitespace or original formatting,
+and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
+This optional addition retains version 21 and does not change existing fields.
+Older Mosaic builds discard `extensions` when saving.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.

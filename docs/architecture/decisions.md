@@ -834,3 +834,22 @@ This supersedes [prop collider naming](#mosaic-prop-collider-naming). C++ loader
 integration remains separate work. No dependencies or build requirements change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic opaque project extensions
+
+Date: 2026-11-21. Status: Accepted.
+
+The optional top-level `extensions` field carries application-owned JSON that
+Mosaic preserves without interpreting or editing. The document owns the loaded
+value. History and save snapshots share it as recursively readonly data, following
+the existing immutable asset ownership pattern without copying it for each edit.
+Omission stays omitted, and explicit `null` stays present.
+
+Preservation covers parsed JSON values, with JavaScript numeric precision, rather
+than source formatting. Other unknown fields remain outside this contract.
+Version 21 is retained because this optional field does not alter existing fields'
+layout or meaning. Older Mosaic builds can open these files but discard extensions
+when saving. No server, runtime loader, dependency, or build changes are required.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#level-json).

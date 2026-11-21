@@ -49,6 +49,30 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
 });
 
+Deno.test("extensions preserve JSON values across edits, snapshots, and repeated saves", async () => {
+    const original = JSON.parse(await (await writeProject(fixture())).text());
+    for(const extensions of [
+        { game: { spawn: [1, 2.5], enabled: true, name: "Oak", optional: null }, empty: {}, list: [] },
+        {}, [], null, false, true, 0, 1.25, "", "custom metadata"
+    ])
+    {
+        let loaded = await readProject(new Blob([JSON.stringify({ ...original, extensions })]), [tile, mask]);
+        loaded.layers[1].painted[101] = true;
+        for(let cycle = 0; cycle < 2; cycle++)
+        {
+            const saved = await writeProject(cloneDocument(loaded));
+            const data = JSON.parse(await saved.text());
+            assert(Object.hasOwn(data, "extensions"));
+            assert.deepEqual(data.extensions, extensions);
+            assert(data.layers[1].cells.includes(101));
+            loaded = await readProject(saved, [tile, mask]);
+        }
+    }
+    // A different project must not inherit the previous project's extension data.
+    const without = await readProject(new Blob([JSON.stringify(original)]), [tile, mask]);
+    assert(!Object.hasOwn(JSON.parse(await (await writeProject(without)).text()), "extensions"));
+});
+
 Deno.test("level JSON larger than 16 MiB loads and can be saved again", async () => {
     const original = await writeProject(fixture());
     const large = new Blob([" ".repeat(16 * 1024 * 1024), original]);

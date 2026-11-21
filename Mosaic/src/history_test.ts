@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { createDocument, sameTerrainContent, type ImageAsset, type PropAsset } from "./document.ts";
+import { createDocument, sameTerrainContent, type ImageAsset, type PropAsset, type ProjectDocument } from "./document.ts";
 import { cellMasks, terrainSourceOffset } from "./placement.ts";
 import { History } from "./history.ts";
 
@@ -10,6 +10,28 @@ function fixture()
         coverage: new Uint8Array(0), url: `blob:${kind}` });
     return createDocument([image("tile")], [image("mask")]);
 }
+
+Deno.test("extensions survive committed snapshots, undo, redo, and rollback", () => {
+    const extensions = { game: { tags: ["forest"], spawn: { x: 2, y: 3 } } };
+    let project: ProjectDocument = { ...fixture(), extensions };
+    const history = new History(100, 64 * 1024 * 1024);
+    history.begin(project, "Paint");
+    project.layers[1].painted[0] = true;
+    assert.equal(history.committedState(project).extensions, extensions);
+    assert(history.commit(project));
+    const undone = history.undo(project)!;
+    assert.equal(undone.extensions, extensions);
+    assert.equal(undone.layers[1].painted[0], false);
+    const redone = history.redo(undone)!;
+    assert.equal(redone.extensions, extensions);
+    assert.equal(redone.layers[1].painted[0], true);
+    project = redone;
+    history.begin(project, "Cancelled paint");
+    project.layers[1].painted[1] = true;
+    const restored = history.rollback()!;
+    assert.equal(restored.extensions, extensions);
+    assert.equal(restored.layers[1].painted[1], false);
+});
 
 Deno.test("a complete stroke and higher-layer clearing form one undo action", () => {
     let project = fixture();

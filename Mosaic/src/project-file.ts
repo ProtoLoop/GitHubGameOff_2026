@@ -1,5 +1,5 @@
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
-import { validateDocument, type ImageAsset, type PropAsset, type ProjectDocument } from "./document.ts";
+import { validateDocument, type ImageAsset, type PropAsset, type ProjectDocument, type JsonValue } from "./document.ts";
 
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
 export function writeProject(project: ProjectDocument): Promise<Blob>
@@ -26,6 +26,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
             sheet: project.tileSheets.indexOf(layer.sheet),
             cells: index === 0 ? [] : layer.painted.flatMap((painted, cell) => painted ? [cell] : [])
         })),
+        extensions: project.extensions,
         editor: {
             activeLayer: project.layers.findIndex((layer) => layer.id === project.activeLayerId),
             view: project.view
@@ -142,6 +143,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     const cellCount = gridSize * gridSize;
     const layers = list(data.layers, 1, 256);
     const project: ProjectDocument = {
+        extensions: data.extensions as JsonValue | undefined,
         gridSize,
         nextLayerId: layers.length,
         propAssets, props, nextPropId: props.length,

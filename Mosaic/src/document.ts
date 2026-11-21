@@ -70,8 +70,13 @@ export interface Layer
     sheet: ImageAsset;
 }
 
+export type JsonValue = null | boolean | number | string | readonly JsonValue[]
+    | { readonly [key: string]: JsonValue };
+
 export interface ProjectDocument
 {
+    /// Opaque loaded JSON, shared unchanged by history and save snapshots.
+    readonly extensions?: JsonValue;
     gridSize: number;
     propAssets: readonly PropAsset[];
     props: Prop[];
@@ -105,7 +110,7 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     return project;
 }
 
-/// Snapshots own their map arrays but share immutable image assets.
+/// Snapshots own their map arrays but share immutable image assets and extensions.
 export function cloneDocument(project: ProjectDocument): ProjectDocument
 {
     return {
