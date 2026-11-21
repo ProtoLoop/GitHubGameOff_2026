@@ -24,7 +24,7 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The main
 project is `project2`. Copy its asset folders to make a new project.
-Mosaic reads and writes version 17 only, with no migration support. Existing
+Mosaic reads and writes version 19 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -90,14 +90,19 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   Choose a prop swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
   reload to update the palette. Rectangular images support 1–4096 pixels per axis.
-- Each `propAssets` entry in `level.json` stores `texPath`, `pivot`, `scale`, and `bounds`.
-  Pivots are normalized from the image's upper-left `(0, 0)` to lower-right
+- Each `propAssets` entry in `level.json` stores `texPath`, `srcRect`, `pivot`, `scale`, and `bounds`.
+  The optional `srcRect: { x, y, w, h }` selects a rectangle in texture pixels
+  from the upper-left corner. Omission or `[]` selects the full texture. Components must
+  be integers, dimensions positive, and the rectangle entirely inside the texture.
+  Saves write `srcRect: []` for the full texture and an object for a cropped sprite.
+  Pivots are normalized from the cropped sprite's upper-left `(0, 0)` to lower-right
   `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale is finite and positive, defaulting to
   `1`. Scale and rotation both operate about the pivot. Edit these asset settings
   in JSON and reload the project to apply them.
 - Add normalized collision rectangles to an asset’s `bounds` array using `x`, `y`,
   `w`, and `h`. Omitted bounds or `[]` means no collision. Dimensions must be
-  positive, and rectangles may extend outside the image. Edit JSON and reload,
+  positive, and rectangles may extend outside the cropped sprite. Bounds use the
+  cropped sprite dimensions for normalization. Edit JSON and reload,
   then enable **Show bounds** to see cyan rectangles on placed props. The toggle
   is session-only. Bounds follow pivot, scale, and rotation without changing picking.
 - In **Select**, click a prop to select it. Shift-click adds or removes it from the

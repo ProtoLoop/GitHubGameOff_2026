@@ -116,13 +116,22 @@ function renderPropPalette(): void
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
-        button.title = `${asset.id} (${asset.width}×${asset.height})`;
+        const source = asset.srcRect;
+        button.title = `${asset.id} (${source.w}×${source.h})`;
         button.setAttribute("aria-label", asset.label);
         button.setAttribute("aria-pressed", String(editor.tool === "place" && asset === editor.selectedPropAsset));
-        const preview = document.createElement("img");
-        preview.src = asset.url;
-        preview.alt = "";
+        const preview = document.createElement("canvas");
+        preview.width = 56;
+        preview.height = 56;
+        preview.setAttribute("aria-hidden", "true");
         preview.className = "prop-preview";
+        const context = preview.getContext("2d");
+        if(context === null) { throw new Error("Canvas 2D is unavailable"); }
+        context.imageSmoothingEnabled = false;
+        const scale = Math.min(preview.width / source.w, preview.height / source.h);
+        const width = source.w * scale, height = source.h * scale;
+        context.drawImage(asset.image, source.x, source.y, source.w, source.h,
+            (preview.width - width) / 2, (preview.height - height) / 2, width, height);
         button.append(preview);
         button.addEventListener("click", () => {
             finishInteraction("commit");

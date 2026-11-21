@@ -1,9 +1,10 @@
 import { strict as assert } from "node:assert";
 import { type PropAsset, type Prop } from "./document.ts";
-import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelta } from "./props.ts";
+import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelta, propImageRect } from "./props.ts";
 
 const asset: PropAsset = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
     blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
 const prop: Prop = { id: 0, asset, x: 100 / 64, y: -200 / 64, rotation: 90 };
 
@@ -73,4 +74,20 @@ Deno.test("group translations clamp on all four centered boundaries without defo
     assert.deepEqual(groupMoveDelta(points, 0.125, -0.25, 64), { x: 0.125, y: -0.25 });
     assert.deepEqual(groupMoveDelta([], 2, 2, 64), { x: 0, y: 0 });
     assert.deepEqual(groupMoveDelta(points, 0, 0, 64), { x: 0, y: 0 });
+});
+
+Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pivots and rotation", () => {
+    const cropped = { ...prop, x: 0, y: 0, rotation: 90,
+        asset: { ...asset, srcRect: { x: 30, y: 4, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2 } };
+    assert.deepEqual(propImageRect(cropped.asset), { x: -20, y: -20, width: 80, height: 20 });
+    // After rotation, the crop covers X [0, 20] and Y [-20, 60] in Y-down pixels.
+    assert.equal(hitProp([cropped], 10 / 64, -30 / 64), cropped);
+    for(const [x, y] of [[-1, 30], [21, 30], [10, -21], [10, 61]])
+    {
+        assert.equal(hitProp([cropped], x / 64, -y / 64), null);
+    }
+    // Moving the source rectangle within the texture does not move the sprite or its pivot.
+    const moved = { ...cropped, asset: { ...cropped.asset, srcRect: { ...cropped.asset.srcRect, x: 0, y: 0 } } };
+    assert.deepEqual(propImageRect(moved.asset), propImageRect(cropped.asset));
+    assert.equal(hitProp([moved], 10 / 64, -30 / 64), moved);
 });

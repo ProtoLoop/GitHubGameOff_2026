@@ -64,6 +64,7 @@ Deno.test("renderer repeats whole textures and partial redraws preserve composit
 Deno.test("prop overlay clears stale positions, draws in order and transforms around image centers", () => {
     const image: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
@@ -85,7 +86,7 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
     const canvas = { width: 4096, height: 4096, getContext: () => context } as unknown as HTMLCanvasElement;
     drawProps(project, canvas, fullView, new Set([0]), null, null, false);
     assert.deepEqual(calls.slice(0, 7), [["clear", 0, 0, 4096, 4096], ["save"], ["save"],
-        ["translate", 100, 200], ["rotate", Math.PI / 2], ["image", image.image, -40, -10, 80, 20], ["restore"]]);
+        ["translate", 100, 200], ["rotate", Math.PI / 2], ["image", image.image, 0, 0, 80, 20, -40, -10, 80, 20], ["restore"]]);
     assert.deepEqual(calls[8], ["translate", 300, 400]);
     assert.deepEqual(calls.filter((call) => call[0] === "selection"), [["selection", -40, -10, 80, 20]]);
     assert.equal(calls.filter((call) => call[0] === "pivot").length, 4);
@@ -98,6 +99,7 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
 Deno.test("preview and multi-selection render independently of document state and clear on the next draw", () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
@@ -123,7 +125,7 @@ Deno.test("preview and multi-selection render independently of document state an
         { start: { x: 300 / 64 - 32, y: 32 - 400 / 64 }, end: { x: 50 / 64 - 32, y: 32 - 60 / 64 } }, false);
     assert.equal(calls.filter((call) => call[0] === "stroke").length, 3);
     assert(calls.some((call) => JSON.stringify(call) === JSON.stringify(["fill", 50, 60, 250, 340])));
-    assert.deepEqual(calls.filter((call) => call[0] === "image").at(-1), ["image", 0.5, asset.image, 360, 490, 80, 20]);
+    assert.deepEqual(calls.filter((call) => call[0] === "image").at(-1), ["image", 0.5, asset.image, 0, 0, 80, 20, 360, 490, 80, 20]);
     assert.equal(context.globalAlpha, 1);
     assert(sameContent(project, snapshot));
     calls.length = 0;
@@ -257,6 +259,7 @@ Deno.test("viewport rendering on a 512-cell map bounds allocation and preserves 
 Deno.test("viewport props cull rotated bounds rather than centers and use a shared map transform", () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
@@ -281,6 +284,7 @@ Deno.test("viewport props cull rotated bounds rather than centers and use a shar
 Deno.test("scaled props rotate about their pivots and retain visible artwork when the pivot is offscreen", () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0, pivotY: 1, scale: 2, bounds: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
@@ -301,7 +305,7 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     const view = { x: 110, y: 200, width: 20, height: 20, zoom: 1 };
     drawProps(project, canvas, view, new Set([0]), null, null, false);
     assert.deepEqual(calls, [
-        ["translate", 100, 100], ["rotate", Math.PI / 2], ["image", asset.image, -0, -40, 160, 40],
+        ["translate", 100, 100], ["rotate", Math.PI / 2], ["image", asset.image, 0, 0, 80, 20, -0, -40, 160, 40],
         ["translate", 100, 100], ["rotate", Math.PI / 2], ["selection", -0, -40, 160, 40]
     ]);
     calls.length = 0;
@@ -309,12 +313,13 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     assert.deepEqual(calls, []);
     project.props = [];
     drawProps(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
-    assert.deepEqual(calls, [["image", asset.image, 100, 60, 160, 40]]);
+    assert.deepEqual(calls, [["image", asset.image, 0, 0, 80, 20, 100, 60, 160, 40]]);
 });
 
 Deno.test("selected pivot markers stay upright at fixed screen size and clear on deselection", () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 1, pivotY: 1, scale: 2, bounds: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
@@ -406,6 +411,7 @@ Deno.test("fractional viewport sampling matches world-resolution masks at map ed
 Deno.test("collision overlay follows pivot, scale and rotation even when sprite artwork is offscreen", () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.25, pivotY: 1, scale: 2,
         bounds: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }, { x: -2, y: -2, w: 1, h: 1 }] };
     const project = createDocument([material("base", 64, 0)], [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
@@ -430,4 +436,44 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
     calls.length = 0;
     drawProps(project, canvas, view, new Set(), null, null, false);
     assert.deepEqual(calls, []);
+});
+
+Deno.test("cropped props share source pixels and sprite dimensions across drawing, previews, selection and bounds", () => {
+    const asset: PropAsset = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
+        blob: new Blob(), url: "", width: 256, height: 128, image: {} as CanvasImageSource,
+        srcRect: { x: 32, y: 16, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2,
+        bounds: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }] };
+    const project = createDocument([material("base", 64, 0)],
+        [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
+    project.propAssets = [asset];
+    project.props = [{ id: 0, asset, x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
+    project.nextPropId = 1;
+    const snapshot = cloneDocument(project);
+    const calls: unknown[][] = [];
+    const context = {
+        save: () => {}, restore: () => {}, clearRect: () => {}, setTransform: () => {},
+        translate: (...args: number[]) => calls.push(["translate", ...args]),
+        rotate: (angle: number) => calls.push(["rotate", angle]),
+        drawImage: (...args: unknown[]) => calls.push(["image", ...args]),
+        strokeRect: (...args: number[]) => calls.push(["stroke", ...args]),
+        fillRect: () => {}
+    };
+    const canvas = { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement;
+    // The rotated crop spans [100, 120] x [80, 160], with its pivot outside this view.
+    const view = { x: 105, y: 130, width: 10, height: 10, zoom: 1 };
+    drawProps(project, canvas, view, new Set([0]), null, null, true);
+    assert.deepEqual(calls, [
+        ["translate", 100, 100], ["rotate", Math.PI / 2], ["image", asset.image, 32, 16, 40, 10, -20, -20, 80, 20],
+        ["translate", 100, 100], ["rotate", Math.PI / 2], ["stroke", -20, -10, 40, 5],
+        ["translate", 100, 100], ["rotate", Math.PI / 2], ["stroke", -20, -20, 80, 20]
+    ]);
+    calls.length = 0;
+    // The original texture would reach this view, but the cropped sprite does not.
+    drawProps(project, canvas, { ...view, x: 130 }, new Set([0]), null, null, false);
+    assert.deepEqual(calls, []);
+    project.props = [];
+    drawProps(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
+    assert.deepEqual(calls, [["image", asset.image, 32, 16, 40, 10, 80, 80, 80, 20]]);
+    project.props = snapshot.props;
+    assert(sameContent(project, snapshot));
 });

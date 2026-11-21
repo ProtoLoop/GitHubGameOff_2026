@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 17,
+  "version": 19,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",
@@ -22,7 +22,8 @@
         "x": 0.5,
         "y": 1
       },
-      "scale": 0.25,
+      "scale": 1,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -31,7 +32,8 @@
         "x": 0.5,
         "y": 1
       },
-      "scale": 0.25,
+      "scale": 1,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -40,7 +42,8 @@
         "x": 0.5,
         "y": 1
       },
-      "scale": 0.25,
+      "scale": 1,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -49,7 +52,8 @@
         "x": 0.5,
         "y": 1
       },
-      "scale": 0.25,
+      "scale": 1,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -59,6 +63,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -68,6 +73,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -77,6 +83,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -86,6 +93,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -95,6 +103,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -104,6 +113,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -113,6 +123,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -122,6 +133,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -131,6 +143,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -140,6 +153,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -149,6 +163,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -158,6 +173,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -167,6 +183,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -176,6 +193,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -185,6 +203,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -194,6 +213,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -203,6 +223,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -212,6 +233,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -221,6 +243,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     },
     {
@@ -230,6 +253,7 @@
         "y": 1
       },
       "scale": 0.25,
+      "srcRect": [],
       "bounds": []
     }
   ],
@@ -237,16 +261,32 @@
     {
       "index": 7,
       "pos": {
-        "x": -5.003,
-        "y": 2.616
+        "x": -5,
+        "y": 3.005
       },
       "rot": 0
     },
     {
-      "index": 13,
+      "index": 22,
       "pos": {
-        "x": 2.025,
-        "y": 2.549
+        "x": -1.291,
+        "y": 4.678
+      },
+      "rot": 0
+    },
+    {
+      "index": 22,
+      "pos": {
+        "x": -0.388,
+        "y": 2.865
+      },
+      "rot": 0
+    },
+    {
+      "index": 0,
+      "pos": {
+        "x": -5.197,
+        "y": 5.592
       },
       "rot": 0
     }
@@ -318,9 +358,9 @@
   "editor": {
     "activeLayer": 2,
     "view": {
-      "zoom": 2.681280184142559,
-      "scrollLeft": 4281,
-      "scrollTop": 4815,
+      "zoom": 0.3930943424174462,
+      "scrollLeft": 244.5,
+      "scrollTop": 377.5,
       "showGrid": true
     }
   }

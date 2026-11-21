@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { createDocument, type ImageAsset, type PropAsset } from "./document.ts";
+import { createDocument, cloneDocument, sameContent, type ImageAsset, type PropAsset } from "./document.ts";
 import { readProject, writeProject } from "./project-file.ts";
 import { cellMasks, terrainSourceOffset } from "./placement.ts";
 
@@ -26,7 +26,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 17,'));
+    assert(text.includes('\n  "version": 19,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "propAssets", "props", "layers", "editor"]);
@@ -60,6 +60,7 @@ Deno.test("level JSON larger than 16 MiB loads and can be saved again", async ()
 Deno.test("file asset paths require a project-root slash while discovered IDs remain relative", async () => {
     const prop: PropAsset = { kind: "prop", id: "assets/props/trees #/tree%20.png", label: "trees #/tree%20.png",
         blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 1, scale: 0.25, bounds: [] };
     const project = fixture();
     project.propAssets = [prop];
@@ -132,6 +133,8 @@ Deno.test("invalid sparse records and missing assets fail before installation", 
         (data) => { data.version = 14; },
         (data) => { data.version = 15; },
         (data) => { data.version = 16; },
+        (data) => { data.version = 17; },
+        (data) => { data.version = 18; },
         (data) => { data.editor = null; },
         (data) => { data.maskSheets.push("/" + mask.id); },
         (data) => { data.tileSheets.push("/" + tile.id); },
@@ -214,6 +217,7 @@ Deno.test("whole-texture dimensions are derived and discovered textures must mat
 Deno.test("props round-trip with catalog order, transforms and placement order intact", async () => {
     const asset: PropAsset = { id: "assets/props/stone #1.png", kind: "prop", label: "stone #1.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const extra = { ...asset, id: "assets/props/extra.png", label: "extra.png" };
     const project = fixture();
@@ -262,6 +266,7 @@ Deno.test("props round-trip with catalog order, transforms and placement order i
 Deno.test("prop metadata defaults independently and round-trips without mutating decoded assets", async () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const extra = { ...asset, id: "assets/props/new.png", label: "new.png" };
     const project = fixture();
@@ -281,8 +286,8 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
         assert.deepEqual([asset.pivotX, asset.pivotY, asset.scale], [0.5, 0.5, 1]);
         const saved = await writeProject(loaded);
         assert.deepEqual(JSON.parse(await saved.text()).propAssets, [
-            { texPath: "/" + asset.id, pivot: { x: expected.pivotX, y: expected.pivotY }, scale: expected.scale, bounds: [] },
-            { texPath: "/" + extra.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, bounds: [] }
+            { texPath: "/" + asset.id, pivot: { x: expected.pivotX, y: expected.pivotY }, scale: expected.scale, srcRect: [], bounds: [] },
+            { texPath: "/" + extra.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, srcRect: [], bounds: [] }
         ]);
         const again = await readProject(saved, [tile, mask, extra, asset]);
         assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), JSON.parse(await saved.text()));
@@ -307,6 +312,7 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     const extra = image("tile", "a/ground.png");
     const prop: PropAsset = { kind: "prop", id: "assets/props/old #/stone%20.png", label: "old #/stone%20.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 40 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const newProp = { ...prop, id: "assets/props/new/stone%20.png", label: "new/stone%20.png" };
     const project = createDocument([first, second], [mask]);
@@ -323,7 +329,7 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     const saved = JSON.parse(await (await writeProject(loaded)).text());
     assert.deepEqual(saved.tileSheets, [first, second, extra].map((asset) => "/" + asset.id));
     assert.deepEqual(saved.propAssets, [prop, newProp].map((asset) => ({
-        texPath: "/" + asset.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, bounds: []
+        texPath: "/" + asset.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, srcRect: [], bounds: []
     })));
     const again = await readProject(await writeProject(loaded), [extra, second, first, mask, newProp, prop]);
     assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), saved);
@@ -334,6 +340,7 @@ Deno.test("prop coordinates round on load and save without accepting invalid bou
     const project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 20, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     project.propAssets = [asset];
     project.props = [{ id: 0, asset, x: 12.12349, y: 31.9998, rotation: 45 }];
@@ -358,6 +365,7 @@ Deno.test("prop coordinates round on load and save without accepting invalid bou
 Deno.test("variable map sizes round-trip and enforce size-specific sparse indices and prop bounds", async () => {
     const asset: PropAsset = { id: "assets/props/a.png", kind: "prop", label: "a",
         blob: new Blob(), url: "", width: 10, height: 10, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 10, h: 10 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     for(const size of [2, 4, 8, 16, 32, 64, 128, 256, 512])
     {
@@ -370,7 +378,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.nextPropId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 17);
+        assert.equal(data.version, 19);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);
@@ -399,6 +407,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
 Deno.test("collision bounds default, validate and round-trip independently of decoded assets", async () => {
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     const project = fixture();
     project.propAssets = [asset];
@@ -436,4 +445,60 @@ Deno.test("collision bounds default, validate and round-trip independently of de
         data.propAssets[0].pivot = pivot;
         await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
     }
+});
+
+Deno.test("source rectangles default to the full texture and round-trip without changing decoded assets", async () => {
+    const asset: PropAsset = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.25, pivotY: 1, scale: 2, bounds: [] };
+    const project = fixture();
+    project.propAssets = [asset];
+    project.props = [{ id: 0, asset, x: 1, y: 2, rotation: 90 }];
+    project.nextPropId = 1;
+    const before = cloneDocument(project);
+    const data = JSON.parse(await (await writeProject(project)).text());
+    for(const srcRect of [undefined, [], { x: 0, y: 0, w: 80, h: 20 },
+        { x: 0, y: 0, w: 79, h: 20 }, { x: 0, y: 0, w: 80, h: 19 },
+        { x: 32, y: 4, w: 48, h: 16 }, { x: 79, y: 19, w: 1, h: 1 }])
+    {
+        data.propAssets[0].srcRect = srcRect;
+        const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]);
+        const fullTexture = srcRect === undefined || Array.isArray(srcRect)
+            || (srcRect.x === 0 && srcRect.y === 0 && srcRect.w === 80 && srcRect.h === 20);
+        assert.deepEqual(loaded.propAssets[0].srcRect, fullTexture ? asset.srcRect : srcRect);
+        assert.equal(loaded.props[0].asset, loaded.propAssets[0]);
+        assert.equal(loaded.props[0].asset.image, asset.image);
+        assert.deepEqual(loaded.propAssets[0].bounds, asset.bounds);
+        assert.equal(loaded.propAssets[0].pivotX, asset.pivotX);
+        const saved = await writeProject(loaded);
+        assert.deepEqual(JSON.parse(await saved.text()).propAssets[0].srcRect, fullTexture ? [] : srcRect);
+        const again = await readProject(saved, [tile, mask, asset]);
+        assert.deepEqual(again.propAssets[0], loaded.propAssets[0]);
+        assert.equal(cloneDocument(loaded).propAssets[0], loaded.propAssets[0]);
+    }
+    assert(sameContent(project, before));
+    assert.deepEqual(asset.srcRect, { x: 0, y: 0, w: 80, h: 20 });
+});
+
+Deno.test("source rectangles reject malformed, fractional and out-of-texture regions on load and save", async () => {
+    const asset: PropAsset = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+    const project = fixture();
+    project.propAssets = [asset];
+    const data = JSON.parse(await (await writeProject(project)).text());
+    const rect = { x: 5, y: 2, w: 10, h: 8 };
+    const invalid = [null, [0, 0, 80, 20], [{}], {}, "rectangle", ...["x", "y", "w", "h"].flatMap((key) =>
+        [undefined, null, "1", true, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER].map((value) => ({ ...rect, [key]: value }))),
+        { ...rect, w: 0 }, { ...rect, h: 0 }, { ...rect, x: 71 }, { ...rect, y: 13 }];
+    for(const srcRect of invalid)
+    {
+        data.propAssets[0].srcRect = srcRect;
+        await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
+        project.propAssets = [{ ...asset, srcRect: srcRect as PropAsset["srcRect"] }];
+        assert.throws(() => writeProject(project), /source rectangle/);
+    }
+    // JSON overflow must fail as well, independently of JSON.stringify converting Infinity to null.
+    data.propAssets[0].srcRect = { ...rect, x: "overflow" };
+    await assert.rejects(() => readProject(new Blob([JSON.stringify(data).replace('"overflow"', "1e400")]), [tile, mask, asset]));
 });

@@ -168,7 +168,9 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
         const rect = propImageRect(prop.asset);
-        context.drawImage(prop.asset.image, rect.x, rect.y, rect.width, rect.height);
+        const source = prop.asset.srcRect;
+        context.drawImage(prop.asset.image, source.x, source.y, source.w, source.h,
+            rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
     if(showBounds)
@@ -183,8 +185,7 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
             context.rotate(prop.rotation * Math.PI / 180);
             context.strokeStyle = "#00e5ff";
             context.lineWidth = 2 / view.zoom;
-            const width = prop.asset.width * prop.asset.scale;
-            const height = prop.asset.height * prop.asset.scale;
+            const { width, height } = propImageRect(prop.asset);
             for(const bound of prop.asset.bounds)
             {
                 context.strokeRect((bound.x - prop.asset.pivotX) * width,
@@ -215,7 +216,9 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         if(asset.kind === "prop")
         {
             const rect = propImageRect(asset);
-            context.drawImage(asset.image, point.x + rect.x, point.y + rect.y, rect.width, rect.height);
+            const source = asset.srcRect;
+            context.drawImage(asset.image, source.x, source.y, source.w, source.h,
+                point.x + rect.x, point.y + rect.y, rect.width, rect.height);
         }
         else
         {

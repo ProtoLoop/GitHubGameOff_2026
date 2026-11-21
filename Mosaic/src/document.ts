@@ -23,7 +23,9 @@ export interface PropAsset extends Asset
     readonly width: number;
     readonly height: number;
     readonly image: CanvasImageSource;
-    /// Normalized image pivot, measured from the upper-left corner.
+    /// Source texture pixels, measured from the upper-left corner.
+    readonly srcRect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
+    /// Normalized sprite pivot, measured from the cropped sprite's upper-left corner.
     readonly pivotX: number;
     readonly pivotY: number;
     readonly scale: number;
@@ -252,6 +254,14 @@ export function validateDocument(project: ProjectDocument): void
         {
             fail("invalid prop image");
         }
+        const rect = asset.srcRect;
+        if(!rect || !Number.isSafeInteger(rect.x) || !Number.isSafeInteger(rect.y)
+            || !Number.isSafeInteger(rect.w) || !Number.isSafeInteger(rect.h)
+            || rect.x < 0 || rect.y < 0 || rect.w <= 0 || rect.h <= 0
+            || rect.x + rect.w > asset.width || rect.y + rect.h > asset.height)
+        {
+            fail("invalid prop source rectangle");
+        }
         if(!Array.isArray(asset.bounds) || asset.bounds.some((bound) => !bound
             || !Number.isFinite(bound.x) || !Number.isFinite(bound.y)
             || !Number.isFinite(bound.w) || !Number.isFinite(bound.h) || bound.w <= 0 || bound.h <= 0))
@@ -355,7 +365,7 @@ export async function decodePropAsset(blob: Blob, label: string, id: string): Pr
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
         return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image,
-            pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+            srcRect: { x: 0, y: 0, w: width, h: height }, pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     }
     finally { bitmap.close(); }
 }

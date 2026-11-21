@@ -94,6 +94,7 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
     let project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     project.propAssets = [asset];
     const history = new History(100, 64 * 1024 * 1024);
@@ -132,6 +133,7 @@ Deno.test("terrain comparison skips prop edits through undo and redo but detects
     let project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     project.propAssets = [asset];
     const history = new History(100, 64 * 1024 * 1024);

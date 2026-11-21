@@ -710,7 +710,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic prop position objects
 
-Date: 2026-11-19. Status: Accepted.
+Date: 2026-11-19. Status: Accepted. Version support is superseded by
+[Mosaic prop source rectangles](#mosaic-prop-source-rectangles).
 
 Version 17 groups each serialized prop's position into required `pos: { x, y }`,
 replacing the flat `x` and `y` fields. This makes position an explicit value,
@@ -725,4 +726,61 @@ or unrelated data. Game loader compatibility is separate work.
 
 This supersedes version support in
 [prop collision bounds](#mosaic-prop-collision-bounds).
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic prop source rectangles
+
+Date: 2026-11-20. Status: Accepted. Version support and full-texture serialization
+are superseded by [Mosaic full-texture source rectangle shorthand](#mosaic-full-texture-source-rectangle-shorthand).
+
+Version 18 adds asset-owned `srcRect: { x, y, w, h }` in source texture pixels.
+Omission selects the full decoded texture, and saves write the resolved rectangle
+explicitly. Components are integers, coordinates nonnegative, and dimensions
+positive. The rectangle must fit within the texture. Pixel coordinates match the
+game renderer's source rectangles and make exact artwork selection straightforward.
+Normalized texture coordinates were considered, but would make pixel boundaries
+less direct to author.
+
+Pivots and collision bounds remain normalized, now relative to the cropped sprite.
+Scale applies to the crop's dimensions. Drawing, palette and placement previews,
+picking, selection outlines, viewport culling, and collision overlays use that
+same sprite geometry. Source offsets select texture pixels without moving the
+world pivot. Decoded textures stay shared, while immutable asset metadata remains
+owned by catalog entries and shared by history snapshots. Metadata is edited in
+JSON and reloaded. The existing unique-texture-path catalog rule is unchanged.
+
+Mosaic reads and writes version 18 only, without a migration loader. Project2
+receives only a version update, preserving its full-texture appearance through
+the default. This supersedes version support in
+[prop position objects](#mosaic-prop-position-objects) and extends the whole-image
+geometry in [prop asset pivots and scale](#mosaic-prop-asset-pivots-and-scale) and
+[prop collision bounds](#mosaic-prop-collision-bounds). C++ loader integration is
+separate work. There are no dependency or build requirement changes.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic full-texture source rectangle shorthand
+
+Date: 2026-11-20. Status: Accepted.
+
+Version 19 uses `srcRect: []` for the entire texture. Omission also selects the
+full texture, and explicit rectangle objects remain valid. Saves normalize any
+rectangle that covers the entire texture to `[]`, while cropped sprites retain
+`{ x, y, w, h }`. Nonempty arrays and `null` are rejected.
+
+The shorthand keeps full-texture entries compact and lets them follow changes to
+the source image dimensions. Always storing explicit dimensions was an
+alternative, but would keep those entries tied to the previous image size.
+The document still resolves a concrete pixel rectangle on load, so rendering,
+picking, pivots, collision bounds, and history retain their existing behavior.
+
+Mosaic reads and writes version 19 only, without migration support. Version 18
+rejects empty arrays, so the format version advances with this change. Project2
+receives only a version update and continues to use the full-texture default.
+This supersedes version support and full-texture serialization in
+[prop source rectangles](#mosaic-prop-source-rectangles). C++ integration remains
+separate work. No dependencies or build requirements change.
+
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

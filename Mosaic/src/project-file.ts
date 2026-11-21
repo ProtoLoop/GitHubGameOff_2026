@@ -6,13 +6,15 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 17,
+        format: "mosaic", version: 19,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
         propAssets: project.propAssets.map((asset) => ({
             texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
+            srcRect: asset.srcRect.x === 0 && asset.srcRect.y === 0
+                && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? [] : { ...asset.srcRect },
             bounds: asset.bounds.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         props: project.props.map((prop) => ({
@@ -79,7 +81,7 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 17)
+    if(data.format !== "mosaic" || data.version !== 19)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -101,6 +103,11 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         const entry = object(item);
         const asset = lookup(entry.texPath);
         if(asset.kind !== "prop") { throw new Error("Expected prop image"); }
+        const rect = entry.srcRect === undefined
+            || (Array.isArray(entry.srcRect) && entry.srcRect.length === 0)
+            ? { x: 0, y: 0, w: asset.width, h: asset.height } : object(entry.srcRect);
+        const srcRect = { x: integer(rect.x, 0, asset.width - 1), y: integer(rect.y, 0, asset.height - 1),
+            w: integer(rect.w, 1, asset.width), h: integer(rect.h, 1, asset.height) };
         const pivot = entry.pivot === undefined ? {} : object(entry.pivot);
         if(entry.bounds !== undefined && !Array.isArray(entry.bounds)) { throw new Error("Invalid prop bounds"); }
         const bounds = ((entry.bounds ?? []) as unknown[]).map((value) => {
@@ -115,7 +122,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
             return { x: bound.x as number, y: bound.y as number, w: bound.w as number, h: bound.h as number };
         });
         // Keep decoded images shared without changing metadata in another document.
-        return { ...asset,
+        return { ...asset, srcRect,
             pivotX: numberOrDefault(pivot.x, 0.5),
             pivotY: numberOrDefault(pivot.y, 0.5),
             scale: numberOrDefault(entry.scale, 1), bounds };

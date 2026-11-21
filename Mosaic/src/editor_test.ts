@@ -13,6 +13,7 @@ function fixture(): Editor
     project.nextLayerId = 3;
     const asset: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 20, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
     project.propAssets = [asset];
     project.props = [2, 6, 10].map((x, id) => ({ id, asset, x, y: 2, rotation: 0 }));
