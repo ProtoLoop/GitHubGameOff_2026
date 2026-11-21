@@ -23,8 +23,14 @@ struct SpriteDef
     ResourceName Name;
     FilePath TexturePath;
     // If not present then use the entire texture.
-    std::optional<Rect> Rect = std::nullopt;
-    glm::vec2 Pivot{};
+    std::optional<Rect> SrcRect = std::nullopt;
+    /// Collision rectangles are normalized within the texture's dimensions.
+    /// 0,0 represents the top-left corner of the texture.
+    /// 1,1 represents the bottom-right corner of the texture.
+    /// If not present then there is no collision.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    std::optional<Rectf> ColRect = std::nullopt;
+    glm::vec2 Pivot{0, 0};
     glm::vec4 Color = glm::vec4(1.0f);
     float Scale = 1.0f;
 };
@@ -38,8 +44,14 @@ struct SpriteSequenceDef
     Dimension2D Dim{};
     FilePath TexturePath;
     // If not present then use the entire texture.
-    std::optional<Rect> Rect = std::nullopt;
-    glm::vec2 Pivot{};
+    std::optional<Rect> SrcRect = std::nullopt;
+    /// Collision rectangles are normalized within the texture's dimensions.
+    /// 0,0 represents the top-left corner of the texture.
+    /// 1,1 represents the bottom-right corner of the texture.
+    /// If not present then there is no collision.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    std::optional<Rectf> ColRect = std::nullopt;
+    glm::vec2 Pivot{0, 0};
     glm::vec4 Color = glm::vec4(1.0f);
 };
 
@@ -67,7 +79,12 @@ public:
     const wgpu::BindGroup& GetTextureBindGroup() const { return m_TextureBindGroup; }
 
     /// Returns the rectangle defining the sprite within the texture atlas.
-    const Rect& GetRect() const { return m_Rect; }
+    const Rect& GetSrcRect() const { return m_SrcRect; }
+
+    /// Returns the normalized collision rectangles of the sprite.
+    /// 0,0 is top-left, 1,1 is bottom-right.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
 
     /// Returns the pivot point within the sprite's rectangle.
     const glm::vec2& GetPivot() const { return m_Pivot; }
@@ -86,17 +103,23 @@ private:
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
+    /// colRects specifies the normalized collision rectangles of the sprite.
     /// pivot specifies the pivot point within the sprite's rectangle.
     /// color specifies the color tint for the sprite.
     /// scale specifies the scale factor for the sprite.
     Sprite(wgpu::BindGroup bindGroup,
-        const Rect& rect,
+        const Rect& srcRect,
+        const InlineVector<Rectf, 1>& colRects,
         const glm::vec2& pivot,
         const glm::vec4& color,
         const float scale);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
-    Rect m_Rect;
+    Rect m_SrcRect; // Source rectangle within the texture atlas.
+    // Collection of normalized collision rectangles of the sprite.
+    // 0,0 is top-left, 1,1 is bottom-right.
+    // If empty, the sprite has no collision rectangles.
+    InlineVector<Rectf, 1> m_ColRects;
     glm::vec2 m_Pivot;
     glm::vec4 m_Color;
     float m_Scale;
@@ -120,7 +143,12 @@ public:
     const wgpu::BindGroup& GetTextureBindGroup() const { return m_Sprite.GetTextureBindGroup(); }
 
     /// Returns the rectangle defining the sprite within the texture atlas.
-    const Rect& GetRect() const { return m_Sprite.GetRect(); }
+    const Rect& GetSrcRect() const { return m_Sprite.GetSrcRect(); }
+
+    /// Returns the normalized collision rectangles of the sprite.
+    /// 0,0 is top-left, 1,1 is bottom-right.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    std::span<const Rectf> GetCollisionRects() const { return m_Sprite.GetCollisionRects(); }
 
     /// Returns the pivot point within the sprite's rectangle.
     const glm::vec2& GetPivot() const { return m_Sprite.GetPivot(); }
@@ -145,11 +173,8 @@ public:
 
     const ResourceName& GetName() const { return m_Name; }
 
-    const Dimension2D& GetDim() const { return m_Dim; }
-
-    const Rect& GetRect() const { return m_Rect; }
-
-    const glm::vec2& GetPivot() const { return m_Pivot; }
+    /// Returns the rectangle defining the sprite sequence within the texture atlas.
+    const Rect& GetSrcRect() const { return m_SrcRect; }
 
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetColor() const { return m_Color; }
@@ -164,14 +189,19 @@ private:
     SpriteSequence(const ResourceName& name,
         wgpu::BindGroup bindGroup,
         const Dimension2D& dim,
-        const Rect& rect,
+        const Rect& srcRect,
+        const InlineVector<Rectf, 1>& colRects,
         const glm::vec2& pivot,
         const glm::vec4& color);
 
     ResourceName m_Name;
     wgpu::BindGroup m_BindGroup;
+    // Dimensions of each sprite within the sequence.
     Dimension2D m_Dim;
-    Rect m_Rect;
+    // Source rectangle of the sequence within the texture atlas.
+    Rect m_SrcRect;
+    // Normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
+    InlineVector<Rectf, 1> m_ColRects; // Collection of normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
     glm::vec2 m_Pivot;
     glm::vec4 m_Color;
     uint32_t m_SpriteCount;

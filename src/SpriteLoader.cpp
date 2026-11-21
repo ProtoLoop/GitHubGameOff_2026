@@ -63,19 +63,6 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
             def.Pivot.x,
             def.Pivot.y);
 
-        Rect rect = kNullRect;
-        if(def.Rect)
-        {
-            GG_CHECKB(def.Rect->w > 0 && def.Rect->h > 0,
-                "Invalid sprite dimensions: {} : {} -  {}x{}",
-                def.Name,
-                def.TexturePath,
-                def.Rect->w,
-                def.Rect->h);
-
-            rect = *def.Rect;
-        }
-
         GG_CHECKB(!def.TexturePath.empty(),
             "Sprite texture path must not be empty: {} : {}",
             def.Name,
@@ -96,7 +83,20 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
             spriteToTextureMap.push_back(index);
         }
 
-        Sprite sprite(defaultBindGroup, rect, def.Pivot, def.Color, def.Scale);
+        InlineVector<Rectf, 1> colRects;
+        if(def.ColRect)
+        {
+            colRects.push_back(*def.ColRect);
+        }
+
+        // If src rect is not specified it will be set to the
+        // the size of the texture when the texture is loaded.
+        Sprite sprite(defaultBindGroup,
+            def.SrcRect ? *def.SrcRect : kNullRect,
+            colRects,
+            def.Pivot,
+            def.Color,
+            def.Scale);
         NamedSprite namedSprite(def.Name, std::move(sprite));
 
         sprites.push_back(std::move(namedSprite));
@@ -161,7 +161,14 @@ SpriteLoader::Take()
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
 
-        Rect rect = sprite.GetRect();
+        Rect rect = sprite.GetSrcRect();
+        InlineVector<Rectf, 1> colRects;
+        
+        for(const Rectf& colRect : sprite.GetCollisionRects())
+        {
+            colRects.push_back(colRect);
+        }
+
         const Dimension2D texDims{ .w = texture.GetWidth(), .h = texture.GetHeight() };
 
         // If no rect was specified, use the entire texture.
@@ -169,6 +176,13 @@ SpriteLoader::Take()
         {
             rect = Rect{ 0, 0, texDims.w, texDims.h };
         }
+
+        GG_CHECKB(rect.w > 0 && rect.h > 0, "Sprite rect has zero dimensions: {} - {}x{}x{}x{}",
+            sprite.GetName(),
+            rect.x,
+            rect.y,
+            rect.w,
+            rect.h);
 
         GG_CHECKB(
             rect.w <= texDims.w && rect.h <= texDims.h && rect.x < texDims.w && rect.y < texDims.h,
@@ -193,7 +207,12 @@ SpriteLoader::Take()
 
         // Create a new sprite and replace the old one.
         NamedSprite newSprite(sprite.GetName(),
-            Sprite(bindGroup, rect, sprite.GetPivot(), sprite.GetColor(), sprite.GetScale()));
+            Sprite(bindGroup,
+                rect,
+                colRects,
+                sprite.GetPivot(),
+                sprite.GetColor(),
+                sprite.GetScale()));
 
         m_Sprites[i] = std::move(newSprite);
     }

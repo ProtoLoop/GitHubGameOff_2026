@@ -62,6 +62,8 @@ Result<SpriteDef>
 ParsePropAsset(const JsonObject& propAsset)
 {
     std::optional<std::string_view> optTexPath;
+    std::optional<Rect> optRect;
+    std::optional<Rectf> optColRect;
     std::optional<glm::vec2> optPivot;
     std::optional<float> optScale;
 
@@ -76,6 +78,35 @@ ParsePropAsset(const JsonObject& propAsset)
         if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
         {
             optPivot = glm::vec2{ x, y };
+        }
+    }
+
+    if(JsonObject jsonObj; propAsset.TryGetObject("srcRect", jsonObj))
+    {
+        uint32_t x{}, y{}, w{}, h{};
+
+        GG_CHECKB(jsonObj.TryGetUint32("x", x), "Missing x in srcRect");
+        GG_CHECKB(jsonObj.TryGetUint32("y", y), "Missing y in srcRect");
+        GG_CHECKB(jsonObj.TryGetUint32("w", w), "Missing w in srcRect");
+        GG_CHECKB(jsonObj.TryGetUint32("h", h), "Missing h in srcRect");
+        
+        optRect = Rect{ x, y, w, h };
+    }
+
+    if(JsonArray jsonArray; propAsset.TryGetArray("collisionRects", jsonArray))
+    {
+        for(const JsonValue& value : jsonArray)
+        {
+            JsonObject jsonObj;
+            GG_CHECKB(value.TryGetObject(jsonObj), "Failed to get collision rect object");
+            float x{}, y{}, w{}, h{};
+
+            GG_CHECKB(jsonObj.TryGetFloat("x", x), "Missing x in collision rect");
+            GG_CHECKB(jsonObj.TryGetFloat("y", y), "Missing y in collision rect");
+            GG_CHECKB(jsonObj.TryGetFloat("w", w), "Missing w in collision rect");
+            GG_CHECKB(jsonObj.TryGetFloat("h", h), "Missing h in collision rect");
+
+            optColRect = Rectf{ x, y, w, h };
         }
     }
 
@@ -98,6 +129,8 @@ ParsePropAsset(const JsonObject& propAsset)
         {
             .Name = name,
             .TexturePath = *optTexPath,
+            .SrcRect = optRect,
+            .ColRect = optColRect,
             .Pivot = pivot,
             .Scale = scaleValue,
         };

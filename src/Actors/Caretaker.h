@@ -2,6 +2,7 @@
 
 #include "Sprite.h"
 #include "Transform2D.h"
+#include <glm/vec2.hpp>
 
 class Game;
 class Renderer;
@@ -38,6 +39,7 @@ private:
     explicit Caretaker(const Anims& anims);
 
     Transform2D m_Transform;
+    glm::vec2 m_Velocity{};
 
     Anims m_Anims;
     SpriteAnim::Instance m_CurAnim;

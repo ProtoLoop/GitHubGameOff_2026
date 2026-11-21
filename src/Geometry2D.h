@@ -74,6 +74,11 @@ struct Rectf
         return point.x >= x && point.x <= x + w && point.y >= y && point.y <= y + h;
     }
 
+    constexpr float Left() const { return x; }
+    constexpr float Right() const { return x + w; }
+    constexpr float Top() const { return y; }
+    constexpr float Bottom() const { return y + h; }
+
     constexpr friend Rectf operator+(const Rectf& rect, const glm::vec2& offset)
     {
         return Rectf{ rect.x + offset.x, rect.y + offset.y, rect.w, rect.h };

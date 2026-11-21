@@ -54,10 +54,18 @@ public:
     /// Isometric, orthographic, or 3/4.
     const glm::mat2x2& GetProjectionMatrix() const;
 
-    /// Copies a sprite and its world position for the next Render() call.
+    /// Queues a sprite for the next Render() call.
     /// Transform rotation does not rotate the sprite.
-    /// Returns an error if the sprite queue is full.
+    /// Returns an error if the queue is full.
     Result<> QueueSprite(const Sprite& sprite, const Transform2D& transform);
+
+    /// Queues a rectangle for the next Render() call.
+    /// Transform rotation does not rotate the rectangle.
+    /// Returns an error if the queue is full.
+    Result<> QueueRectangle(const Rectf& rectangle,
+        const Transform2D& transform,
+        const float scale,
+        const glm::vec4& color);
 
     Result<wgpu::BindGroup> CreateSpriteTextureBindGroup(const wgpu::Texture& texture);
 
@@ -87,10 +95,9 @@ private:
 
     struct alignas(k16ByteAlignment) GpuRectangleState
     {
-        glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
-        glm::vec2 pixelWH{}; // Unscaled rectangle size in pixels.  Typically representing a rectangle drawn on a sprite image.
+        glm::vec4 xywh{};    // x, y, width, height in pixels
         glm::vec4 color{};   // linear RGBA outline color
-        glm::vec2 pixelOffset{}; // Unscaled Y-down offset of upper left corner of the rectangle in pixels from the pivot point
+        glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
         float scale{ 1.0f }; // Scale factor for the rectangle
         uint32_t pad0{ 0 };
     };
@@ -110,6 +117,14 @@ private:
         size_t SortTieBreaker{};
     };
 
+    struct RectangleDrawRecord
+    {
+        Transform2D Transform;
+        Rectf Rectangle{0,0,0,0};
+        float Scale{ 1.0f };
+        glm::vec4 color{1, 0, 1, 1};   // linear RGBA color for the rectangle
+    };
+
     // NOLINTBEGIN(readability-magic-numbers)
     static_assert(offsetof(GpuSpriteState, cellXY) == 0, "SpriteState::cellXY must be at offset 0");
     static_assert(offsetof(GpuSpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
@@ -117,10 +132,9 @@ private:
     static_assert(offsetof(GpuSpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
     static_assert(offsetof(GpuSpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
 
-    static_assert(offsetof(GpuRectangleState, cellXY) == 0, "RectangleState::cellXY must be at offset 0");
-    static_assert(offsetof(GpuRectangleState, pixelWH) == 8, "RectangleState::pixelWH must be at offset 8");
+    static_assert(offsetof(GpuRectangleState, xywh) == 0, "RectangleState::xywh must be at offset 0");
     static_assert(offsetof(GpuRectangleState, color) == 16, "RectangleState::color must be at offset 16");
-    static_assert(offsetof(GpuRectangleState, pixelOffset) == 32, "RectangleState::pixelOffset must be at offset 32");
+    static_assert(offsetof(GpuRectangleState, cellXY) == 32, "RectangleState::cellXY must be at offset 32");
     static_assert(offsetof(GpuRectangleState, scale) == 40, "RectangleState::scale must be at offset 40");
     static_assert(offsetof(GpuRectangleState, pad0) == 44, "RectangleState::pad0 must be at offset 44");
 
@@ -156,6 +170,9 @@ private:
 
     /// Queue of sprites to be drawn this frame.
     InlineVector<SpriteDrawRecord, kMaxSpritesPerFrame> m_SpriteDrawQueue;
+
+    /// Queue of rectangles to be drawn this frame.
+    InlineVector<RectangleDrawRecord, kMaxRectanglesPerFrame> m_RectangleDrawQueue;
     
     GpuCellMapParams m_CellMapParams;
 

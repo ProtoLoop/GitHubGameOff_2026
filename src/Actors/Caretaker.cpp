@@ -64,28 +64,30 @@ Caretaker::Tick(const float deltaTime, Game& game)
     const glm::vec2& right = GetRight();
 
     bool isMoving = false;
-    const float dmove = kMoveSpeed * deltaTime;
+    m_Velocity = glm::vec2(0.0f);
 
     if(input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
-        MoveBy(-right * value * dmove);
+        m_Velocity -= right * value * kMoveSpeed;
         isMoving = true;
     }
     if(input.IsTriggered(Input::ActionId::MoveRight, value))
     {
-        MoveBy(right * value * dmove);
+        m_Velocity += right * value * kMoveSpeed;
         isMoving = true;
     }
     if(input.IsTriggered(Input::ActionId::MoveForward, value))
     {
-        MoveBy(forward * value * dmove);
+        m_Velocity += forward * value * kMoveSpeed;
         isMoving = true;
     }
     if(input.IsTriggered(Input::ActionId::MoveBackward, value))
     {
-        MoveBy(-forward * value * dmove);
+        m_Velocity -= forward * value * kMoveSpeed;
         isMoving = true;
     }
+
+    MoveBy(m_Velocity * deltaTime);
 
     const SpriteAnim::Instance& desiredAnim = isMoving ? m_Anims.Run : m_Anims.Idle;
 

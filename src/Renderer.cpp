@@ -312,6 +312,24 @@ Renderer::QueueSprite(const Sprite& sprite, const Transform2D& transform)
     return Result<>::Ok;
 }
 
+Result<>
+Renderer::QueueRectangle(
+    const Rectf& rectangle, const Transform2D& transform, const float scale, const glm::vec4& color)
+{
+    GG_CHECKB(m_RectangleDrawQueue.size() < m_RectangleDrawQueue.capacity(),
+        "Exceeded rectangle draw queue");
+
+    m_RectangleDrawQueue.push_back( //
+        {
+            .Transform = transform,
+            .Rectangle = rectangle,
+            .Scale = scale,
+            .color = color,
+        });
+
+    return Result<>::Ok;
+}
+
 Result<wgpu::BindGroup>
 Renderer::CreateSpriteTextureBindGroup(const wgpu::Texture& texture)
 {
@@ -391,6 +409,7 @@ Renderer::Render(const Level& level)
     auto cleanup = GG_DEFER
     {
         m_SpriteDrawQueue.clear();
+        m_RectangleDrawQueue.clear();
     };
 
     const wgpu::CommandEncoder cmdEncoder = m_WebGpu->GetDevice().CreateCommandEncoder();
@@ -512,7 +531,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
         spriteState.color = sprite.GetColor();
 
-        const Rect& rect = sprite.GetRect();
+        const Rect& rect = sprite.GetSrcRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
         spriteState.srcRect[1] = static_cast<float>(rect.y);
         spriteState.srcRect[2] = static_cast<float>(rect.w);
@@ -550,7 +569,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 Result<>
 Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
 {
-    if(m_SpriteDrawQueue.empty())
+    if(m_RectangleDrawQueue.empty())
     {
         return Result<>::Ok;
     }
@@ -561,22 +580,15 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
     };
 
     // Copy rectangle data to GPU
-    for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
+    for(const RectangleDrawRecord& rec : m_RectangleDrawQueue)
     {
-        const Sprite& sprite = rec.Sprite;
+        const Rectf& rect = rec.Rectangle;
         GpuRectangleState& rectState = m_RectangleStates.emplace_back();
 
+        rectState.xywh = glm::vec4(rect.x, rect.y, rect.w, rect.h);
+        rectState.color = rec.color;
         rectState.cellXY = rec.Transform.Pos;
-
-        rectState.pixelWH.x = static_cast<float>(sprite.GetRect().w);
-        rectState.pixelWH.y = static_cast<float>(sprite.GetRect().h);
-
-        rectState.pixelOffset.x = -rec.Sprite.GetPivot().x * rectState.pixelWH.x;
-        rectState.pixelOffset.y = -rec.Sprite.GetPivot().y * rectState.pixelWH.y;
-
-        rectState.color = glm::vec4(1, 1, 0, 1);
-
-        rectState.scale = sprite.GetScale();
+        rectState.scale = rec.Scale;
     }
 
     GG_CHECK(EnsureRectangleStateBuffer(sizeof(GpuRectangleState) * m_RectangleStates.size()),
@@ -592,7 +604,7 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
     renderPass.SetBindGroup(0, m_RectangleBindGroup0);
     renderPass.SetPipeline(m_RectanglePipeline);
 
-    const uint32_t rectangleCount = static_cast<uint32_t>(m_SpriteDrawQueue.size());
+    const uint32_t rectangleCount = static_cast<uint32_t>(m_RectangleDrawQueue.size());
     renderPass.Draw(kVerticesPerQuad, rectangleCount, 0, 0);
 
     return Result<>::Ok;

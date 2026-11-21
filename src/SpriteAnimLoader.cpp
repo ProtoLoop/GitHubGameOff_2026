@@ -63,12 +63,6 @@ SpriteAnimLoader::Load(
             def.Pivot.x,
             def.Pivot.y);
 
-        Rect rect = kNullRect;
-        if(def.Rect)
-        {
-            rect = *def.Rect;
-        }
-
         GG_CHECKB(!def.TexturePath.empty(),
             "Animation texture path must not be empty: {} : {}",
             animDef.Name,
@@ -89,7 +83,21 @@ SpriteAnimLoader::Load(
             sequenceToTextureMap.push_back(index);
         }
 
-        SpriteSequence spriteSeq(def.Name, defaultBindGroup, def.Dim, rect, def.Pivot, def.Color);
+        InlineVector<Rectf, 1> colRects;
+        if(def.ColRect)
+        {
+            colRects.push_back(*def.ColRect);
+        }
+
+        // If src rect is not specified it will be set to the
+        // the size of the texture when the texture is loaded.
+        SpriteSequence spriteSeq(def.Name,
+            defaultBindGroup,
+            def.Dim,
+            def.SrcRect ? *def.SrcRect : kNullRect,
+            colRects,
+            def.Pivot,
+            def.Color);
 
         spriteSequences.push_back(std::move(spriteSeq));
     }
@@ -170,7 +178,7 @@ SpriteAnimLoader::Take()
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
 
-        Rect rect = seq.GetRect();
+        Rect rect = seq.GetSrcRect();
         const Dimension2D texDims{ .w = texture.GetWidth(), .h = texture.GetHeight() };
 
         // If no rect was specified, use the entire texture.
@@ -179,12 +187,12 @@ SpriteAnimLoader::Take()
             rect = Rect{ 0, 0, texDims.w, texDims.h };
         }
 
-        GG_CHECKB(seq.GetDim().w <= rect.w && seq.GetDim().h <= rect.h,
+        GG_CHECKB(seq.m_Dim.w <= rect.w && seq.m_Dim.h <= rect.h,
             "Sequence dimensions exceed rect dimensions: {} : {} : {}x{} > {}x{}",
             m_Name,
             seq.GetName(),
-            seq.GetDim().w,
-            seq.GetDim().h,
+            seq.m_Dim.w,
+            seq.m_Dim.h,
             rect.w,
             rect.h);
                 
@@ -216,9 +224,10 @@ SpriteAnimLoader::Take()
         // Create a new sequence and replace the old one.
         SpriteSequence newSeq(seq.GetName(),
             bindGroup,
-            seq.GetDim(),
+            seq.m_Dim,
             rect,
-            seq.GetPivot(),
+            seq.m_ColRects,
+            seq.m_Pivot,
             seq.GetColor());
 
         m_SpriteSequences[i] = std::move(newSeq);

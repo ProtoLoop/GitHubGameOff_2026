@@ -16,10 +16,9 @@ struct CellMapParams
 
 struct Rectangle
 {
-    cellXY : vec2f,     // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
-    pixelWH : vec2f,    // Unscaled rectangle size in pixels.  Typically representing a rectangle drawn on a sprite image.
+    xywh : vec4f,       // x, y, width, height in pixels
     color : vec4f,      // linear RGBA outline color
-    pixelOffset : vec2f, // Unscaled Y-down offset of upper left corner of the rectangle in pixels from the pivot point
+    cellXY : vec2f,     // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
     scale : f32,        // Scale factor for the rectangle
     pad0: u32,
 };
@@ -50,7 +49,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) rectId: u3
     let rect = rectangles[rectId];
 
     // vec2f(1.0, -1.0) - flip Y from sprite image coordinates (Y down) to screen space coordinates (Y up)
-    let offset = (rect.pixelOffset + rectVerts[vid] * rect.pixelWH) * rect.scale * vec2f(1.0, -1.0);
+    let offset = (rect.xywh.xy + rectVerts[vid] * rect.xywh.zw) * rect.scale * vec2f(1.0, -1.0);
 
     // Round to the nearest pixel in camera space.
     // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment

@@ -21,8 +21,9 @@ Game::Begin()
     for(size_t i = 0; i < kMaxLostSouls; ++i)
     {
         GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
-        // NOLINTNEXTLINE
-        lostSoul.MoveTo(m_EntityRng.NextInRange(-14.0f, 14.0f), m_EntityRng.NextInRange(-14.0f, 14.0f));
+        const float x = m_EntityRng.NextInRange(-14.0f, 14.0f);
+        const float y = m_EntityRng.NextInRange(-14.0f, 14.0f);
+        lostSoul.MoveTo(x, y);
         m_LostSouls.push_back(std::move(lostSoul));
     }
 
@@ -77,6 +78,9 @@ Game::RenderSprites(Renderer& renderer)
 {
     GG_CHECK(m_Caretaker->Render(renderer));
 
+    static constexpr glm::vec4 kYellow{ 1, 1, 0, 1 };
+    static constexpr glm::vec4 kMagenta{ 1, 0, 1, 1 };
+
     for(const LostSoul& lostSoul : m_LostSouls)
     {
         GG_CHECK(lostSoul.Render(renderer));
@@ -85,6 +89,37 @@ Game::RenderSprites(Renderer& renderer)
     for(const Prop& prop : m_Level->GetProps())
     {
         GG_CHECK(prop.Render(renderer));
+    }
+
+    for(const Prop& prop : m_Level->GetProps())
+    {
+        const Sprite& sprite = prop.GetSprite();
+        Rectf rect{ sprite.GetSrcRect().Size() };
+        rect -= rect.Size() * sprite.GetPivot();
+
+        if(!renderer.QueueRectangle(rect, prop.GetTransform(), sprite.GetScale(), kYellow))
+            {
+                GG_ERROR("Failed to queue rectangle for prop");
+                break;
+            }
+
+        const std::span<const Rectf> colRects = sprite.GetCollisionRects();
+
+        const glm::vec2 rectScale = sprite.GetSrcRect().Size();
+
+        for(Rectf colRect : colRects)
+        {
+            colRect.x *= rectScale.x;
+            colRect.y *= rectScale.y;
+            colRect.w *= rectScale.x;
+            colRect.h *= rectScale.y;
+            colRect -= rectScale * sprite.GetPivot();
+            if(!renderer.QueueRectangle(colRect, prop.GetTransform(), sprite.GetScale(), kMagenta))
+            {
+                GG_ERROR("Failed to queue rectangle for prop collision rect");
+                break;
+            }
+        }
     }
 
     return Result<>::Ok;
@@ -100,22 +135,88 @@ Game::CheckCollisions()
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
     const Sprite& ctSprite = m_Caretaker->GetSprite();
-    const Rectf ctRect = ctSprite.GetRect();
-    Rectf ctBounds = Rectf(ctRect.Size()) - (ctRect.Size() * ctSprite.GetPivot());
-    ctBounds *= ctSprite.GetScale();
-    ctBounds += (proj * m_Caretaker->GetPos() * pixelScale); // Offset by projected position
+    const glm::vec2 ctRectScale = ctSprite.GetSrcRect().Size();
 
-    for(const Prop& prop : m_Level->GetProps())
+    float collisionDist = std::numeric_limits<float>::max();
+    glm::vec2 collisionNormal;
+    bool hasCollision = false;
+
+    for(Rectf ctBounds : ctSprite.GetCollisionRects())
     {
-        const Sprite& propSprite = prop.GetSprite();
-        const Rectf propRect{ propSprite.GetRect().Size() };
-        Rectf propBounds = Rectf(propRect.Size()) - (propRect.Size() * propSprite.GetPivot());
-        propBounds *= propSprite.GetScale();
-        propBounds += (proj * prop.GetPos() * pixelScale); // Offset by projected position
+        ctBounds -= ctSprite.GetPivot();
+        ctBounds.x *= ctRectScale.x;
+        ctBounds.y *= ctRectScale.y;
+        ctBounds.w *= ctRectScale.x;
+        ctBounds.h *= ctRectScale.y;
+        ctBounds *= ctSprite.GetScale();
+        ctBounds += (proj * m_Caretaker->GetPos() * pixelScale); // Offset by projected position
 
-        if(ctBounds.Intersects(propBounds))
+        for(const Prop& prop : m_Level->GetProps())
         {
-            //GG_INFO("Caretaker collided with prop");
+            const Sprite& propSprite = prop.GetSprite();
+            const glm::vec2 propRectScale = propSprite.GetSrcRect().Size();
+
+            for(Rectf propBounds : propSprite.GetCollisionRects())
+            {
+                propBounds -= propSprite.GetPivot();
+                propBounds.x *= propRectScale.x;
+                propBounds.y *= propRectScale.y;
+                propBounds.w *= propRectScale.x;
+                propBounds.h *= propRectScale.y;
+                propBounds *= propSprite.GetScale();
+                propBounds += (proj * prop.GetPos() * pixelScale); // Offset by projected position
+
+                if(ctBounds.Intersects(propBounds))
+                {
+                    const float distR = propBounds.Right() - ctBounds.Left();
+                    const float distL = ctBounds.Right() - propBounds.Left();
+                    const float distT = ctBounds.Bottom() - propBounds.Top();
+                    const float distB = propBounds.Bottom() - ctBounds.Top();
+
+                    const float minDist = std::min({ distR, distL, distT, distB });
+                    if(minDist >= collisionDist)
+                    {
+                        continue; // Skip if this is not the closest collision
+                    }
+
+                    if(minDist <= 0)
+                    {
+                        continue; // Skip if the collision distance is zero
+                    }
+
+                    collisionDist = minDist;
+                    if(minDist == distR)
+                    {
+                        // Right collision
+                        collisionNormal = glm::vec2(1, 0);
+                    }
+                    else if(minDist == distL)
+                    {
+                        // Left collision
+                        collisionNormal = glm::vec2(-1, 0);
+                    }
+                    else if(minDist == distT)
+                    {
+                        // Top collision
+                        collisionNormal = glm::vec2(0, -1);
+                    }
+                    else if(minDist == distB)
+                    {
+                        // Bottom collision
+                        collisionNormal = glm::vec2(0, 1);
+                    }
+
+                    // Unproject the collision normal.
+                    collisionNormal = glm::inverse(proj) * collisionNormal;
+
+                    hasCollision = true;
+                }
+            }
         }
+    }
+
+    if(hasCollision)
+    {
+        m_Caretaker->MoveBy(collisionNormal * collisionDist / pixelScale);
     }
 }

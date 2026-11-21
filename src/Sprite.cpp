@@ -5,12 +5,14 @@
 /// Sprite
 
 Sprite::Sprite(wgpu::BindGroup bindGroup,
-    const Rect& rect,
+    const Rect& srcRect,
+    const InlineVector<Rectf, 1>& colRects,
     const glm::vec2& pivot,
     const glm::vec4& color,
     const float scale)
     : m_TextureBindGroup(std::move(bindGroup)),
-      m_Rect(rect),
+      m_SrcRect(srcRect),
+      m_ColRects(colRects),
       m_Pivot(pivot),
       m_Color(color),
       m_Scale(scale)
@@ -22,16 +24,18 @@ Sprite::Sprite(wgpu::BindGroup bindGroup,
 SpriteSequence::SpriteSequence(const ResourceName& name,
     wgpu::BindGroup bindGroup,
     const Dimension2D& dim,
-    const Rect& rect,
+    const Rect& srcRect,
+    const InlineVector<Rectf, 1>& colRects,
     const glm::vec2& pivot,
     const glm::vec4& color)
     : m_Name(name),
       m_BindGroup(std::move(bindGroup)),
       m_Dim(dim),
-      m_Rect(rect),
+      m_SrcRect(srcRect),
+      m_ColRects(colRects),
       m_Pivot(pivot),
       m_Color(color),
-      m_SpriteCount((rect.w / dim.w) * (rect.h / dim.h))
+      m_SpriteCount((srcRect.w / dim.w) * (srcRect.h / dim.h))
 {
 }
 
@@ -40,18 +44,18 @@ SpriteSequence::GetSprite(const uint32_t index) const
 {
     GG_CHECKB(index < m_SpriteCount, "Index out of bounds");
 
-    const uint32_t spritesPerRow = m_Rect.w / m_Dim.w;
+    const uint32_t spritesPerRow = m_SrcRect.w / m_Dim.w;
     const uint32_t row = index / spritesPerRow;
     const uint32_t col = index % spritesPerRow;
     const Rect rect //
         {
-            m_Rect.x + (col * m_Dim.w),
-            m_Rect.y + (row * m_Dim.h),
+            m_SrcRect.x + (col * m_Dim.w),
+            m_SrcRect.y + (row * m_Dim.h),
             m_Dim.w,
             m_Dim.h,
         };
 
-    return Sprite(m_BindGroup, rect, m_Pivot, m_Color, 1.0f);
+    return Sprite(m_BindGroup, rect, m_ColRects, m_Pivot, m_Color, 1.0f);
 }
 
 /// SpriteAnim
