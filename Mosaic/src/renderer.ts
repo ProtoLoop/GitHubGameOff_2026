@@ -138,7 +138,7 @@ function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
 
 /// A transparent overlay keeps previews and selection separate from terrain rendering.
 export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
-    preview: ImagePreview | null, box: SelectionBox | null, showBounds: boolean): void
+    preview: ImagePreview | null, box: SelectionBox | null, showCollisionRects: boolean): void
 {
     const context = prepareCanvas(canvas, view);
     context.clearRect(0, 0, canvas.width, canvas.height);
@@ -173,12 +173,12 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
             rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
-    if(showBounds)
+    if(showCollisionRects)
     {
-        // Bounds can extend beyond the image, so image culling must not hide them.
+        // Collision rectangles can extend beyond the image, so image culling must not hide them.
         for(const prop of project.props)
         {
-            if(prop.asset.bounds.length === 0) { continue; }
+            if(prop.asset.collisionRects.length === 0) { continue; }
             context.save();
             const point = mapPixels(prop, project.gridSize);
             context.translate(point.x, point.y);
@@ -186,10 +186,10 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
             context.strokeStyle = "#00e5ff";
             context.lineWidth = 2 / view.zoom;
             const { width, height } = propImageRect(prop.asset);
-            for(const bound of prop.asset.bounds)
+            for(const rect of prop.asset.collisionRects)
             {
-                context.strokeRect((bound.x - prop.asset.pivotX) * width,
-                    (bound.y - prop.asset.pivotY) * height, bound.w * width, bound.h * height);
+                context.strokeRect((rect.x - prop.asset.pivotX) * width,
+                    (rect.y - prop.asset.pivotY) * height, rect.w * width, rect.h * height);
             }
             context.restore();
         }

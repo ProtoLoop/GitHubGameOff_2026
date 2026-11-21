@@ -65,7 +65,7 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
     const image: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.propAssets = [image];
@@ -100,7 +100,7 @@ Deno.test("preview and multi-selection render independently of document state an
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.propAssets = [asset];
@@ -260,7 +260,7 @@ Deno.test("viewport props cull rotated bounds rather than centers and use a shar
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.props = [{ id: 0, asset, x: 110 / 64 - 32, y: 32 - 80 / 64, rotation: 90 },
@@ -285,7 +285,7 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0, pivotY: 1, scale: 2, bounds: [] };
+        pivotX: 0, pivotY: 1, scale: 2, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.propAssets = [asset];
@@ -320,7 +320,7 @@ Deno.test("selected pivot markers stay upright at fixed screen size and clear on
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 1, pivotY: 1, scale: 2, bounds: [] };
+        pivotX: 1, pivotY: 1, scale: 2, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.propAssets = [asset];
@@ -413,7 +413,7 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.25, pivotY: 1, scale: 2,
-        bounds: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }, { x: -2, y: -2, w: 1, h: 1 }] };
+        collisionRects: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }, { x: -2, y: -2, w: 1, h: 1 }] };
     const project = createDocument([material("base", 64, 0)], [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
     project.propAssets = [asset];
     project.props = [{ id: 0, asset, x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 }];
@@ -425,24 +425,24 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
         translate: (...args: number[]) => calls.push(["translate", ...args]),
         rotate: (angle: number) => calls.push(["rotate", angle]),
         drawImage: () => calls.push(["image"]),
-        strokeRect: (...args: number[]) => calls.push(["bounds", ...args])
+        strokeRect: (...args: number[]) => calls.push(["collisionRects", ...args])
     };
     const canvas = { width: 100, height: 100, getContext: () => context } as unknown as HTMLCanvasElement;
     const view = { x: 180, y: 0, width: 100, height: 100, zoom: 1 };
     drawProps(project, canvas, view, new Set(), null, null, true);
     assert.deepEqual(calls, [["translate", 100, 200], ["rotate", Math.PI / 2],
-        ["bounds", -40, -20, 80, 10], ["bounds", -360, -120, 160, 40]]);
+        ["collisionRects", -40, -20, 80, 10], ["collisionRects", -360, -120, 160, 40]]);
     assert(sameContent(project, snapshot));
     calls.length = 0;
     drawProps(project, canvas, view, new Set(), null, null, false);
     assert.deepEqual(calls, []);
 });
 
-Deno.test("cropped props share source pixels and sprite dimensions across drawing, previews, selection and bounds", () => {
+Deno.test("cropped props share source pixels and sprite dimensions across drawing, previews, selection and collision rectangles", () => {
     const asset: PropAsset = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
         blob: new Blob(), url: "", width: 256, height: 128, image: {} as CanvasImageSource,
         srcRect: { x: 32, y: 16, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2,
-        bounds: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }] };
+        collisionRects: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }] };
     const project = createDocument([material("base", 64, 0)],
         [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
     project.propAssets = [asset];

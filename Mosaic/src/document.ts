@@ -8,8 +8,8 @@ export interface Asset
     readonly url: string;
 }
 
-/// Normalized sprite-local rectangle, measured from the upper-left corner.
-export interface PropBounds
+/// Normalized cropped-sprite rectangle: (0, 0) is upper-left, (1, 1) is lower-right before transforms.
+export interface PropCollisionRect
 {
     readonly x: number;
     readonly y: number;
@@ -29,7 +29,7 @@ export interface PropAsset extends Asset
     readonly pivotX: number;
     readonly pivotY: number;
     readonly scale: number;
-    readonly bounds: readonly PropBounds[];
+    readonly collisionRects: readonly PropCollisionRect[];
 }
 
 export interface Prop
@@ -262,11 +262,11 @@ export function validateDocument(project: ProjectDocument): void
         {
             fail("invalid prop source rectangle");
         }
-        if(!Array.isArray(asset.bounds) || asset.bounds.some((bound) => !bound
-            || !Number.isFinite(bound.x) || !Number.isFinite(bound.y)
-            || !Number.isFinite(bound.w) || !Number.isFinite(bound.h) || bound.w <= 0 || bound.h <= 0))
+        if(!Array.isArray(asset.collisionRects) || asset.collisionRects.some((rect) => !rect
+            || !Number.isFinite(rect.x) || !Number.isFinite(rect.y)
+            || !Number.isFinite(rect.w) || !Number.isFinite(rect.h) || rect.w <= 0 || rect.h <= 0))
         {
-            fail("invalid prop collision bounds");
+            fail("invalid prop collision rectangles");
         }
     }
     const propIds = new Set<number>();
@@ -365,7 +365,7 @@ export async function decodePropAsset(blob: Blob, label: string, id: string): Pr
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
         return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image,
-            srcRect: { x: 0, y: 0, w: width, h: height }, pivotX: 0.5, pivotY: 0.5, scale: 1, bounds: [] };
+            srcRect: { x: 0, y: 0, w: width, h: height }, pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     }
     finally { bitmap.close(); }
 }

@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 19,
+  "version": 21,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",
@@ -24,7 +24,7 @@
       },
       "scale": 1,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_002.png",
@@ -34,7 +34,7 @@
       },
       "scale": 1,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
@@ -44,7 +44,7 @@
       },
       "scale": 1,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
@@ -54,7 +54,7 @@
       },
       "scale": 1,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_001.png",
@@ -64,7 +64,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_002.png",
@@ -74,7 +74,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_003.png",
@@ -84,7 +84,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_004.png",
@@ -94,7 +94,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_001.png",
@@ -104,7 +104,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_002.png",
@@ -114,7 +114,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_003.png",
@@ -124,7 +124,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_004.png",
@@ -134,7 +134,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_001.png",
@@ -144,7 +144,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_002.png",
@@ -154,7 +154,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_003.png",
@@ -164,7 +164,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_004.png",
@@ -174,7 +174,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_001.png",
@@ -184,7 +184,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_002.png",
@@ -194,7 +194,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_003.png",
@@ -204,7 +204,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_004.png",
@@ -214,7 +214,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_001.png",
@@ -224,7 +224,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_002.png",
@@ -234,7 +234,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_003.png",
@@ -244,7 +244,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     },
     {
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_004.png",
@@ -254,7 +254,7 @@
       },
       "scale": 0.25,
       "srcRect": [],
-      "bounds": []
+      "collisionRects": []
     }
   ],
   "props": [
@@ -285,8 +285,8 @@
     {
       "index": 0,
       "pos": {
-        "x": -5.197,
-        "y": 5.592
+        "x": -5.742,
+        "y": 5.151
       },
       "rot": 0
     }

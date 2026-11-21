@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 19`. Only version 19 is supported.
+The container has `format: "mosaic"` and `version: 21`. Only version 21 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -32,7 +32,7 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `propAssets` | Ordered objects with `texPath`, pixel `srcRect`, normalized `pivot`, positive `scale`, and collision `bounds` |
+| `propAssets` | Ordered objects with `texPath`, pixel `srcRect`, normalized `pivot`, positive `scale`, and `collisionRects` |
 | `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
 
@@ -188,7 +188,7 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "propAssets": [
-    { "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": [], "bounds": [] }
+    { "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": [], "collisionRects": [] }
   ],
   "props": [{ "index": 0, "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
 }
@@ -199,7 +199,7 @@ Each asset entry requires `texPath`, a project-root image path under
 measured from the cropped sprite's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
 omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
 zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
-write `texPath`, `srcRect`, `pivot`, `scale`, and `bounds` explicitly. An omitted `pivot`
+write `texPath`, `srcRect`, `pivot`, `scale`, and `collisionRects` explicitly. An omitted `pivot`
 uses both default components. Newly discovered prop images use the same defaults.
 
 `srcRect` is optional. An empty array `[]` selects the full texture. A rectangle
@@ -219,15 +219,17 @@ and scale applies to its dimensions. Drawing, palette and placement previews,
 picking, selection outlines, and viewport culling all use the cropped rectangle.
 The source offset selects pixels without shifting the sprite's world pivot.
 
-`bounds` is an optional array of collision rectangles. Omission means `[]`, or
+`collisionRects` is an optional array of collision rectangles. Omission means `[]`, or
 no collision. Each rectangle requires finite `x`, `y`, `w`, and `h`, with positive
-`w` and `h`. Coordinates are normalized from the sprite's upper-left corner:
-X and width use `srcRect.w`, Y and height use `srcRect.h`. Rectangles may overlap
+`w` and `h`. Coordinates are normalized relative to the cropped sprite before
+scale and rotation: `(0, 0)` is its upper-left corner and `(1, 1)` its lower-right,
+with X increasing rightward and Y downward. X and width use `srcRect.w`,
+Y and height use `srcRect.h`. Rectangles may overlap
 or extend outside `[0, 1]`. For example, `{"x": 0.35, "y": 0.75, "w": 0.3, "h": 0.2}`.
-All instances share their asset's immutable bounds. Convert to source pixels,
+All instances share their asset's immutable collision rectangles. Convert to source pixels,
 then apply the same pivot, scale, rotation, and position as the image. These are
-local rectangles, not world-axis-aligned rectangles. Bounds do not affect picking,
-placement limits, or resizing. The Show bounds toggle is session-only.
+local rectangles, not world-axis-aligned rectangles. Collision rectangles do not affect picking,
+placement limits, or resizing. The Show collision rectangles toggle is session-only.
 
 Each instance uses `index` to reference a zero-based entry in `propAssets`. `pos.x` and `pos.y` are required finite fractional
 cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2`
@@ -256,7 +258,7 @@ Missing referenced images, incorrect asset kinds, invalid source rectangles or t
 and invalid catalog references fail loading before installation.
 
 The document owns prop placements. Snapshots copy their transforms and share
-immutable decoded images and asset source-rectangle, pivot, scale, and bounds settings. Placement, movement, and deletion are undoable,
+immutable decoded images and asset source-rectangle, pivot, scale, and collision rectangle settings. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and

@@ -6,7 +6,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 19,
+        format: "mosaic", version: 21,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
@@ -15,7 +15,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
             texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
             srcRect: asset.srcRect.x === 0 && asset.srcRect.y === 0
                 && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? [] : { ...asset.srcRect },
-            bounds: asset.bounds.map(({ x, y, w, h }) => ({ x, y, w, h }))
+            collisionRects: asset.collisionRects.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         props: project.props.map((prop) => ({
             index: project.propAssets.indexOf(prop.asset),
@@ -81,7 +81,7 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 19)
+    if(data.format !== "mosaic" || data.version !== 21)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -109,23 +109,23 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         const srcRect = { x: integer(rect.x, 0, asset.width - 1), y: integer(rect.y, 0, asset.height - 1),
             w: integer(rect.w, 1, asset.width), h: integer(rect.h, 1, asset.height) };
         const pivot = entry.pivot === undefined ? {} : object(entry.pivot);
-        if(entry.bounds !== undefined && !Array.isArray(entry.bounds)) { throw new Error("Invalid prop bounds"); }
-        const bounds = ((entry.bounds ?? []) as unknown[]).map((value) => {
-            const bound = object(value);
+        if(entry.collisionRects !== undefined && !Array.isArray(entry.collisionRects)) { throw new Error("Invalid prop collision rectangle"); }
+        const collisionRects = ((entry.collisionRects ?? []) as unknown[]).map((value) => {
+            const rect = object(value);
             for(const key of ["x", "y", "w", "h"])
             {
-                if(typeof bound[key] !== "number" || !Number.isFinite(bound[key]))
+                if(typeof rect[key] !== "number" || !Number.isFinite(rect[key]))
                 {
-                    throw new Error("Invalid prop bounds component");
+                    throw new Error("Invalid prop collision rectangle component");
                 }
             }
-            return { x: bound.x as number, y: bound.y as number, w: bound.w as number, h: bound.h as number };
+            return { x: rect.x as number, y: rect.y as number, w: rect.w as number, h: rect.h as number };
         });
         // Keep decoded images shared without changing metadata in another document.
         return { ...asset, srcRect,
             pivotX: numberOrDefault(pivot.x, 0.5),
             pivotY: numberOrDefault(pivot.y, 0.5),
-            scale: numberOrDefault(entry.scale, 1), bounds };
+            scale: numberOrDefault(entry.scale, 1), collisionRects };
     });
     const props = list(data.props, 0, 10000).map((item, id) => {
         const prop = object(item);

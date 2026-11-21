@@ -686,7 +686,8 @@ for both. This extends the
 ## Mosaic prop collision bounds
 
 Date: 2026-11-19. Status: Accepted. Version support is superseded by
-[Mosaic prop position objects](#mosaic-prop-position-objects).
+[Mosaic prop position objects](#mosaic-prop-position-objects). The field name is
+superseded by [Mosaic prop collider naming](#mosaic-prop-collider-naming).
 
 Version 16 groups serialized prop pivots into `pivot: { x, y }` and adds optional
 asset-owned `bounds` arrays of rectangles with `x`, `y`, `w`, and `h`.
@@ -763,7 +764,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic full-texture source rectangle shorthand
 
-Date: 2026-11-20. Status: Accepted.
+Date: 2026-11-20. Status: Accepted. Version support is superseded by
+[Mosaic prop collider naming](#mosaic-prop-collider-naming).
 
 Version 19 uses `srcRect: []` for the entire texture. Omission also selects the
 full texture, and explicit rectangle objects remain valid. Saves normalize any
@@ -782,5 +784,53 @@ receives only a version update and continues to use the full-texture default.
 This supersedes version support and full-texture serialization in
 [prop source rectangles](#mosaic-prop-source-rectangles). C++ integration remains
 separate work. No dependencies or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic prop collider naming
+
+Date: 2026-11-21. Status: Superseded by
+[Mosaic collision rectangle naming](#mosaic-collision-rectangle-naming).
+
+Version 20 renames the prop asset field `bounds` to `collider`. The name identifies
+collision geometry separately from image, selection, and map bounds. Keeping
+`bounds` was an alternative, but would retain that ambiguity.
+
+The collider remains an array of normalized sprite-local rectangles with `x`,
+`y`, `w`, and `h`. Omission defaults to `[]`, meaning no collision. Validation,
+pivot and scale transforms, and overlay rendering are unchanged. The editor's
+toggle is now Show collider. Picking continues to use the sprite rectangle.
+
+Mosaic reads and writes version 20 only, without migration support or a legacy
+field alias. Project2's asset keys and version are updated while preserving all
+values. This supersedes version support in
+[full-texture source rectangle shorthand](#mosaic-full-texture-source-rectangle-shorthand)
+and the field name in [prop collision bounds](#mosaic-prop-collision-bounds).
+C++ loader integration remains separate work. No dependencies or build
+requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic collision rectangle naming
+
+Date: 2026-11-21. Status: Accepted.
+
+Version 21 renames `collider` to `collisionRects`. The name identifies both the
+collision purpose and the array of rectangles. `collider` suggests a broader
+collision object, while `cbounds` is less explicit and does not communicate the
+array contents. The UI toggle is Show collision rectangles.
+
+Each rectangle retains finite `x`, `y`, `w`, and `h`, with positive dimensions.
+Coordinates are normalized relative to the cropped sprite before scale and
+rotation: `(0, 0)` is upper-left and `(1, 1)` is lower-right. Rectangles may overlap
+or extend outside that range. Omission or `[]` means no collision. Validation,
+rendering, picking, and history behavior are unchanged.
+
+Mosaic reads and writes version 21 only, without migration support or legacy
+field aliases. Project2's keys and version are updated while preserving values.
+This supersedes [prop collider naming](#mosaic-prop-collider-naming). C++ loader
+integration remains separate work. No dependencies or build requirements change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
