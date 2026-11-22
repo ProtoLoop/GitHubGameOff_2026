@@ -53,7 +53,11 @@ private:
 
     Result<> TickEntities(float deltaSec);
 
-    Result<> RenderSprites(Renderer& renderer);
+    Result<> RenderSprites();
+
+    void QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transform);
+
+    void QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
     void CheckCollisions();
 

@@ -19,6 +19,8 @@ public:
 
     static Result<LostSoul> Create(Game& game);
 
+    SpriteFrame GetSpriteFrame() const { return m_CurAnim.GetFrame(); }
+
     Result<> Tick(const float deltaTime, Game& game);
 
     Result<> Render(Renderer& renderer) const;

@@ -1,5 +1,6 @@
 #include "Input.h"
 
+#include <SDL3/SDL_scancode.h>
 #include <cstddef>
 #include <SDL3/SDL_keyboard.h>
 #include <span>
@@ -16,13 +17,13 @@ constexpr Input::KeyMapping const KeyMappings[] //
         },
         {
             .Key = SDL_SCANCODE_A,
-            .Action = Input::ActionId::MoveLeft,
+            .Action = Input::ActionId::RotateLeft,
             .Trigger = Input::Trigger::Held,
             .Value = 1,
         },
         {
             .Key = SDL_SCANCODE_D,
-            .Action = Input::ActionId::MoveRight,
+            .Action = Input::ActionId::RotateRight,
             .Trigger = Input::Trigger::Held,
             .Value = 1,
         },
@@ -39,14 +40,26 @@ constexpr Input::KeyMapping const KeyMappings[] //
             .Value = 1,
         },
         {
-            .Key = SDL_SCANCODE_LEFT,
-            .Action = Input::ActionId::RotateLeft,
+            .Key = SDL_SCANCODE_UP,
+            .Action = Input::ActionId::MoveForward,
+            .Trigger = Input::Trigger::Held,
+            .Value = 1,
+        },
+        {
+            .Key = SDL_SCANCODE_DOWN,
+            .Action = Input::ActionId::MoveBackward,
             .Trigger = Input::Trigger::Held,
             .Value = 1,
         },
         {
             .Key = SDL_SCANCODE_RIGHT,
-            .Action = Input::ActionId::RotateRight,
+            .Action = Input::ActionId::MoveRight,
+            .Trigger = Input::Trigger::Held,
+            .Value = 1,
+        },
+        {
+            .Key = SDL_SCANCODE_LEFT,
+            .Action = Input::ActionId::MoveLeft,
             .Trigger = Input::Trigger::Held,
             .Value = 1,
         },

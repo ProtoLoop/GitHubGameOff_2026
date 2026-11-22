@@ -55,7 +55,7 @@ Game::Tick(const float deltaSec)
 
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 
-    GG_CHECK(RenderSprites(*m_Renderer));
+    GG_CHECK(RenderSprites());
 
     return Result<>::Ok;
 }
@@ -74,55 +74,84 @@ Game::TickEntities(float deltaSec)
 }
 
 Result<>
-Game::RenderSprites(Renderer& renderer)
+Game::RenderSprites()
 {
+    Renderer& renderer = *m_Renderer;
+
     GG_CHECK(m_Caretaker->Render(renderer));
 
-    static constexpr glm::vec4 kYellow{ 1, 1, 0, 1 };
-    static constexpr glm::vec4 kMagenta{ 1, 0, 1, 1 };
+    QueueFrameRect(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
+    QueueCollisionRects(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
 
     for(const LostSoul& lostSoul : m_LostSouls)
     {
         GG_CHECK(lostSoul.Render(renderer));
+
+        const SpriteFrame& spriteFrame = lostSoul.GetSpriteFrame();
+
+        QueueFrameRect(spriteFrame, lostSoul.GetTransform());
+        QueueCollisionRects(spriteFrame, lostSoul.GetTransform());
     }
 
     for(const Prop& prop : m_Level->GetProps())
     {
         GG_CHECK(prop.Render(renderer));
-    }
-
-    for(const Prop& prop : m_Level->GetProps())
-    {
         const SpriteFrame& spriteFrame = prop.GetSpriteFrame();
-        Rectf rect{ spriteFrame.GetSize() };
-        rect -= rect.Size() * spriteFrame.GetPivot();
 
-        if(!renderer.QueueRectangle(rect, prop.GetTransform(), spriteFrame.GetScale(), kYellow))
-            {
-                GG_ERROR("Failed to queue rectangle for prop");
-                break;
-            }
-
-        const std::span<const Rectf> colRects = spriteFrame.GetCollisionRects();
-
-        const glm::vec2 rectScale = spriteFrame.GetSize();
-
-        for(Rectf colRect : colRects)
-        {
-            colRect.x *= rectScale.x;
-            colRect.y *= rectScale.y;
-            colRect.w *= rectScale.x;
-            colRect.h *= rectScale.y;
-            colRect -= rectScale * spriteFrame.GetPivot();
-            if(!renderer.QueueRectangle(colRect, prop.GetTransform(), spriteFrame.GetScale(), kMagenta))
-            {
-                GG_ERROR("Failed to queue rectangle for prop collision rect");
-                break;
-            }
-        }
+        QueueFrameRect(spriteFrame, prop.GetTransform());
+        QueueCollisionRects(spriteFrame, prop.GetTransform());
     }
 
     return Result<>::Ok;
+}
+
+void
+Game::QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transform)
+{
+    static constexpr glm::vec4 kYellow{ 1, 1, 0, 1 };
+
+    Renderer& renderer = *m_Renderer;
+
+    Rectf rect{ spriteFrame.GetSize() };
+    rect -= rect.Size() * spriteFrame.GetPivot();
+
+    if(!renderer.QueueRectangle(rect, transform, spriteFrame.GetScale(), kYellow))
+    {
+        GG_ERROR("Failed to queue rectangle for prop");
+    }
+}
+
+void
+Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& transform)
+{
+    static constexpr glm::vec4 kMagenta{ 1, 0, 1, 1 };
+
+    Renderer& renderer = *m_Renderer;
+
+    Rectf rect{ spriteFrame.GetSize() };
+    rect -= rect.Size() * spriteFrame.GetPivot();
+
+    const std::span<const Rectf> colRects = spriteFrame.GetCollisionRects();
+
+    const glm::vec2 rectSize = spriteFrame.GetSize();
+
+    for(const Rectf colRect : colRects)
+    {
+        Rectf drawRect //
+            {
+                colRect.x * rect.Size().x,
+                colRect.y * rect.Size().y,
+                colRect.w * rect.Size().x,
+                colRect.h * rect.Size().y,
+            };
+
+        drawRect -= rectSize * spriteFrame.GetPivot();
+        if(!renderer.QueueRectangle(drawRect, transform, spriteFrame.GetScale(), kMagenta))
+        {
+            GG_ERROR("Failed to queue rectangle for prop collision rect");
+            break;
+        }
+    }
 }
 
 void

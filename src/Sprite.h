@@ -128,6 +128,9 @@ public:
     /// Collision rectangles CAN be outside the [0,1] range.
     std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
 
+    /// Returns the pivot point within the sprite's rectangle.
+    const glm::vec2& GetPivot() const { return m_Pivot; }
+
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetTint() const { return m_Tint; }
 
