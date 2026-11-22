@@ -1,10 +1,10 @@
 import { listDirectory, loadProject } from "./project-http.ts";
-import { documentAssets, sameTerrainContent,
+import { documentAssets, sameTerrainContent, propName,
     type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type PropAsset } from "./document.ts";
 import { Editor, type Tool, type EditResult } from "./editor.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
-import { drawTerrainRegion, drawCoverageRegion, drawProps, type ImagePreview, type RenderView } from "./renderer.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawProps, propFrameSource, type ImagePreview, type RenderView } from "./renderer.ts";
 import { kCellSize, kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
 import { mapPoint, type Point } from "./props.ts";
@@ -103,7 +103,7 @@ function renderPropOverlay(): void
 function updatePropControls(): void
 {
     const selected = editor.selectedPropIds.size === 1 ? editor.document.props.find((prop) => editor.selectedPropIds.has(prop.id)) : undefined;
-    required("prop-selection", HTMLOutputElement).value = selected?.asset.label
+    required("prop-selection", HTMLOutputElement).value = (selected ? propName(selected.asset) : undefined)
         ?? (editor.selectedPropIds.size > 1 ? `${editor.selectedPropIds.size} props selected` : "No prop selected");
 }
 
@@ -116,9 +116,9 @@ function renderPropPalette(): void
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
-        const source = asset.srcRect;
-        button.title = `${asset.id} (${source.w}×${source.h})`;
-        button.setAttribute("aria-label", asset.label);
+        const source = propFrameSource(asset);
+        button.title = `${propName(asset)} — ${asset.id} (${source.w}×${source.h})`;
+        button.setAttribute("aria-label", propName(asset));
         button.setAttribute("aria-pressed", String(editor.tool === "place" && asset === editor.selectedPropAsset));
         const preview = document.createElement("canvas");
         preview.width = 56;
@@ -130,7 +130,7 @@ function renderPropPalette(): void
         context.imageSmoothingEnabled = false;
         const scale = Math.min(preview.width / source.w, preview.height / source.h);
         const width = source.w * scale, height = source.h * scale;
-        context.drawImage(asset.image, source.x, source.y, source.w, source.h,
+        context.drawImage(source.image, source.x, source.y, source.w, source.h,
             (preview.width - width) / 2, (preview.height - height) / 2, width, height);
         button.append(preview);
         button.addEventListener("click", () => {
@@ -732,11 +732,17 @@ function availableTiles(): TileAtlas[]
 function collectAssets(): void
 {
     const retained = new Set([...(ready ? documentAssets(editor.document) : []), ...(ready ? editor.history.retainedStates().flatMap(documentAssets) : [])]);
+    const retainedUrls = new Set([...retained].map((asset) => asset.url));
+    const released = new Set<string>();
     for(const asset of assets)
     {
         if(!retained.has(asset))
         {
-            URL.revokeObjectURL(asset.url);
+            if(!retainedUrls.has(asset.url) && !released.has(asset.url))
+            {
+                URL.revokeObjectURL(asset.url);
+                released.add(asset.url);
+            }
             assets.delete(asset);
         }
     }

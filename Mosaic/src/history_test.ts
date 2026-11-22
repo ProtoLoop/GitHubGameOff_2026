@@ -115,6 +115,7 @@ Deno.test("undo and redo restore terrain materials without changing occupancy or
 Deno.test("prop placement, multi-event movement, rotation and deletion undo as complete actions", () => {
     let project = fixture();
     const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
+        name: "Stone", size: { w: 20, h: 20 }, tint: { r: 0.5, g: 1, b: 1, a: 0.7 },
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
@@ -144,6 +145,9 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
     assert.equal(project.props.length, 0);
     project = history.redo(project)!;
     assert.equal(project.props[0].asset, asset);
+    assert.deepEqual(project.props[0].asset.size, { w: 20, h: 20 });
+    assert.deepEqual(project.props[0].asset.tint, { r: 0.5, g: 1, b: 1, a: 0.7 });
+    assert.equal(project.props[0].asset.name, "Stone");
     history.begin(project, "Cancelled drag");
     project.props[0].x = 3.33;
     project = history.rollback()!;

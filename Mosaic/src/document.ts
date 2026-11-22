@@ -8,7 +8,7 @@ export interface Asset
     readonly url: string;
 }
 
-/// Normalized cropped-sprite rectangle: (0, 0) is upper-left, (1, 1) is lower-right before transforms.
+/// Normalized frame rectangle: (0, 0) is upper-left, (1, 1) is lower-right before transforms.
 export interface PropCollisionRect
 {
     readonly x: number;
@@ -20,16 +20,33 @@ export interface PropCollisionRect
 export interface PropAsset extends Asset
 {
     readonly kind: "prop";
+    readonly name?: string;
+    /// Omission means one frame covering the resolved source rectangle.
+    readonly size?: { readonly w: number; readonly h: number };
+    readonly tint?: { readonly r: number; readonly g: number; readonly b: number; readonly a: number };
     readonly width: number;
     readonly height: number;
     readonly image: CanvasImageSource;
     /// Source texture pixels, measured from the upper-left corner.
     readonly srcRect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
-    /// Normalized sprite pivot, measured from the cropped sprite's upper-left corner.
+    /// Normalized sprite pivot, measured from one frame's upper-left corner.
     readonly pivotX: number;
     readonly pivotY: number;
     readonly scale: number;
     readonly collisionRects: readonly PropCollisionRect[];
+}
+
+/// Generated once for unnamed entries, then saved explicitly.
+export function propName(asset: PropAsset): string
+{
+    const filename = asset.id.slice(asset.id.lastIndexOf("/") + 1);
+    const extension = filename.lastIndexOf(".");
+    return asset.name ?? (extension > 0 ? filename.slice(0, extension) : filename);
+}
+
+export function propTint(asset: PropAsset): { readonly r: number; readonly g: number; readonly b: number; readonly a: number }
+{
+    return asset.tint ?? { r: 1, g: 1, b: 1, a: 1 };
 }
 
 export interface Prop
@@ -182,8 +199,8 @@ function validAssetPath(asset: ImageAsset | PropAsset): boolean
     {
         if(character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) { return false; }
     }
-    return asset.id.length <= 1024 && parts.length >= 3
-        && parts[0] === "assets" && parts[1] === root
+    return asset.id.length <= 1024 && parts.length >= (asset.kind === "prop" ? 2 : 3)
+        && parts[0] === "assets" && (asset.kind === "prop" || parts[1] === root)
         && (asset.kind !== "mask" || parts.length === 3)
         && parts.every((part) => part.length > 0 && part !== "." && part !== ".." && !part.includes("\\"));
 }
@@ -248,8 +265,22 @@ export function validateDocument(project: ProjectDocument): void
     {
         fail("invalid prop catalog or instance count");
     }
+    const names = new Set<string>();
     for(const asset of project.propAssets)
     {
+        const name = propName(asset);
+        if(!name.trim() || new TextEncoder().encode(name).length > 63
+            || [...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))
+        {
+            fail("invalid sequence name");
+        }
+        if(names.has(name)) { fail(`duplicate sequence name: ${name}`); }
+        names.add(name);
+        const tint = propTint(asset);
+        if([tint.r, tint.g, tint.b, tint.a].some((value) => !Number.isFinite(value) || value < 0 || value > 1))
+        {
+            fail("invalid sequence tint");
+        }
         if(asset.kind !== "prop"
             || !Number.isSafeInteger(asset.width) || !Number.isSafeInteger(asset.height)
             || asset.width < 1 || asset.height < 1 || asset.width > 4096 || asset.height > 4096
@@ -266,6 +297,11 @@ export function validateDocument(project: ProjectDocument): void
             || rect.x + rect.w > asset.width || rect.y + rect.h > asset.height)
         {
             fail("invalid prop source rectangle");
+        }
+        if(asset.size !== undefined && (!Number.isSafeInteger(asset.size.w) || !Number.isSafeInteger(asset.size.h)
+            || asset.size.w <= 0 || asset.size.h <= 0 || asset.size.w > rect.w || asset.size.h > rect.h))
+        {
+            fail("invalid sequence frame dimensions");
         }
         if(!Array.isArray(asset.collisionRects) || asset.collisionRects.some((rect) => !rect
             || !Number.isFinite(rect.x) || !Number.isFinite(rect.y)
@@ -295,7 +331,8 @@ export function validateDocument(project: ProjectDocument): void
     const assets = documentAssets(project);
     if(new Set(project.tileSheets).size !== project.tileSheets.length
         || new Set(project.masks).size !== project.masks.length
-        || new Set(assets.map((asset) => asset.id)).size !== assets.length
+        || new Set([...project.tileSheets, ...project.masks].map((asset) => asset.id)).size
+            !== project.tileSheets.length + project.masks.length
         || assets.some((asset) => !validAssetPath(asset)
             || !asset.label || asset.label.length > 1024))
     {

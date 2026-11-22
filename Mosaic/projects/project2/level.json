@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 21,
+  "version": 24,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",
@@ -17,244 +17,2980 @@
   "maskMode": "random",
   "propAssets": [
     {
+      "name": "Cemetery_Ancient_Tree_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 1,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Ancient_Tree_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 1,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Ancient_Tree_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 1,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Ancient_Tree_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 1,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Bell_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Bell_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Bell_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Bell_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Stonewall_and_Boundary_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Stonewall_and_Boundary_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Stonewall_and_Boundary_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Cemetery_Stonewall_and_Boundary_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Forgotten_Headstone_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Forgotten_Headstone_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Forgotten_Headstone_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Forgotten_Headstone_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Gothic_Necropolis_Gate_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Gothic_Necropolis_Gate_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Gothic_Necropolis_Gate_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Gothic_Necropolis_Gate_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Noble_Family_Tombstone_001",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_001.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Noble_Family_Tombstone_002",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_002.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Noble_Family_Tombstone_003",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_003.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     },
     {
+      "name": "Noble_Family_Tombstone_004",
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_004.png",
       "pivot": {
         "x": 0.5,
         "y": 1
       },
       "scale": 0.25,
-      "srcRect": [],
-      "collisionRects": []
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_N",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 720,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_NE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 576,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_E",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 432,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_SE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 288,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_S",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 144,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_SW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_W",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 1008,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Run_NW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_run.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 864,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_N",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 720,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_NE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 576,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_E",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 432,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_SE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 288,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_S",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 144,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_SW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_W",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 1008,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "Warrior_Idle_NW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/warrior_idle.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 864,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_N",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 720,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_NE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 576,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_E",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 432,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_SE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 288,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_S",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 144,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_SW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_W",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 1008,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Walk_NW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/shadow_hunter_walk.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 864,
+        "w": 1728,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_N",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 720,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_NE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 576,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_E",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 432,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_SE",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 288,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_S",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 144,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_SW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 0,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_W",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 1008,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "SH_Hover_NW",
+      "size": {
+        "w": 144,
+        "h": 144
+      },
+      "tint": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 1,
+        "a": 0.7
+      },
+      "texPath": "/assets/shadow_hunter_hover.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {
+        "x": 0,
+        "y": 864,
+        "w": 1152,
+        "h": 144
+      },
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_337",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_337.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_000",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_000.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_022",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_022.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_045",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_045.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_067",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_067.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_090",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_090.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_112",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_112.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_135",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_135.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_157",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_157.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_180",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_180.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_202",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_202.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_225",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_225.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_247",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_247.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_270",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_270.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_292",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_292.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Idle_315",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Idle/Idle_Body_315.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_000",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_000.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_022",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_022.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_045",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_045.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_067",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_067.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_090",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_090.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_112",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_112.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_135",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_135.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_157",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_157.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_180",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_180.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_202",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_202.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_225",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_225.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_247",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_247.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_270",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_270.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_292",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_292.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_315",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_315.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Walk_337",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Walk/Walk_Body_337.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_000",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_000.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_022",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_022.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_045",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_045.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_067",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_067.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_090",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_090.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_112",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_112.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_135",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_135.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_157",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_157.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_180",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_180.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_202",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_202.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_225",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_225.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_247",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_247.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_270",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_270.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_292",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_292.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_315",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_315.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "name": "CT_Run_337",
+      "size": {
+        "w": 180,
+        "h": 180
+      },
+      "tint": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": 1
+      },
+      "texPath": "/assets/anims/Caretaker/Run/Run_Body_337.png",
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "scale": 1,
+      "srcRect": {},
+      "collisionRects": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
     }
   ],
   "props": [
@@ -361,7 +3097,7 @@
       "zoom": 0.3930943424174462,
       "scrollLeft": 244.5,
       "scrollTop": 377.5,
-      "showGrid": true
+      "showGrid": false
     }
   }
 }

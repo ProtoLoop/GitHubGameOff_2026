@@ -1,20 +1,21 @@
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
-import { validateDocument, type ImageAsset, type PropAsset, type ProjectDocument, type JsonValue } from "./document.ts";
+import { validateDocument, propName, propTint, type ImageAsset, type PropAsset, type ProjectDocument, type JsonValue } from "./document.ts";
 
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
 export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([JSON.stringify({
-        format: "mosaic", version: 21,
+        format: "mosaic", version: 24,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
         propAssets: project.propAssets.map((asset) => ({
+            name: propName(asset), size: asset.size, tint: propTint(asset),
             texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
             srcRect: asset.srcRect.x === 0 && asset.srcRect.y === 0
-                && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? [] : { ...asset.srcRect },
+                && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? {} : { ...asset.srcRect },
             collisionRects: asset.collisionRects.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         props: project.props.map((prop) => ({
@@ -60,7 +61,13 @@ function assetId(value: unknown): string
     {
         throw new Error("Invalid project asset path");
     }
-    return value.slice(1);
+    const id = value.slice(1);
+    if(id.split("/").some((part) => !part || part === "." || part === "..")
+        || id.includes("\\") || [...id].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))
+    {
+        throw new Error("Invalid project asset path");
+    }
+    return id;
 }
 
 function list(value: unknown, min: number, max: number): unknown[]
@@ -79,15 +86,24 @@ function numberOrDefault(value: unknown, fallback: number): number
     return value;
 }
 
+/// Explicit texture references may live anywhere beneath the project's assets directory.
+export async function projectTexturePaths(blob: Blob): Promise<string[]>
+{
+    const data = object(JSON.parse(await blob.text()));
+    if(data.format !== "mosaic" || data.version !== 24) { throw new Error("Unsupported Mosaic project format/version"); }
+    return [...new Set(list(data.propAssets, 0, 256).map((entry) => assetId(object(entry).texPath)))];
+}
+
 export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 21)
+    if(data.format !== "mosaic" || data.version !== 24)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
     const editor = object(data.editor);
-    const assets = new Map(available.map((asset) => [asset.id, asset]));
+    const assets = new Map(available.filter((asset) => asset.kind !== "prop").map((asset) => [asset.id, asset]));
+    const propImages = new Map(available.filter((asset) => asset.kind === "prop").map((asset) => [asset.id, asset]));
     const lookup = (id: unknown): ImageAsset | PropAsset => {
         const asset = assets.get(assetId(id));
         if(!asset) { throw new Error(`Missing image: ${id}`); }
@@ -102,11 +118,12 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     const masks = list(data.maskSheets, 1, 64).map(terrainAsset);
     const propAssets = list(data.propAssets, 0, 256).map((item) => {
         const entry = object(item);
-        const asset = lookup(entry.texPath);
+        const asset = propImages.get(assetId(entry.texPath));
+        if(!asset) { throw new Error(`Missing image: ${entry.texPath}`); }
         if(asset.kind !== "prop") { throw new Error("Expected prop image"); }
-        const rect = entry.srcRect === undefined
-            || (Array.isArray(entry.srcRect) && entry.srcRect.length === 0)
-            ? { x: 0, y: 0, w: asset.width, h: asset.height } : object(entry.srcRect);
+        const savedRect = entry.srcRect === undefined ? {} : object(entry.srcRect);
+        const rect = Object.keys(savedRect).length === 0
+            ? { x: 0, y: 0, w: asset.width, h: asset.height } : savedRect;
         const srcRect = { x: integer(rect.x, 0, asset.width - 1), y: integer(rect.y, 0, asset.height - 1),
             w: integer(rect.w, 1, asset.width), h: integer(rect.h, 1, asset.height) };
         const pivot = entry.pivot === undefined ? {} : object(entry.pivot);
@@ -122,8 +139,23 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
             }
             return { x: rect.x as number, y: rect.y as number, w: rect.w as number, h: rect.h as number };
         });
+        const name = entry.name === undefined ? propName(asset) : entry.name;
+        if(typeof name !== "string") { throw new Error("Invalid sequence name"); }
+        const size = entry.size === undefined ? undefined : object(entry.size);
+        const frameSize = size === undefined ? undefined
+            : { w: integer(size.w, 1, srcRect.w), h: integer(size.h, 1, srcRect.h) };
+        const tintData = entry.tint === undefined ? { r: 1, g: 1, b: 1, a: 1 } : object(entry.tint);
+        for(const key of ["r", "g", "b", "a"])
+        {
+            const value = tintData[key];
+            if(typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1)
+            {
+                throw new Error("Invalid sequence tint");
+            }
+        }
+        const tint = { r: tintData.r as number, g: tintData.g as number, b: tintData.b as number, a: tintData.a as number };
         // Keep decoded images shared without changing metadata in another document.
-        return { ...asset, srcRect,
+        return { ...asset, name, size: frameSize, tint, srcRect,
             pivotX: numberOrDefault(pivot.x, 0.5),
             pivotY: numberOrDefault(pivot.y, 0.5),
             scale: numberOrDefault(entry.scale, 1), collisionRects };

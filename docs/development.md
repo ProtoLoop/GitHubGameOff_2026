@@ -167,6 +167,20 @@ directory or extension. For example, `trees/oak.png` and `decoration/oak.png` bo
 produce `oak` and cannot coexist in the same level’s sprite catalog. Duplicate
 names cause level loading to fail.
 
+Mosaic version 24 separately stores explicit sequence names in `propAssets`,
+allows shared texture paths, and treats omitted frame `size` as the full resolved
+source rectangle. Its `tint` field is also editor-side metadata until game-loader
+integration is updated. The C++ loader's filename-derived naming and texture-size
+default described above have not changed. C++ still uses `Dim` and reads the
+JSON field `dim`, not Mosaic's new `size` field.
+
+Mosaic resolves texture paths against each project's own directory. Explicit
+sequence textures can live anywhere under its `assets/`, while automatic prop
+discovery stays under `assets/props/`. Project2 contains 80 converted actor sequence
+entries whose 52 textures have not yet been copied from repository assets into
+the project. It cannot open in Mosaic until those referenced files are supplied.
+No texture copying or fallback to repository assets happens automatically.
+
 ## macOS
 
 Native macOS builds require Xcode Command Line Tools with a C++23-capable Apple

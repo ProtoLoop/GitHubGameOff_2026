@@ -734,6 +734,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 Date: 2026-11-20. Status: Accepted. Version support and full-texture serialization
 are superseded by [Mosaic full-texture source rectangle shorthand](#mosaic-full-texture-source-rectangle-shorthand).
+Catalog identity and frame geometry are superseded by
+[Mosaic named sprite sequences](#mosaic-named-sprite-sequences).
 
 Version 18 adds asset-owned `srcRect: { x, y, w, h }` in source texture pixels.
 Omission selects the full decoded texture, and saves write the resolved rectangle
@@ -765,7 +767,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 ## Mosaic full-texture source rectangle shorthand
 
 Date: 2026-11-20. Status: Accepted. Version support is superseded by
-[Mosaic prop collider naming](#mosaic-prop-collider-naming).
+[Mosaic prop collider naming](#mosaic-prop-collider-naming). Full-texture serialization
+is superseded by [Mosaic object-only source rectangles](#mosaic-object-only-source-rectangles).
 
 Version 19 uses `srcRect: []` for the entire texture. Omission also selects the
 full texture, and explicit rectangle objects remain valid. Saves normalize any
@@ -815,7 +818,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic collision rectangle naming
 
-Date: 2026-11-21. Status: Accepted.
+Date: 2026-11-21. Status: Accepted. Version support is superseded by
+[Mosaic object-only source rectangles](#mosaic-object-only-source-rectangles).
 
 Version 21 renames `collider` to `collisionRects`. The name identifies both the
 collision purpose and the array of rectangles. `collider` suggests a broader
@@ -853,3 +857,92 @@ layout or meaning. Older Mosaic builds can open these files but discard extensio
 when saving. No server, runtime loader, dependency, or build changes are required.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#level-json).
+
+
+## Mosaic object-only source rectangles
+
+Date: 2026-11-22. Status: Accepted. Version support is superseded by
+[Mosaic named sprite sequences](#mosaic-named-sprite-sequences).
+
+Version 22 uses `srcRect: {}` for the entire texture, keeping source rectangles
+consistently encoded as objects. Omission also selects the full texture. Nonempty
+objects require integer `x`, `y`, `w`, and `h` components describing a valid
+rectangle within the texture. Arrays, including the former `[]` shorthand, and
+explicit `null` are rejected. Saves normalize full-texture rectangles to `{}`.
+
+The document still resolves concrete pixel rectangles on load. Rendering, picking,
+pivots, collision rectangles, and history retain their existing behavior. Opaque
+project extensions continue to be preserved.
+
+Mosaic reads and writes version 22 only, without migration support. Project2's
+version and full-texture shorthand are updated while preserving other data. This
+supersedes the shorthand in [full-texture source rectangle shorthand](#mosaic-full-texture-source-rectangle-shorthand)
+and version support in [collision rectangle naming](#mosaic-collision-rectangle-naming).
+The C++ loader is unchanged and currently rejects empty source-rectangle objects.
+Game-loader integration remains separate work. No dependencies or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic named sprite sequences
+
+Date: 2026-11-22. Status: Accepted. Version support and frame-dimension naming
+are superseded by [Mosaic sprite sequence size](#mosaic-sprite-sequence-size).
+
+Version 23 retains the `propAssets` key but makes its entries named sprite
+sequences. A sequence's name identifies it independently of its texture path.
+Multiple entries can share one decoded texture, with distinct source rectangles,
+frame dimensions, pivots, scales, tints, and collision rectangles. Names are unique
+and fit the game's 63-byte resource-name capacity. Omitted names use filename
+stems and become explicit on save. Collisions fail instead of silently renaming.
+
+`srcRect` selects a sequence region. Optional `dim: { w, h }` describes one frame.
+Omission means one frame covering the resolved source rectangle. This preserves
+cropped static props. Frames advance across rows and then down, ignoring incomplete
+edge rows or columns, matching the sequence traversal in C++. Mosaic displays
+frame zero only and uses its geometry for picking, previews, selection, and
+collision overlays. `tint: { r, g, b, a }` multiplies color and alpha, defaulting
+to white. Source textures remain shared and immutable, with tinted preview images
+cached per entry. History retains entry metadata and shared image lifetimes.
+
+The catalog keeps saved order so existing numeric prop references remain stable.
+Automatic discovery stays under `assets/props/`. Explicit sequence references may
+point anywhere under the project's `assets/`, and the loader fetches each distinct
+sequence texture once. Missing images still fail loading. There is no fallback
+to assets outside the project or automatic copying of textures.
+
+Project2 retains its 24 static entries and appends 80 sequences from the seven
+`SpriteFrameSequenceDef` arrays in `AnimResources.cpp`. Names and source metadata
+are preserved, including hover tint. Its 52 actor textures have not been copied
+into the project, so opening it currently fails for missing images. Animation
+grouping remains separate work and no `extensions` data is added or changed.
+
+Mosaic reads and writes version 23 only. This supersedes version 22 support and
+the unique-texture-path and single-crop geometry rules. C++ files are unchanged:
+the game still derives names from filenames, defaults omitted `dim` to texture
+size, and does not load this tint field. Game integration remains separate work.
+No third-party dependencies or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic sprite sequence size
+
+Date: 2026-11-22. Status: Accepted.
+
+Version 24 renames the optional sequence field `dim` to `size`. The serialized
+shape remains `{ w, h }`, with positive integer frame dimensions that fit within
+the resolved source rectangle. Omission still means one frame covering that
+rectangle. Frame order, tint, pivots, collision geometry, and frame-zero previews
+retain their existing behavior.
+
+Mosaic reads and writes version 24 only, without migration support or a `dim`
+compatibility alias. Project2's 80 explicit dimension fields and format version
+are updated while preserving values, catalog order, and placement indices.
+This supersedes version support and frame-dimension naming in
+[named sprite sequences](#mosaic-named-sprite-sequences).
+
+C++ files are unchanged. The game's `Dim` member and JSON `dim` field remain
+separate integration work. No dependencies, licenses, or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

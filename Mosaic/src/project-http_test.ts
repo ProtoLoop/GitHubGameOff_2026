@@ -89,12 +89,12 @@ Deno.test("project loading retains nested identities and labels, decoding filena
         [folder + "assets/masks/"]: ["mask.png"],
         [folder + "assets/props/"]: ["grave%20%23/", "other/"],
         [folder + "assets/props/grave%20%23/"]: ["stone%2520.png"],
-        [folder + "assets/props/other/"]: ["stone%2520.png"],
+        [folder + "assets/props/other/"]: ["other%2520.png"],
         [folder + "assets/tiles/one/ground.png"]: 200,
         [folder + "assets/tiles/two/ground.png"]: 200,
         [folder + "assets/masks/mask.png"]: 200,
         [folder + "assets/props/grave%20%23/stone%2520.png"]: 200,
-        [folder + "assets/props/other/stone%2520.png"]: 200
+        [folder + "assets/props/other/other%2520.png"]: 200
     });
     const originalBitmap = globalThis.createImageBitmap;
     const originalCanvas = globalThis.OffscreenCanvas;
@@ -109,7 +109,7 @@ Deno.test("project loading retains nested identities and labels, decoding filena
         {
             assert.equal(saved, false);
             assert.deepEqual(project.tileSheets.map((asset) => asset.id), ["assets/tiles/one/ground.png", "assets/tiles/two/ground.png"]);
-            assert.deepEqual(project.propAssets.map((asset) => asset.id), ["assets/props/grave #/stone%20.png", "assets/props/other/stone%20.png"]);
+            assert.deepEqual(project.propAssets.map((asset) => asset.id), ["assets/props/grave #/stone%20.png", "assets/props/other/other%20.png"]);
             assert.deepEqual(project.tileSheets.map((asset) => asset.label), ["one/ground.png", "two/ground.png"]);
             assert.equal(project.propAssets[0].label, "grave #/stone%20.png");
         }
@@ -119,6 +119,65 @@ Deno.test("project loading retains nested identities and labels, decoding filena
     {
         globalThis.createImageBitmap = originalBitmap;
         globalThis.OffscreenCanvas = originalCanvas;
+        server.restore();
+    }
+});
+
+Deno.test("explicit sequence textures load once within the project root and failures release candidates", async () => {
+    const folder = "http://localhost/projects/test/";
+    const texture = folder + "assets/anims/actor%20%23.png";
+    const data = {
+        format: "mosaic", version: 24, gridSize: 2,
+        tileSheets: ["/assets/tiles/tile.png"], maskSheets: ["/assets/masks/mask.png"], maskMode: "random",
+        layers: [{ sheet: 0, cells: [] }], props: [],
+        propAssets: [
+            { name: "Walk", texPath: "/assets/anims/actor #.png", size: { w: 16, h: 16 } },
+            { name: "Idle", texPath: "/assets/anims/actor #.png", size: { w: 32, h: 32 } }
+        ],
+        editor: { activeLayer: 0, view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true } }
+    };
+    const server = directoryServer({
+        [folder + "assets/tiles/"]: ["tile.png"], [folder + "assets/masks/"]: ["mask.png"],
+        [folder + "assets/tiles/tile.png"]: 200, [folder + "assets/masks/mask.png"]: 200, [texture]: 200
+    });
+    const directoryFetch = globalThis.fetch;
+    const originalBitmap = globalThis.createImageBitmap;
+    const originalCanvas = globalThis.OffscreenCanvas;
+    const originalRevoke = URL.revokeObjectURL;
+    const revoked: string[] = [];
+    let missing = false;
+    globalThis.fetch = (input, init) => {
+        if(String(input) === folder + "level.json") { return Promise.resolve(new Response(JSON.stringify(data))); }
+        if(missing && String(input) === texture) { return Promise.resolve(new Response(null, { status: 404 })); }
+        return directoryFetch(input, init);
+    };
+    globalThis.createImageBitmap = (() => Promise.resolve({ width: 256, height: 256, close: () => {} })) as typeof createImageBitmap;
+    globalThis.OffscreenCanvas = class {
+        getContext() { return { drawImage: () => {}, getImageData: () => ({ data: new Uint8ClampedArray(256 * 256 * 4) }) }; }
+    } as unknown as typeof OffscreenCanvas;
+    URL.revokeObjectURL = (url) => { revoked.push(url); originalRevoke(url); };
+    try
+    {
+        const { project, saved } = await loadProject(folder);
+        assert(saved);
+        assert.equal(project.propAssets.length, 2);
+        assert.equal(project.propAssets[0].image, project.propAssets[1].image);
+        assert.equal(project.propAssets[0].url, project.propAssets[1].url);
+        assert.equal(server.requests.filter((url) => url === texture).length, 1);
+        for(const url of new Set(documentAssets(project).map((asset) => asset.url))) { URL.revokeObjectURL(url); }
+        revoked.length = 0;
+        missing = true;
+        await assert.rejects(() => loadProject(folder), /HTTP 404/);
+        assert.equal(new Set(revoked).size, 2);
+        data.propAssets[0].texPath = "/assets/../outside.png";
+        await assert.rejects(() => loadProject(folder), /Invalid project asset path/);
+        assert(!server.requests.some((url) => url.endsWith("outside.png")));
+    }
+    finally
+    {
+        globalThis.createImageBitmap = originalBitmap;
+        globalThis.OffscreenCanvas = originalCanvas;
+        URL.revokeObjectURL = originalRevoke;
         server.restore();
     }
 });

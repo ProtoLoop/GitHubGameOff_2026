@@ -132,8 +132,8 @@ set(GAMEOFF_SOURCES
     src/Sprite.cpp
     src/SpriteAnimLoader.h
     src/SpriteAnimLoader.cpp
-    src/SpriteLoader.h
-    src/SpriteLoader.cpp
+    src/SpriteSequenceLoader.h
+    src/SpriteSequenceLoader.cpp
     src/TextureLoader.h
     src/TextureLoader.cpp
     src/Timer.h

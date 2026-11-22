@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { createDocument, cloneDocument, sameContent, type ImageAsset, type PropAsset } from "./document.ts";
-import { drawTerrainRegion, drawCoverageRegion, drawProps, type RenderView } from "./renderer.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawProps, propFrameSource, type RenderView } from "./renderer.ts";
 
 const fullView: RenderView = { x: 0, y: 0, width: 4096, height: 4096, zoom: 1 };
 
@@ -438,10 +438,10 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
     assert.deepEqual(calls, []);
 });
 
-Deno.test("cropped props share source pixels and sprite dimensions across drawing, previews, selection and collision rectangles", () => {
+Deno.test("sequence frame zero shares geometry across drawing, previews, selection and collision rectangles", () => {
     const asset: PropAsset = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
         blob: new Blob(), url: "", width: 256, height: 128, image: {} as CanvasImageSource,
-        srcRect: { x: 32, y: 16, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2,
+        srcRect: { x: 32, y: 16, w: 200, h: 100 }, size: { w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2,
         collisionRects: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }] };
     const project = createDocument([material("base", 64, 0)],
         [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
@@ -476,4 +476,32 @@ Deno.test("cropped props share source pixels and sprite dimensions across drawin
     assert.deepEqual(calls, [["image", asset.image, 32, 16, 40, 10, 80, 80, 80, 20]]);
     project.props = snapshot.props;
     assert(sameContent(project, snapshot));
+});
+
+Deno.test("frame-zero tint multiplies RGBA pixels once and shares the cached preview", () => {
+    const originalCanvas = globalThis.OffscreenCanvas;
+    const calls: unknown[][] = [];
+    let result: Uint8ClampedArray | undefined;
+    const canvasContext = {
+        drawImage: (...args: unknown[]) => calls.push(args),
+        getImageData: () => ({ data: new Uint8ClampedArray([200, 100, 50, 200, 80, 40, 20, 0]) }),
+        putImageData: (pixels: { data: Uint8ClampedArray }) => { result = pixels.data; }
+    };
+    globalThis.OffscreenCanvas = class { getContext() { return canvasContext; } } as unknown as typeof OffscreenCanvas;
+    try
+    {
+        const image = {} as CanvasImageSource;
+        const asset: PropAsset = { kind: "prop", id: "assets/actor.png", label: "actor", blob: new Blob(), url: "",
+            image, width: 32, height: 16, srcRect: { x: 4, y: 2, w: 16, h: 8 }, size: { w: 2, h: 1 },
+            tint: { r: 0.5, g: 0.25, b: 1, a: 0.7 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+        const frame = propFrameSource(asset);
+        assert.deepEqual(calls, [[image, 4, 2, 2, 1, 0, 0, 2, 1]]);
+        assert.deepEqual(Array.from(result!), [100, 25, 50, 140, 40, 10, 20, 0]);
+        assert.deepEqual({ x: frame.x, y: frame.y, w: frame.w, h: frame.h }, { x: 0, y: 0, w: 2, h: 1 });
+        assert.equal(propFrameSource(asset).image, frame.image);
+        assert.equal(calls.length, 1);
+        assert.deepEqual(propFrameSource({ ...asset, tint: undefined }), { image, x: 4, y: 2, w: 2, h: 1 });
+        assert.deepEqual(propFrameSource({ ...asset, size: undefined, tint: undefined }), { image, x: 4, y: 2, w: 16, h: 8 });
+    }
+    finally { globalThis.OffscreenCanvas = originalCanvas; }
 });

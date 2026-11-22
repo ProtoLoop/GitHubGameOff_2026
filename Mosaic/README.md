@@ -24,7 +24,11 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The main
 project is `project2`. Copy its asset folders to make a new project.
-Mosaic reads and writes version 21 only, with no migration support. Existing
+Project2 now references 80 actor sequences converted from `AnimResources.cpp`.
+Their 52 textures have not been copied into the project. Until those textures
+are supplied at the referenced project-relative paths, Mosaic reports missing
+images and cannot open project2. There is no fallback to repository-level assets.
+Mosaic reads and writes version 24 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -90,19 +94,31 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   Choose a prop swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
   reload to update the palette. Rectangular images support 1–4096 pixels per axis.
-- Each `propAssets` entry in `level.json` stores `texPath`, `srcRect`, `pivot`, `scale`, and `collisionRects`.
+- `propAssets` is a catalog of named sprite sequences. Each entry stores `name`,
+  `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects`, with optional
+  `size: { w, h }` specifying one frame's pixel dimensions. Omit `size` to use the
+  full resolved source rectangle as one frame. Mosaic displays frame zero only.
+  Sequence names must be unique, nonblank, and at most 63 UTF-8 bytes, without
+  control characters. Unnamed entries use their filename without its extension.
+  Saves write the name explicitly and preserve it on reload. Name collisions
+  require explicit names in JSON. Multiple sequences may share one texture.
+  `tint: { r, g, b, a }` multiplies each color and alpha channel, with components
+  from 0 to 1. Omission means white. Edit metadata in JSON and reload.
+  Referenced textures may be anywhere under the project's `assets/` directory.
+  Automatic discovery still appends only images under `assets/props/` that are
+  not already referenced by the catalog.
   The optional `srcRect: { x, y, w, h }` selects a rectangle in texture pixels
-  from the upper-left corner. Omission or `[]` selects the full texture. Components must
+  from the upper-left corner. Omission or `{}` selects the full texture. Components must
   be integers, dimensions positive, and the rectangle entirely inside the texture.
-  Saves write `srcRect: []` for the full texture and an object for a cropped sprite.
-  Pivots are normalized from the cropped sprite's upper-left `(0, 0)` to lower-right
+  Saves write `srcRect: {}` for the full texture and an object for a cropped sprite.
+  Pivots are normalized from one frame's upper-left `(0, 0)` to lower-right
   `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale is finite and positive, defaulting to
   `1`. Scale and rotation both operate about the pivot. Edit these asset settings
   in JSON and reload the project to apply them.
 - Add normalized collision rectangles to an asset’s `collisionRects` array using `x`, `y`,
   `w`, and `h`. Omitted `collisionRects` or `[]` means no collision. Dimensions must be
   positive, and rectangles may extend outside the cropped sprite. Collision rectangles use the
-  cropped sprite dimensions for normalization: `(0, 0)` is the upper-left corner
+  frame dimensions for normalization: `(0, 0)` is the upper-left corner
   and `(1, 1)` the lower-right, before scale and rotation. Edit JSON and reload,
   then enable **Show collision rectangles** to see cyan rectangles on placed props. The toggle
   is session-only. Collision rectangles follow pivot, scale, and rotation without changing picking.

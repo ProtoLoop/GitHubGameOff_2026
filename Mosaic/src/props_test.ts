@@ -91,3 +91,13 @@ Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pi
     assert.deepEqual(propImageRect(moved.asset), propImageRect(cropped.asset));
     assert.equal(hitProp([moved], 10 / 64, -30 / 64), moved);
 });
+
+Deno.test("sequence picking and bounds use one frame while omitted size uses the full crop", () => {
+    const sequence = { ...asset, srcRect: { x: 8, y: 2, w: 60, h: 16 }, size: { w: 12, h: 8 },
+        pivotX: 0.5, pivotY: 1, scale: 2 };
+    const placed = { ...prop, asset: sequence, x: 0, y: 0, rotation: 0 };
+    assert.deepEqual(propImageRect(sequence), { x: -12, y: -16, width: 24, height: 16 });
+    assert.equal(hitProp([placed], 10 / 64, 8 / 64), placed);
+    assert.equal(hitProp([placed], 13 / 64, 8 / 64), null);
+    assert.deepEqual(propImageRect({ ...sequence, size: undefined }), { x: -60, y: -32, width: 120, height: 32 });
+});

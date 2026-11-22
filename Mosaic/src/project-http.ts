@@ -1,5 +1,5 @@
 import { createDocument, decodeAsset, decodePropAsset, validateDocument, type ImageAsset, type PropAsset } from "./document.ts";
-import { readProject } from "./project-file.ts";
+import { readProject, projectTexturePaths } from "./project-file.ts";
 
 /// Accept only immediate children of the requested directory, regardless of link text.
 export function directoryLinks(base: string, hrefs: readonly string[], directories: boolean): string[]
@@ -91,13 +91,27 @@ export async function loadProject(folder: string)
             if(!response.ok) { throw new Error(`Could not load ${filename} (HTTP ${response.status})`); }
             decoded.push(await decodePropAsset(await response.blob(), filename, propFolder + filename));
         }
+        const response = await fetch(new URL("level.json", folder), { cache: "no-store" });
+        if(!response.ok && response.status !== 404) { throw new Error(`Could not load level.json (HTTP ${response.status})`); }
+        const levelBlob = response.status === 404 ? null : await response.blob();
+        if(levelBlob !== null)
+        {
+            const known = new Set(decoded.filter((asset) => asset.kind === "prop").map((asset) => asset.id));
+            for(const id of await projectTexturePaths(levelBlob))
+            {
+                if(known.has(id)) { continue; }
+                const url = new URL(id.split("/").map(encodeURIComponent).join("/"), folder);
+                const imageResponse = await fetch(url, { cache: "no-store" });
+                if(!imageResponse.ok) { throw new Error(`Could not load ${id} (HTTP ${imageResponse.status})`); }
+                decoded.push(await decodePropAsset(await imageResponse.blob(), id, id));
+                known.add(id);
+            }
+        }
         const tiles = decoded.filter((asset): asset is ImageAsset => asset.kind === "tile");
         const masks = decoded.filter((asset): asset is ImageAsset => asset.kind === "mask");
         if(!tiles.length || !masks.length) { throw new Error("Project needs at least one tile sheet and one alpha mask"); }
-        const response = await fetch(new URL("level.json", folder), { cache: "no-store" });
-        if(!response.ok && response.status !== 404) { throw new Error(`Could not load level.json (HTTP ${response.status})`); }
-        const project = response.status === 404 ? createDocument(tiles, masks)
-            : await readProject(await response.blob(), decoded);
+        const project = levelBlob === null ? createDocument(tiles, masks)
+            : await readProject(levelBlob, decoded);
         if(response.status === 404) { project.propAssets = decoded.filter((asset) => asset.kind === "prop"); }
         validateDocument(project);
         return { project, saved: response.status !== 404 };

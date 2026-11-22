@@ -4,8 +4,8 @@ import { type Prop, type PropAsset } from "./document.ts";
 /// Scaled sprite bounds in Y-down pixels relative to the pivot, before rotation.
 export function propImageRect(asset: PropAsset): { x: number; y: number; width: number; height: number }
 {
-    const width = asset.srcRect.w * asset.scale;
-    const height = asset.srcRect.h * asset.scale;
+    const width = (asset.size?.w ?? asset.srcRect.w) * asset.scale;
+    const height = (asset.size?.h ?? asset.srcRect.h) * asset.scale;
     return { x: -asset.pivotX * width, y: -asset.pivotY * height, width, height };
 }
 

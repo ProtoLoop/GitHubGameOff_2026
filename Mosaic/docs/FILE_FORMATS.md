@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 21`. Only version 21 is supported.
+The container has `format: "mosaic"` and `version: 24`. Only version 24 is supported.
 Older versions are rejected. There is no migration loader.
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
@@ -32,7 +32,7 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `propAssets` | Ordered objects with `texPath`, pixel `srcRect`, normalized `pivot`, positive `scale`, and `collisionRects` |
+| `propAssets` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `scale`, `tint`, and `collisionRects` |
 | `props` | Decorative instances in back-to-front draw order |
 | `editor` | Editor settings described below |
 | `extensions` | Optional opaque JSON preserved across loads and saves |
@@ -43,8 +43,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-This optional addition retains version 21 and does not change existing fields.
-Older Mosaic builds discard `extensions` when saving.
+Extension preservation was introduced in version 21 and continues in version 24.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -198,21 +197,21 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "propAssets": [
-    { "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": [], "collisionRects": [] }
+    { "name": "headstone", "tint": { "r": 1, "g": 1, "b": 1, "a": 1 }, "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": {}, "collisionRects": [] }
   ],
   "props": [{ "index": 0, "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
 }
 ```
 
 Each asset entry requires `texPath`, a project-root image path under
-`/assets/props/`. `pivot.x` and `pivot.y` are finite numbers between 0 and 1, inclusive,
-measured from the cropped sprite's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
+`/assets/`. Automatic discovery remains limited to `/assets/props/`. `pivot.x` and `pivot.y` are finite numbers between 0 and 1, inclusive,
+measured from one frame's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
 omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
 zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
-write `texPath`, `srcRect`, `pivot`, `scale`, and `collisionRects` explicitly. An omitted `pivot`
+write `name`, `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects` explicitly. An omitted `pivot`
 uses both default components. Newly discovered prop images use the same defaults.
 
-`srcRect` is optional. An empty array `[]` selects the full texture. A rectangle
+`srcRect` is optional. An empty object `{}` selects the full texture. A rectangle
 object selects a sprite with required integer `x`, `y`, `w`,
 and `h` in texture pixels, measured from the texture's upper-left corner with
 X rightward and Y downward. Coordinates must be nonnegative, dimensions positive,
@@ -220,23 +219,50 @@ and the rectangle must fit entirely within the decoded texture. For example,
 `{"x": 32, "y": 64, "w": 128, "h": 96}` selects a 128×96 sprite.
 Omission also selects the full texture. Internally this resolves to
 `{ "x": 0, "y": 0, "w": textureWidth, "h": textureHeight }`.
-Explicit `null`, nonempty arrays, partial rectangles, and fractional components are invalid.
-Newly discovered assets also use the full texture. Saves write `[]` whenever the
+Explicit `null`, all arrays, nonempty objects missing any required rectangle
+component, and fractional components are invalid.
+Newly discovered assets also use the full texture. Saves write `{}` whenever the
 rectangle covers the entire texture, including when loaded from an explicit
-full-texture object. Cropped rectangles save as objects. Pivot and collision
-coordinates are relative to the resolved sprite rectangle,
-and scale applies to its dimensions. Drawing, palette and placement previews,
-picking, selection outlines, and viewport culling all use the cropped rectangle.
+full-texture object. Cropped rectangles save as objects. The source rectangle
+selects the region containing the sequence's frames. Drawing, palette and placement
+previews, picking, selection outlines, and viewport culling all use frame zero.
 The source offset selects pixels without shifting the sprite's world pivot.
+
+`name` identifies a sequence independently of its texture. Names are case-sensitive,
+unique within the catalog, nonblank, and at most 63 UTF-8 bytes. ASCII control
+characters are rejected. An omitted name is generated from the texture filename
+without its final extension, then written explicitly on save. Duplicate generated
+names or overlong names fail loading and require explicit names in JSON. Saved
+names are retained independently of path changes. Multiple named sequences may
+share a texture, including identical source rectangles.
+
+`size: { w, h }` optionally gives positive integer frame dimensions, each no larger
+than the resolved source rectangle. Omission means one frame covering that entire
+rectangle, not the entire texture unless the rectangle selects it. Saves preserve
+omission, and preserve explicit dimensions even when they cover the full rectangle.
+Empty objects, partial objects, arrays, and explicit `null` are invalid.
+Frames advance left to right, then top to bottom. The frame count is
+`floor(srcRect.w / size.w) * floor(srcRect.h / size.h)` and incomplete edge rows or
+columns are ignored. Frame zero starts at `(srcRect.x, srcRect.y)`.
+Mosaic does not animate sequences. Pivots, collision rectangles, scaled bounds,
+and picking are relative to one frame. Without `size`, existing static props keep
+their source-rectangle geometry.
+
+`tint: { r, g, b, a }` multiplies the source RGB and alpha channels in all sprite
+previews. Every component must be a finite number in `[0, 1]`. Omission defaults
+all four components to 1. Explicit tint objects require all four components.
+Arrays, `null`, and incomplete objects are invalid. Saves write tint explicitly.
+Tinted frame-zero images are cached per immutable catalog entry while the decoded
+source texture remains shared. Selection and collision overlay colors are unaffected.
 
 `collisionRects` is an optional array of collision rectangles. Omission means `[]`, or
 no collision. Each rectangle requires finite `x`, `y`, `w`, and `h`, with positive
-`w` and `h`. Coordinates are normalized relative to the cropped sprite before
+`w` and `h`. Coordinates are normalized relative to one frame before
 scale and rotation: `(0, 0)` is its upper-left corner and `(1, 1)` its lower-right,
-with X increasing rightward and Y downward. X and width use `srcRect.w`,
-Y and height use `srcRect.h`. Rectangles may overlap
+with X increasing rightward and Y downward. X and width use the resolved frame width,
+Y and height use the resolved frame height. Rectangles may overlap
 or extend outside `[0, 1]`. For example, `{"x": 0.35, "y": 0.75, "w": 0.3, "h": 0.2}`.
-All instances share their asset's immutable collision rectangles. Convert to source pixels,
+All instances share their asset's immutable collision rectangles. Convert to frame pixels,
 then apply the same pivot, scale, rotation, and position as the image. These are
 local rectangles, not world-axis-aligned rectangles. Collision rectangles do not affect picking,
 placement limits, or resizing. The Show collision rectangles toggle is session-only.
@@ -253,22 +279,22 @@ For top-left, Y-down map pixels used by the editor renderer, convert with
 `pixelX = (x + gridSize / 2) * 64` and `pixelY = (gridSize / 2 - y) * 64`.
 For example, `(1.5, 2.25)` cells puts the pivot at `(2144, 1904)` pixels on a 64-cell map.
 Both scaling and clockwise rotation operate about that fixed pivot. For a point `(u, v)` in texture pixels, first subtract `(srcRect.x, srcRect.y)`,
-then subtract `(pivot.x * srcRect.w, pivot.y * srcRect.h)`,
+then subtract `(pivot.x * frameWidth, pivot.y * frameHeight)`,
 multiply by `scale`, rotate clockwise in Y-down image space, then add the pivot's
 map-pixel position. There is no snapping to whole cells. At scale 1, one source
 pixel covers one map pixel. Source alpha is preserved. Render all props above terrain,
 in array order, using ordinary source-over alpha blending and nearest sampling.
 Clip artwork at map edges, even when its pivot lies inside the map.
 
-A prop asset selects one sprite rectangle within its source texture. Rectangular textures are allowed,
-with each dimension from 1 to 4096 pixels. The catalog supports at most 256 prop
-images and the level at most 10,000 instances. Asset dimensions come from the
-images. Duplicate texture paths in the prop catalog remain invalid.
+A catalog entry selects a sprite sequence within its source texture. Rectangular textures are allowed,
+with each dimension from 1 to 4096 pixels. The catalog supports at most 256 named
+sequences and the level at most 10,000 instances. Asset dimensions come from the
+images. Sequence entries sharing a texture share its decoded image and URL.
 Missing referenced images, incorrect asset kinds, invalid source rectangles or transforms,
 and invalid catalog references fail loading before installation.
 
 The document owns prop placements. Snapshots copy their transforms and share
-immutable decoded images and asset source-rectangle, pivot, scale, and collision rectangle settings. Placement, movement, and deletion are undoable,
+immutable decoded images and asset name, source-rectangle, frame-dimension, tint, pivot, scale, and collision rectangle settings. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
@@ -351,8 +377,10 @@ read or write.
 
 Catalog order is preserved on load. Discovered images are sorted by their full
 encoded resource URLs. Newly discovered images append in that deterministic order,
-without changing existing catalog indices or prop placement order. Saved prop source rectangles, pivots,
-and scales are preserved. New prop entries use the full texture, pivot `(0.5, 0.5)`, and scale `1`. Newly discovered terrain textures
+without changing existing catalog indices or prop placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
+and scales are preserved. Textures already referenced by any saved sequence are
+not appended as new entries. New entries use the filename stem as name, the full
+texture, omitted `size`, white tint, pivot `(0.5, 0.5)`, and scale `1`. Newly discovered terrain textures
 must match the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
 selection because the sheet count participates in the algorithm. Fixed mask
@@ -376,6 +404,14 @@ The browser walks child directories for tiles and props, fetching each listing
 once, and keeps mask discovery flat. It GETs images and `level.json` through their
 resource URLs, encoding each path segment separately. A 404 for `level.json` means a new level.
 Other failures are reported. Reload bypasses cached listings and images.
+After reading `level.json`, the client fetches additional explicitly referenced
+sequence textures anywhere under that project's `assets/` directory. Paths retain
+literal filename characters and are encoded by segment for HTTP requests.
+Traversal and paths outside `assets/` are rejected. Each distinct sequence texture
+is decoded once per project load, including when multiple entries reference it.
+Missing referenced textures fail loading before installation. Project2's converted
+actor textures are not yet present in its project folder, so it currently fails
+this check. No repository-level fallback or placeholder images are used.
 
 Save sends the complete JSON body with PUT `/projects/<name>/level.json` and
 `Content-Type: application/json`. A successful HTTP response marks that revision

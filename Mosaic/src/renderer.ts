@@ -1,5 +1,5 @@
 import { mapPixels, propImageRect, type SelectionBox } from "./props.ts";
-import { type ProjectDocument, type MaskPlacement, type PropAsset, type ImageAsset } from "./document.ts";
+import { propTint, type ProjectDocument, type MaskPlacement, type PropAsset, type ImageAsset } from "./document.ts";
 import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
 import { kCellSize, kHalfCellSize } from "./grid.ts";
 
@@ -136,6 +136,39 @@ function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
     return canvas;
 }
 
+const tintedFrames = new WeakMap<PropAsset, OffscreenCanvas>();
+
+/// Share the same frame-zero crop and tint between the palette and map previews.
+export function propFrameSource(asset: PropAsset): { image: CanvasImageSource; x: number; y: number; w: number; h: number }
+{
+    const { x, y } = asset.srcRect;
+    const w = asset.size?.w ?? asset.srcRect.w, h = asset.size?.h ?? asset.srcRect.h;
+    const tint = propTint(asset);
+    if(tint.r === 1 && tint.g === 1 && tint.b === 1 && tint.a === 1)
+    {
+        return { image: asset.image, x, y, w, h };
+    }
+    let canvas = tintedFrames.get(asset);
+    if(!canvas)
+    {
+        canvas = new OffscreenCanvas(w, h);
+        const context = canvas.getContext("2d");
+        if(!context) { throw new Error("Canvas 2D is unavailable"); }
+        context.drawImage(asset.image, x, y, w, h, 0, 0, w, h);
+        const pixels = context.getImageData(0, 0, w, h);
+        for(let offset = 0; offset < pixels.data.length; offset += 4)
+        {
+            pixels.data[offset] *= tint.r;
+            pixels.data[offset + 1] *= tint.g;
+            pixels.data[offset + 2] *= tint.b;
+            pixels.data[offset + 3] *= tint.a;
+        }
+        context.putImageData(pixels, 0, 0);
+        tintedFrames.set(asset, canvas);
+    }
+    return { image: canvas, x: 0, y: 0, w, h };
+}
+
 /// A transparent overlay keeps previews and selection separate from terrain rendering.
 export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
     preview: ImagePreview | null, box: SelectionBox | null, showCollisionRects: boolean): void
@@ -168,8 +201,8 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
         const rect = propImageRect(prop.asset);
-        const source = prop.asset.srcRect;
-        context.drawImage(prop.asset.image, source.x, source.y, source.w, source.h,
+        const source = propFrameSource(prop.asset);
+        context.drawImage(source.image, source.x, source.y, source.w, source.h,
             rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
@@ -216,8 +249,8 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         if(asset.kind === "prop")
         {
             const rect = propImageRect(asset);
-            const source = asset.srcRect;
-            context.drawImage(asset.image, source.x, source.y, source.w, source.h,
+            const source = propFrameSource(asset);
+            context.drawImage(source.image, source.x, source.y, source.w, source.h,
                 point.x + rect.x, point.y + rect.y, rect.width, rect.height);
         }
         else
