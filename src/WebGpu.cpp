@@ -17,7 +17,7 @@ namespace
 constexpr wgpu::TextureFormat kDefaultTextureFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
 
 bool
-TryGetWindowDims(SDL_Window* window, uint32_t& width, uint32_t& height)
+TryGetWindowSize(SDL_Window* window, uint32_t& width, uint32_t& height)
 {
     if(!GG_VERIFYB(window, "Window must not be null"))
     {
@@ -484,7 +484,7 @@ WebGpu::Update()
             m_Surface = *surfaceResult;
 
             uint32_t width{}, height{};
-            GG_CHECK(TryGetWindowDims(m_Window, width, height), "Failed to get window dimensions");
+            GG_CHECK(TryGetWindowSize(m_Window, width, height), "Failed to get window dimensions");
 
             auto surfaceFormat = ConfigureSurface(m_Adapter, m_Device, m_Surface, width, height);
             GG_CHECK(surfaceFormat, "Failed to configure WebGPU surface");
@@ -696,7 +696,7 @@ WebGpu::GetSwapchainTexture() const
     GG_CHECKB(IsReady(), "WebGPU is not ready");
 
     uint32_t width{}, height{};
-    GG_CHECK(TryGetWindowDims(m_Window, width, height), "Failed to get window dimensions");
+    GG_CHECK(TryGetWindowSize(m_Window, width, height), "Failed to get window dimensions");
 
     wgpu::SurfaceTexture surfaceTexture;
     m_Surface.GetCurrentTexture(&surfaceTexture);

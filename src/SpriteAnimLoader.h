@@ -1,8 +1,7 @@
 #pragma once
 
-#include "BoundedVector.h"
 #include "Sprite.h"
-#include "TextureLoader.h"
+#include "SpriteSequenceLoader.h"
 
 class WebGpu;
 class Renderer;
@@ -29,17 +28,9 @@ public:
     Result<SpriteAnim> Take();
 
 private:
-    SpriteAnimLoader(const ResourceName& name,
-        BoundedVector<TextureLoader>&& textureLoaders,
-        BoundedVector<size_t>&& sequenceToTextureMap,
-        BoundedVector<SpriteSequence>&& spriteSequences,
-        Renderer& renderer);
+    SpriteAnimLoader(const ResourceName& name, SpriteSequenceLoader&& spriteSeqLoader);
 
     ResourceName m_Name;
-    BoundedVector<TextureLoader> m_TextureLoaders;
-    BoundedVector<size_t> m_SequenceToTextureMap;
-    BoundedVector<SpriteSequence> m_SpriteSequences;
-    Renderer* m_Renderer;
 
-    bool m_Taken{ false };
+    SpriteSequenceLoader m_SpriteSeqLoader;
 };

@@ -297,7 +297,7 @@ Renderer::GetProjectionMatrix() const
 }
 
 Result<>
-Renderer::QueueSprite(const Sprite& sprite, const Transform2D& transform)
+Renderer::QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transform)
 {
     GG_CHECKB(m_SpriteDrawQueue.size() < m_SpriteDrawQueue.capacity(),
         "Exceeded sprite draw queue");
@@ -305,7 +305,7 @@ Renderer::QueueSprite(const Sprite& sprite, const Transform2D& transform)
     m_SpriteDrawQueue.push_back( //
         {
             .Transform = transform,
-            .Sprite = sprite,
+            .SpriteFrame = spriteFrame,
             .SortTieBreaker = m_SpriteDrawQueue.size(),
         });
 
@@ -521,23 +521,23 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
     // Copy sprite data to GPU
     for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
-        const Sprite& sprite = rec.Sprite;
+        const SpriteFrame& spriteFrame = rec.SpriteFrame;
         GpuSpriteState& spriteState = m_SpriteStates.emplace_back();
 
         spriteState.cellXY = rec.Transform.Pos;
 
-        spriteState.pivot.x = sprite.GetPivot().x;
-        spriteState.pivot.y = sprite.GetPivot().y;
+        spriteState.pivot.x = spriteFrame.GetPivot().x;
+        spriteState.pivot.y = spriteFrame.GetPivot().y;
 
-        spriteState.color = sprite.GetColor();
+        spriteState.tint = spriteFrame.GetTint();
 
-        const Rect& rect = sprite.GetSrcRect();
+        const Rect& rect = spriteFrame.GetSrcRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
         spriteState.srcRect[1] = static_cast<float>(rect.y);
         spriteState.srcRect[2] = static_cast<float>(rect.w);
         spriteState.srcRect[3] = static_cast<float>(rect.h);
 
-        spriteState.scale = sprite.GetScale();
+        spriteState.scale = spriteFrame.GetScale();
     }
 
     GG_CHECK(EnsureSpriteStateBuffer(sizeof(GpuSpriteState) * m_SpriteStates.size()),
@@ -557,8 +557,8 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
     for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
-        const Sprite& sprite = rec.Sprite;
-        renderPass.SetBindGroup(1, sprite.GetTextureBindGroup());
+        const SpriteFrame& spriteFrame = rec.SpriteFrame;
+        renderPass.SetBindGroup(1, spriteFrame.GetTextureBindGroup());
         renderPass.Draw(kVerticesPerQuad, 1, 0, instanceIndex);
         ++instanceIndex;
     }

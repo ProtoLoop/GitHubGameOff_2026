@@ -1,5 +1,6 @@
-#include "SpriteLoader.h"
+#include "SpriteSequenceLoader.h"
 
+#include "Geometry2D.h"
 #include "Renderer.h"
 #include "WebGpu.h"
 
@@ -9,60 +10,55 @@
 namespace
 {
 constexpr uint32_t kNullXYWH = std::numeric_limits<uint32_t>::max();
-// Sentinel rect to use if no rect is specified in the sprite def.
-// Will use the entire texture as the sprite rect.
+// Sentinel rect to use if no rect is specified.
+// Will use the entire texture as the rect.
 constexpr Rect kNullRect{ kNullXYWH, kNullXYWH, kNullXYWH, kNullXYWH };
 
-}
+// Sentinel size to use if no size is specified.
+// Will use the entire texture as the size.
+constexpr Dimension2D kNullSize{ .w = kNullXYWH, .h = kNullXYWH };
 
-SpriteLoader::SpriteLoader(BoundedVector<TextureLoader>&& textureLoaders,
-    BoundedVector<size_t>&& spriteToTextureMap,
-    BoundedVector<NamedSprite>&& sprites,
+} // namespace
+
+SpriteSequenceLoader::SpriteSequenceLoader(BoundedVector<TextureLoader>&& textureLoaders,
+    BoundedVector<size_t>&& sequenceToTextureMap,
+    BoundedVector<SpriteFrameSequence>&& spriteSequences,
     Renderer& renderer)
     : m_TextureLoaders(std::move(textureLoaders)),
-      m_SpriteToTextureMap(std::move(spriteToTextureMap)),
-      m_Sprites(std::move(sprites)),
+      m_SequenceToTextureMap(std::move(sequenceToTextureMap)),
+      m_SpriteSequences(std::move(spriteSequences)),
       m_Renderer(&renderer)
 {
 }
 
-Result<SpriteLoader>
-SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
+Result<SpriteSequenceLoader>
+SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteSeqDefs,
     FileFetcher& fileFetcher,
     Renderer& renderer,
     WebGpu& webGpu)
 {
-    if(spriteDefs.empty())
+    if(spriteSeqDefs.empty())
     {
-        GG_WARN("Sprite definitions are empty");
+        GG_WARN("Sprite sequence definitions are empty");
 
-        return SpriteLoader(BoundedVector<TextureLoader>(0),
+        return SpriteSequenceLoader(BoundedVector<TextureLoader>(0),
             BoundedVector<size_t>(0),
-            BoundedVector<NamedSprite>(0),
+            BoundedVector<SpriteFrameSequence>(0),
             renderer);
     }
-
-    GG_CHECKB(!spriteDefs.empty(), "Sprite definitions must not be empty");
 
     const wgpu::Texture defaultTexture = webGpu.GetDefaultTexture();
     GG_TRYB(defaultBindGroup, renderer.CreateSpriteTextureBindGroup(defaultTexture));
 
-    BoundedVector<FilePath> uniqueTexPaths(spriteDefs.size());
-    BoundedVector<size_t> spriteToTextureMap(spriteDefs.size());
-    BoundedVector<NamedSprite> sprites(spriteDefs.size());
+    BoundedVector<FilePath> uniqueTexPaths(spriteSeqDefs.size());
+    BoundedVector<size_t> sequenceToTextureMap(spriteSeqDefs.size());
+    BoundedVector<SpriteFrameSequence> spriteSequences(spriteSeqDefs.size());
 
     // Collect unique texture paths and create sprites
     // using the default texture, which will be replaced later when
     // texture loading completes.
-    for(const SpriteDef& def : spriteDefs)
+    for(const SpriteFrameSequenceDef& def : spriteSeqDefs)
     {
-        GG_CHECKB(def.Pivot.x >= 0.0f && def.Pivot.x <= 1.0f && def.Pivot.y >= 0.0f && def.Pivot.y <= 1.0f,
-            "Invalid pivot coordinates: {} : {} - ({}, {})",
-            def.Name,
-            def.TexturePath,
-            def.Pivot.x,
-            def.Pivot.y);
-
         GG_CHECKB(!def.TexturePath.empty(),
             "Sprite texture path must not be empty: {} : {}",
             def.Name,
@@ -74,13 +70,13 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
         auto it = std::ranges::find(uniqueTexPaths, def.TexturePath);
         if(uniqueTexPaths.end() == it)
         {
-            spriteToTextureMap.push_back(uniqueTexPaths.size());
+            sequenceToTextureMap.push_back(uniqueTexPaths.size());
             uniqueTexPaths.push_back(def.TexturePath);
         }
         else
         {
             const size_t index = static_cast<size_t>(std::distance(uniqueTexPaths.begin(), it));
-            spriteToTextureMap.push_back(index);
+            sequenceToTextureMap.push_back(index);
         }
 
         InlineVector<Rectf, 1> colRects;
@@ -91,15 +87,16 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
 
         // If src rect is not specified it will be set to the
         // the size of the texture when the texture is loaded.
-        Sprite sprite(defaultBindGroup,
+        SpriteFrameSequence spriteSeq(def.Name,
+            defaultBindGroup,
+            def.Size ? *def.Size : kNullSize,
             def.SrcRect ? *def.SrcRect : kNullRect,
             colRects,
             def.Pivot,
-            def.Color,
+            def.Tint,
             def.Scale);
-        NamedSprite namedSprite(def.Name, std::move(sprite));
 
-        sprites.push_back(std::move(namedSprite));
+        spriteSequences.push_back(std::move(spriteSeq));
     }
 
     // Load the textures.
@@ -111,14 +108,14 @@ SpriteLoader::Load(const std::span<const SpriteDef> spriteDefs,
         textureLoaders.push_back(std::move(*texLoadResult));
     }
 
-    return SpriteLoader(std::move(textureLoaders),
-        std::move(spriteToTextureMap),
-        std::move(sprites),
+    return SpriteSequenceLoader(std::move(textureLoaders),
+        std::move(sequenceToTextureMap),
+        std::move(spriteSequences),
         renderer);
 }
 
 bool
-SpriteLoader::IsPending() const
+SpriteSequenceLoader::IsPending() const
 {
     for(const auto& texLoader : m_TextureLoaders)
     {
@@ -130,8 +127,8 @@ SpriteLoader::IsPending() const
     return false;
 }
 
-Result<BoundedVector<NamedSprite>>
-SpriteLoader::Take()
+Result<BoundedVector<SpriteFrameSequence>> 
+SpriteSequenceLoader::Take()
 {
     GG_CHECKB(!IsPending(), "Sprite loader is still pending");
     GG_CHECKB(!m_Taken, "Sprites have already been taken");
@@ -154,76 +151,91 @@ SpriteLoader::Take()
     }
 
     // For each sprite replace its bind group with a bindgroup containing the loaded texture.
-    for(size_t i = 0; i < m_Sprites.size(); ++i)
+    for(size_t i = 0; i < m_SpriteSequences.size(); ++i)
     {
-        const NamedSprite& sprite = m_Sprites[i];
-        const size_t texIndex = m_SpriteToTextureMap[i];
+        const SpriteFrameSequence& seq = m_SpriteSequences[i];
+        const size_t texIndex = m_SequenceToTextureMap[i];
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
 
-        Rect rect = sprite.GetSrcRect();
+        Rect rect = seq.GetSrcRect();
+        Dimension2D spriteSize = seq.m_Size;
+        const Dimension2D texSize{ .w = texture.GetWidth(), .h = texture.GetHeight() };
         InlineVector<Rectf, 1> colRects;
         
-        for(const Rectf& colRect : sprite.GetCollisionRects())
+        for(const Rectf& colRect : seq.GetCollisionRects())
         {
             colRects.push_back(colRect);
         }
 
-        const Dimension2D texDims{ .w = texture.GetWidth(), .h = texture.GetHeight() };
-
         // If no rect was specified, use the entire texture.
         if(kNullRect == rect)
         {
-            rect = Rect{ 0, 0, texDims.w, texDims.h };
+            rect = Rect{ 0, 0, texSize.w, texSize.h };
         }
 
-        GG_CHECKB(rect.w > 0 && rect.h > 0, "Sprite rect has zero dimensions: {} - {}x{}x{}x{}",
-            sprite.GetName(),
+        if(kNullSize == spriteSize)
+        {
+            spriteSize = texSize;
+        }
+
+        GG_CHECKB(spriteSize.w <= rect.w && spriteSize.h <= rect.h,
+            "Sequence dimensions exceed rect dimensions: {} : {}x{} > {}x{}",
+            seq.GetName(),
+            spriteSize.w,
+            spriteSize.h,
+            rect.w,
+            rect.h);
+
+        GG_CHECKB(rect.w > 0 && rect.h > 0,
+            "Sprite rect has zero dimensions: {} - {}x{}x{}x{}",
+            seq.GetName(),
             rect.x,
             rect.y,
             rect.w,
             rect.h);
 
         GG_CHECKB(
-            rect.w <= texDims.w && rect.h <= texDims.h && rect.x < texDims.w && rect.y < texDims.h,
+            rect.w <= texSize.w && rect.h <= texSize.h && rect.x < texSize.w && rect.y < texSize.h,
             "Sprite rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
-            sprite.GetName(),
+            seq.GetName(),
             rect.x,
             rect.y,
             rect.w,
             rect.h,
-            texDims.w,
-            texDims.h);
+            texSize.w,
+            texSize.h);
 
-        GG_CHECKB(texDims.w - rect.x >= rect.w && texDims.h - rect.y >= rect.h,
+        GG_CHECKB(texSize.w - rect.x >= rect.w && texSize.h - rect.y >= rect.h,
             "Sprite rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
-            sprite.GetName(),
+            seq.GetName(),
             rect.x,
             rect.y,
             rect.w,
             rect.h,
-            texDims.w - rect.x,
-            texDims.h - rect.y);
+            texSize.w - rect.x,
+            texSize.h - rect.y);
 
-        // Create a new sprite and replace the old one.
-        NamedSprite newSprite(sprite.GetName(),
-            Sprite(bindGroup,
-                rect,
-                colRects,
-                sprite.GetPivot(),
-                sprite.GetColor(),
-                sprite.GetScale()));
+        // Create a new sequence and replace the old one.
+        SpriteFrameSequence newSeq(seq.GetName(),
+            bindGroup,
+            spriteSize,
+            rect,
+            seq.m_ColRects,
+            seq.m_Pivot,
+            seq.GetTint(),
+            seq.GetScale());
 
-        m_Sprites[i] = std::move(newSprite);
+        m_SpriteSequences[i] = std::move(newSeq);
     }
 
-    auto bye = std::move(m_Sprites);
+    auto bye = std::move(m_SpriteSequences);
 
     return std::move(bye);
 }
 
 Result<>
-SpriteLoader::Update()
+SpriteSequenceLoader::Update()
 {
     for(auto& texLoader : m_TextureLoaders)
     {

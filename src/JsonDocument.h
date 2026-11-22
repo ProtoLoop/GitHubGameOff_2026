@@ -87,6 +87,9 @@ public:
 
     Result<> TryGetArray(JsonArray& value) const;
 
+    /// Returns the line number of this element in the source file.
+    size_t GetLine() const;
+
 private:
     friend class JsonProperty;
     friend class JsonIterator<JsonValue>;
@@ -130,6 +133,9 @@ public:
     /// Convert the JSON value to an array.
     Result<> TryGetArray(JsonArray& value) const;
 
+    /// Returns the line number of this element in the source file.
+    size_t GetLine() const;
+
 private:
     friend class JsonIterator<JsonProperty>;
 
@@ -156,6 +162,9 @@ public:
     /// Get the number of elements in the JSON array.
     /// WARNING: This is O(n) where n is the number of elements in the array.
     size_t size() const;
+
+    /// Returns the line number of this element in the source file.
+    size_t GetLine() const;
 
 private:
     friend class JsonValue;
@@ -193,6 +202,9 @@ public:
     iterator begin() const;
 
     iterator end() const;
+
+    /// Returns the line number of this element in the source file.
+    size_t GetLine() const;
 
 private:
     friend class JsonDocument;

@@ -20,7 +20,7 @@ struct SpriteState
 {
     cellXY: vec2f,   // World-cell position of the sprite’s pivot.
     pivot: vec2f,   // Normalized position within the sprite frame, with (0,0) top-left and (1,1) bottom-right.
-    color : vec4f,  // Linear RGBA tint.
+    tint : vec4f,   // Linear RGBA tint.
     srcRect: vec4f, // Source rectangle in texture pixels, before scaling.
     scale : f32,    // Uniform scale applied to image offsets and dimensions.
     pad0: u32,
@@ -82,7 +82,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
         spriteVerts[vid],  // brectUV
-        sprite.color,   // color
+        sprite.tint,   // color
         sprite.pivot    // pivot
     );
 }

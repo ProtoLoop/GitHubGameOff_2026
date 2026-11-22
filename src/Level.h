@@ -4,7 +4,7 @@
 #include "Prop.h"
 #include "Sprite.h"
 #include "SpriteAnimLoader.h"
-#include "SpriteLoader.h"
+#include "SpriteSequenceLoader.h"
 
 #include <memory>
 #include <span>
@@ -21,7 +21,7 @@ struct PropDef
 struct LevelDef
 {
     CellMapDef CellMapDef;
-    std::span<const SpriteDef> SpriteDefs;
+    std::span<const SpriteFrameSequenceDef> SpriteSeqDefs;
     std::span<const PropDef> PropDefs;
 };
 
@@ -49,18 +49,18 @@ public:
 
 private:
     LevelLoader(CellMapLoader&& cellMapLoader,
-        SpriteLoader&& spriteLoader,
+        SpriteSequenceLoader&& spriteSeqLoader,
         BoundedVector<SpriteAnimLoader>&& spriteAnimLoaders,
         BoundedVector<PropDef>&& propDefs)
         : m_CellMapLoader(std::move(cellMapLoader)),
-          m_SpriteLoader(std::move(spriteLoader)),
+          m_SpriteSeqLoader(std::move(spriteSeqLoader)),
           m_SpriteAnimLoaders(std::move(spriteAnimLoaders)),
           m_PropDefs(std::move(propDefs))
     {
     }
 
     CellMapLoader m_CellMapLoader;
-    SpriteLoader m_SpriteLoader;
+    SpriteSequenceLoader m_SpriteSeqLoader;
     BoundedVector<SpriteAnimLoader> m_SpriteAnimLoaders;
     BoundedVector<PropDef> m_PropDefs;
 
@@ -81,8 +81,6 @@ public:
 
     const CellMap& GetCellMap() const;
 
-    Result<const Sprite&> GetSprite(const std::string_view name) const;
-
     Result<const SpriteAnim&> GetSpriteAnim(const std::string_view name) const;
 
     Result<SpriteAnim::Instance> CreateSpriteAnimInstance(const std::string_view name) const;
@@ -93,12 +91,12 @@ private:
     friend class LevelLoader;
 
     Level(CellMap&& cellMap,
-        BoundedVector<NamedSprite>&& sprites,
+        BoundedVector<SpriteFrameSequence>&& spriteSeqs,
         BoundedVector<SpriteAnim>&& spriteAnims,
         BoundedVector<Prop>&& props);
 
     CellMap m_CellMap;
-    BoundedVector<NamedSprite> m_Sprites;
+    BoundedVector<SpriteFrameSequence> m_SpriteSeqs;
     BoundedVector<SpriteAnim> m_SpriteAnims;
     BoundedVector<Prop> m_Props;
 };

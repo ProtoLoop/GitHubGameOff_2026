@@ -4,63 +4,65 @@
 
 /// Sprite
 
-Sprite::Sprite(wgpu::BindGroup bindGroup,
+SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
     const Rect& srcRect,
-    const InlineVector<Rectf, 1>& colRects,
+    const std::span<const Rectf> colRects,
     const glm::vec2& pivot,
-    const glm::vec4& color,
+    const glm::vec4& tint,
     const float scale)
     : m_TextureBindGroup(std::move(bindGroup)),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
       m_Pivot(pivot),
-      m_Color(color),
+      m_Tint(tint),
       m_Scale(scale)
 {
 }
 
 /// SpriteSequence
 
-SpriteSequence::SpriteSequence(const ResourceName& name,
+SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
     wgpu::BindGroup bindGroup,
-    const Dimension2D& dim,
+    const Dimension2D& size,
     const Rect& srcRect,
     const InlineVector<Rectf, 1>& colRects,
     const glm::vec2& pivot,
-    const glm::vec4& color)
+    const glm::vec4& tint,
+    const float scale)
     : m_Name(name),
       m_BindGroup(std::move(bindGroup)),
-      m_Dim(dim),
+      m_Size(size),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
       m_Pivot(pivot),
-      m_Color(color),
-      m_SpriteCount((srcRect.w / dim.w) * (srcRect.h / dim.h))
+      m_Tint(tint),
+      m_Scale(scale),
+      m_FrameCount((srcRect.w / size.w) * (srcRect.h / size.h))
 {
 }
 
-Result<Sprite>
-SpriteSequence::GetSprite(const uint32_t index) const
+Result<SpriteFrame>
+SpriteFrameSequence::GetFrame(const uint32_t index) const
 {
-    GG_CHECKB(index < m_SpriteCount, "Index out of bounds");
+    GG_CHECKB(index < m_FrameCount, "Index out of bounds");
 
-    const uint32_t spritesPerRow = m_SrcRect.w / m_Dim.w;
+    const uint32_t spritesPerRow = m_SrcRect.w / m_Size.w;
     const uint32_t row = index / spritesPerRow;
     const uint32_t col = index % spritesPerRow;
     const Rect rect //
         {
-            m_SrcRect.x + (col * m_Dim.w),
-            m_SrcRect.y + (row * m_Dim.h),
-            m_Dim.w,
-            m_Dim.h,
+            m_SrcRect.x + (col * m_Size.w),
+            m_SrcRect.y + (row * m_Size.h),
+            m_Size.w,
+            m_Size.h,
         };
 
-    return Sprite(m_BindGroup, rect, m_ColRects, m_Pivot, m_Color, 1.0f);
+    return SpriteFrame(m_BindGroup, rect, m_ColRects, m_Pivot, m_Tint, m_Scale);
 }
 
 /// SpriteAnim
 
-SpriteAnim::SpriteAnim(const ResourceName& name, BoundedVector<SpriteSequence>&& spriteSeqs)
+SpriteAnim::SpriteAnim(const ResourceName& name, BoundedVector<SpriteFrameSequence>&& spriteSeqs)
     : m_Name(name),
       m_SpriteSequences(std::move(spriteSeqs))
 {
@@ -78,22 +80,22 @@ SpriteAnim::CreateInstance() const
     return Instance(*this);
 }
 
-Sprite
-SpriteAnim::GetSprite(const float phase, const Angle& angle) const
+SpriteFrame
+SpriteAnim::GetFrame(const float phase, const Angle& angle) const
 {
     const size_t dirCount = m_SpriteSequences.size();
     const float fdir = angle.ToTurns() * static_cast<float>(dirCount);
     const size_t direction = static_cast<size_t>(std::round(fdir)) % dirCount;
 
-    const SpriteSequence& sequence = m_SpriteSequences[direction];
+    const SpriteFrameSequence& sequence = m_SpriteSequences[direction];
 
-    const uint32_t framesPerDirection = sequence.GetSpriteCount();
+    const uint32_t framesPerDirection = sequence.GetFrameCount();
     const float normalizedPhase = phase - std::floor(phase);
     const uint32_t frame =
         static_cast<uint32_t>(normalizedPhase * static_cast<float>(framesPerDirection))
         % framesPerDirection;
 
-    return *sequence.GetSprite(frame);
+    return *sequence.GetFrame(frame);
 }
 
 /// SpriteAnim::Instance
@@ -155,14 +157,14 @@ SpriteAnim::Instance::GetAngle() const
     return m_Angle;
 }
 
-Sprite
-SpriteAnim::Instance::GetSprite() const
+SpriteFrame
+SpriteAnim::Instance::GetFrame() const
 {
-    return m_Anim->GetSprite(m_Phase, m_Angle);
+    return m_Anim->GetFrame(m_Phase, m_Angle);
 }
 
-Sprite
-SpriteAnim::Instance::GetSprite(const float phase, const Angle& angle) const
+SpriteFrame
+SpriteAnim::Instance::GetFrame(const float phase, const Angle& angle) const
 {
-    return m_Anim->GetSprite(phase, angle);
+    return m_Anim->GetFrame(phase, angle);
 }

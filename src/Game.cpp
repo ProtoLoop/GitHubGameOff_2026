@@ -93,19 +93,19 @@ Game::RenderSprites(Renderer& renderer)
 
     for(const Prop& prop : m_Level->GetProps())
     {
-        const Sprite& sprite = prop.GetSprite();
-        Rectf rect{ sprite.GetSrcRect().Size() };
-        rect -= rect.Size() * sprite.GetPivot();
+        const SpriteFrame& spriteFrame = prop.GetSpriteFrame();
+        Rectf rect{ spriteFrame.GetSize() };
+        rect -= rect.Size() * spriteFrame.GetPivot();
 
-        if(!renderer.QueueRectangle(rect, prop.GetTransform(), sprite.GetScale(), kYellow))
+        if(!renderer.QueueRectangle(rect, prop.GetTransform(), spriteFrame.GetScale(), kYellow))
             {
                 GG_ERROR("Failed to queue rectangle for prop");
                 break;
             }
 
-        const std::span<const Rectf> colRects = sprite.GetCollisionRects();
+        const std::span<const Rectf> colRects = spriteFrame.GetCollisionRects();
 
-        const glm::vec2 rectScale = sprite.GetSrcRect().Size();
+        const glm::vec2 rectScale = spriteFrame.GetSize();
 
         for(Rectf colRect : colRects)
         {
@@ -113,8 +113,8 @@ Game::RenderSprites(Renderer& renderer)
             colRect.y *= rectScale.y;
             colRect.w *= rectScale.x;
             colRect.h *= rectScale.y;
-            colRect -= rectScale * sprite.GetPivot();
-            if(!renderer.QueueRectangle(colRect, prop.GetTransform(), sprite.GetScale(), kMagenta))
+            colRect -= rectScale * spriteFrame.GetPivot();
+            if(!renderer.QueueRectangle(colRect, prop.GetTransform(), spriteFrame.GetScale(), kMagenta))
             {
                 GG_ERROR("Failed to queue rectangle for prop collision rect");
                 break;
@@ -134,36 +134,36 @@ Game::CheckCollisions()
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
-    const Sprite& ctSprite = m_Caretaker->GetSprite();
-    const glm::vec2 ctRectScale = ctSprite.GetSrcRect().Size();
+    const SpriteFrame& ctSpriteFrame = m_Caretaker->GetSpriteFrame();
+    const glm::vec2 ctRectScale = ctSpriteFrame.GetSize();
 
     float collisionDist = std::numeric_limits<float>::max();
     glm::vec2 collisionNormal;
     bool hasCollision = false;
 
-    for(Rectf ctBounds : ctSprite.GetCollisionRects())
+    for(Rectf ctBounds : ctSpriteFrame.GetCollisionRects())
     {
-        ctBounds -= ctSprite.GetPivot();
+        ctBounds -= ctSpriteFrame.GetPivot();
         ctBounds.x *= ctRectScale.x;
         ctBounds.y *= ctRectScale.y;
         ctBounds.w *= ctRectScale.x;
         ctBounds.h *= ctRectScale.y;
-        ctBounds *= ctSprite.GetScale();
+        ctBounds *= ctSpriteFrame.GetScale();
         ctBounds += (proj * m_Caretaker->GetPos() * pixelScale); // Offset by projected position
 
         for(const Prop& prop : m_Level->GetProps())
         {
-            const Sprite& propSprite = prop.GetSprite();
-            const glm::vec2 propRectScale = propSprite.GetSrcRect().Size();
+            const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
+            const glm::vec2 propRectScale = propSpriteFrame.GetSize();
 
-            for(Rectf propBounds : propSprite.GetCollisionRects())
+            for(Rectf propBounds : propSpriteFrame.GetCollisionRects())
             {
-                propBounds -= propSprite.GetPivot();
+                propBounds -= propSpriteFrame.GetPivot();
                 propBounds.x *= propRectScale.x;
                 propBounds.y *= propRectScale.y;
                 propBounds.w *= propRectScale.x;
                 propBounds.h *= propRectScale.y;
-                propBounds *= propSprite.GetScale();
+                propBounds *= propSpriteFrame.GetScale();
                 propBounds += (proj * prop.GetPos() * pixelScale); // Offset by projected position
 
                 if(ctBounds.Intersects(propBounds))

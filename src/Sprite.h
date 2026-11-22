@@ -18,30 +18,12 @@ constexpr size_t kResourceNameSize = 64;
 
 using ResourceName = InlineString<detail::kResourceNameSize>;
 
-struct SpriteDef
-{
-    ResourceName Name;
-    FilePath TexturePath;
-    // If not present then use the entire texture.
-    std::optional<Rect> SrcRect = std::nullopt;
-    /// Collision rectangles are normalized within the texture's dimensions.
-    /// 0,0 represents the top-left corner of the texture.
-    /// 1,1 represents the bottom-right corner of the texture.
-    /// If not present then there is no collision.
-    /// Collision rectangles CAN be outside the [0,1] range.
-    std::optional<Rectf> ColRect = std::nullopt;
-    glm::vec2 Pivot{0, 0};
-    glm::vec4 Color = glm::vec4(1.0f);
-    float Scale = 1.0f;
-};
-
 /// Defines frames within a rectangular region of a texture.
-/// Dim specifies each frame's pixel dimensions. Frames advance left to right,
+/// Size specifies each frame's pixel dimensions. Frames advance left to right,
 /// then top to bottom. Incomplete columns or rows at the edges are ignored.
-struct SpriteSequenceDef
+struct SpriteFrameSequenceDef
 {
     ResourceName Name;
-    Dimension2D Dim{};
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> SrcRect = std::nullopt;
@@ -50,9 +32,12 @@ struct SpriteSequenceDef
     /// 1,1 represents the bottom-right corner of the texture.
     /// If not present then there is no collision.
     /// Collision rectangles CAN be outside the [0,1] range.
+    // If not present then use the entire texture.
+    std::optional<Dimension2D> Size = std::nullopt;
     std::optional<Rectf> ColRect = std::nullopt;
     glm::vec2 Pivot{0, 0};
-    glm::vec4 Color = glm::vec4(1.0f);
+    glm::vec4 Tint = glm::vec4(1.0f);
+    float Scale = 1.0f;
 };
 
 /// Defines an animation's equally spaced facing directions.
@@ -65,18 +50,21 @@ struct SpriteAnimDef
     ResourceName Name;
     /// Borrows sequence storage, which must remain valid whenever this definition
     /// is read. SpriteAnimLoader::Load copies the data it needs before returning.
-    std::span<const SpriteSequenceDef> SequenceDefs;
+    std::span<const SpriteFrameSequenceDef> SequenceDefs;
 };
 
-/// A lightweight representation of a sprite within a texture atlas.
+/// A lightweight representation of a sprite frame within a texture atlas.
 /// Intended to be constructed on the fly and returned by value.
-class Sprite
+class SpriteFrame
 {
 public:
-    Sprite() = delete;
+    SpriteFrame() = delete;
 
     /// Returns the bind group for the sprite's texture.
     const wgpu::BindGroup& GetTextureBindGroup() const { return m_TextureBindGroup; }
+
+    /// Returns the size (width and height) of the sprite.
+    glm::uvec2 GetSize() const { return m_SrcRect.Size(); }
 
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetSrcRect() const { return m_SrcRect; }
@@ -93,25 +81,25 @@ public:
     float GetScale() const { return m_Scale; }
 
     /// Returns the color tint for the sprite.
-    const glm::vec4& GetColor() const { return m_Color; }
+    const glm::vec4& GetTint() const { return m_Tint; }
 
 private:
     friend class SpriteAnimLoader;
-    friend class SpriteSequence;
-    friend class SpriteLoader;
+    friend class SpriteFrameSequence;
+    friend class SpriteSequenceLoader;
 
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
     /// colRects specifies the normalized collision rectangles of the sprite.
     /// pivot specifies the pivot point within the sprite's rectangle.
-    /// color specifies the color tint for the sprite.
+    /// tint specifies the color tint for the sprite.
     /// scale specifies the scale factor for the sprite.
-    Sprite(wgpu::BindGroup bindGroup,
+    SpriteFrame(wgpu::BindGroup bindGroup,
         const Rect& srcRect,
-        const InlineVector<Rectf, 1>& colRects,
+        const std::span<const Rectf> colRects,
         const glm::vec2& pivot,
-        const glm::vec4& color,
+        const glm::vec4& tint,
         const float scale);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
@@ -119,92 +107,63 @@ private:
     // Collection of normalized collision rectangles of the sprite.
     // 0,0 is top-left, 1,1 is bottom-right.
     // If empty, the sprite has no collision rectangles.
-    InlineVector<Rectf, 1> m_ColRects;
+    std::span<const Rectf> m_ColRects;
     glm::vec2 m_Pivot;
-    glm::vec4 m_Color;
+    glm::vec4 m_Tint;
     float m_Scale;
 };
 
-/// Associates a name with a sprite.
-class NamedSprite
+class SpriteFrameSequence
 {
 public:
-    NamedSprite() = delete;
-
-    NamedSprite(const ResourceName& name, Sprite&& sprite)
-        : m_Name(name),
-          m_Sprite(std::move(sprite))
-    {
-    }
-
-    const ResourceName& GetName() const { return m_Name; }
-
-    /// Returns the bind group for the sprite's texture.
-    const wgpu::BindGroup& GetTextureBindGroup() const { return m_Sprite.GetTextureBindGroup(); }
-
-    /// Returns the rectangle defining the sprite within the texture atlas.
-    const Rect& GetSrcRect() const { return m_Sprite.GetSrcRect(); }
-
-    /// Returns the normalized collision rectangles of the sprite.
-    /// 0,0 is top-left, 1,1 is bottom-right.
-    /// Collision rectangles CAN be outside the [0,1] range.
-    std::span<const Rectf> GetCollisionRects() const { return m_Sprite.GetCollisionRects(); }
-
-    /// Returns the pivot point within the sprite's rectangle.
-    const glm::vec2& GetPivot() const { return m_Sprite.GetPivot(); }
-
-    /// Returns the scale factor for the sprite.
-    float GetScale() const { return m_Sprite.GetScale(); }
-
-    /// Returns the color tint for the sprite.
-    const glm::vec4& GetColor() const { return m_Sprite.GetColor(); }
-
-    const Sprite& GetSprite() const { return m_Sprite; }
-
-private:
-    ResourceName m_Name;
-    Sprite m_Sprite;
-};
-
-class SpriteSequence
-{
-public:
-    SpriteSequence() = delete;
+    SpriteFrameSequence() = delete;
 
     const ResourceName& GetName() const { return m_Name; }
 
     /// Returns the rectangle defining the sprite sequence within the texture atlas.
     const Rect& GetSrcRect() const { return m_SrcRect; }
 
+    /// Returns the normalized collision rectangles of the sprite.
+    /// 0,0 is top-left, 1,1 is bottom-right.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
+
     /// Returns the color tint for the sprite sequence.
-    const glm::vec4& GetColor() const { return m_Color; }
+    const glm::vec4& GetTint() const { return m_Tint; }
 
-    Result<Sprite> GetSprite(const uint32_t index) const;
+    float GetScale() const { return m_Scale; }
 
-    uint32_t GetSpriteCount() const { return m_SpriteCount; }
+    /// Returns the sprite frame at the specified index within the sequence.
+    Result<SpriteFrame> GetFrame(const uint32_t index) const;
+
+    /// Returns the number of frames in the sequence.
+    uint32_t GetFrameCount() const { return m_FrameCount; }
 
 private:
     friend class SpriteAnimLoader;
+    friend class SpriteSequenceLoader;
 
-    SpriteSequence(const ResourceName& name,
+    SpriteFrameSequence(const ResourceName& name,
         wgpu::BindGroup bindGroup,
-        const Dimension2D& dim,
+        const Dimension2D& size,
         const Rect& srcRect,
         const InlineVector<Rectf, 1>& colRects,
         const glm::vec2& pivot,
-        const glm::vec4& color);
+        const glm::vec4& tint,
+        const float scale);
 
     ResourceName m_Name;
     wgpu::BindGroup m_BindGroup;
-    // Dimensions of each sprite within the sequence.
-    Dimension2D m_Dim;
+    // W/H of each sprite within the sequence.
+    Dimension2D m_Size;
     // Source rectangle of the sequence within the texture atlas.
     Rect m_SrcRect;
     // Normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
     InlineVector<Rectf, 1> m_ColRects; // Collection of normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
     glm::vec2 m_Pivot;
-    glm::vec4 m_Color;
-    uint32_t m_SpriteCount;
+    glm::vec4 m_Tint;
+    float m_Scale;
+    uint32_t m_FrameCount;
 };
 
 /// A sprite animation resource.
@@ -232,15 +191,15 @@ public:
     /// Returns the sprite frame corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    Sprite GetSprite(const float phase, const Angle& angle) const;
+    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
 
 private:
     friend class SpriteAnimLoader;
 
-    SpriteAnim(const ResourceName& name, BoundedVector<SpriteSequence>&& spriteSeqs);
+    SpriteAnim(const ResourceName& name, BoundedVector<SpriteFrameSequence>&& spriteSeqs);
 
     ResourceName m_Name;
-    BoundedVector<SpriteSequence> m_SpriteSequences;
+    BoundedVector<SpriteFrameSequence> m_SpriteSequences;
 };
 
 /// Represents an instance of a sprite animation.
@@ -280,12 +239,12 @@ public:
     const Angle& GetAngle() const;
 
     /// Returns the sprite frame corresponding to the current animation phase and angle.
-    Sprite GetSprite() const;
+    SpriteFrame GetFrame() const;
 
     /// Returns the sprite frame corresponding to the given animation phase and angle.
     /// phase is a value between 0 and 1 representing the animation progress.
     /// angle is the direction for which to retrieve the sprite.
-    Sprite GetSprite(const float phase, const Angle& angle) const;
+    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
 
 private:
     friend SpriteAnim;

@@ -19,7 +19,7 @@ public:
 
     static Result<Caretaker> Create(Game& game);
 
-    Sprite GetSprite() const { return m_CurAnim.GetSprite(); }
+    SpriteFrame GetSpriteFrame() const { return m_CurAnim.GetFrame(); }
 
     Result<> Tick(const float deltaTime, Game& game);
 

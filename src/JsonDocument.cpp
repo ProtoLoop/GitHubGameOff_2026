@@ -92,11 +92,11 @@ JsonValue::TryGetUint32(uint32_t& value) const
 
     GG_CHECK(ec == std::errc{},
         "Failed to parse number (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     GG_CHECK(ptr == sv.data() + sv.size(),
         "Unexpected trailing characters: (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     return Result<>::Ok;
 }
@@ -113,7 +113,7 @@ JsonValue::TryGetFloat(float& value) const
 
     GG_CHECKB(ParseFloat(sv, value),
         "Failed to parse number (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     // std::from_chars() not available in xcode
     //  NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -138,7 +138,7 @@ JsonValue::TryGetBool(bool& value) const
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_PRIMITIVE,
         "Expected token to be a primitive (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     const std::string_view sv = TokStr(tok, m_Json);
 
@@ -149,7 +149,7 @@ JsonValue::TryGetBool(bool& value) const
         return Result<>::Ok;
     }
 
-    GG_CHECKB(sv == "false", "Invalid boolean value (line:{})", GetLine(m_Index, m_Tokens, m_Json));
+    GG_CHECKB(sv == "false", "Invalid boolean value (line:{})", GetLine());
 
     value = false;
 
@@ -164,7 +164,7 @@ JsonValue::TryGetString(std::string_view& value) const
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_STRING,
         "Expected token to be a string (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     value = TokStr(tok, m_Json);
 
@@ -179,12 +179,12 @@ JsonValue::TryGetObject(JsonObject& value) const
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_OBJECT,
         "Expected token to be an object (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     const size_t size = static_cast<size_t>(tok.size);
     GG_CHECKB(m_Index + size <= m_Tokens.size(),
         "Object tokens out of bounds: (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     value = JsonObject(m_Index, m_Tokens, m_Json);
     return Result<>::Ok;
@@ -198,17 +198,23 @@ JsonValue::TryGetArray(JsonArray& value) const
     const jsmntok_t& tok = m_Tokens[m_Index];
     GG_CHECK(tok.type == JSMN_ARRAY,
         "Expected value to be an array (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     // Get the child tokens of the array, skipping the array token itself.
     const size_t size = static_cast<size_t>(tok.size);
 
     GG_CHECKB(m_Index + size <= m_Tokens.size(),
         "Array tokens out of bounds: (line:{})",
-        GetLine(m_Index, m_Tokens, m_Json));
+        GetLine());
 
     value = JsonArray(m_Index, m_Tokens, m_Json);
     return Result<>::Ok;
+}
+
+size_t
+JsonValue::GetLine() const
+{
+    return ::GetLine(m_Index, m_Tokens, m_Json);
 }
 
 /// JsonProperty
@@ -302,6 +308,12 @@ JsonProperty::JsonProperty(
     GG_ASSERT(m_Tokens[m_Index].type == JSMN_STRING, "Expected property key to be as string");
 }
 
+size_t
+JsonProperty::GetLine() const
+{
+    return ::GetLine(m_Index, m_Tokens, m_Json);
+}
+
 /// JsonArray
 
 template<>
@@ -379,6 +391,12 @@ JsonArray::JsonArray(
 {
     GG_ASSERT(m_Index < m_Tokens.size(), "JsonArray out of bounds");
     GG_ASSERT(m_Tokens[m_Index].type == JSMN_ARRAY, "Expected an array");
+}
+
+size_t
+JsonArray::GetLine() const
+{
+    return ::GetLine(m_Index, m_Tokens, m_Json);
 }
 
 /// JsonObject
@@ -568,6 +586,12 @@ JsonObject::iterator
 JsonObject::end() const
 {
     return iterator(m_Index, 0, 0, m_Tokens, m_Json);
+}
+
+size_t
+JsonObject::GetLine() const
+{
+    return ::GetLine(m_Index, m_Tokens, m_Json);
 }
 
 /// JsonDocument

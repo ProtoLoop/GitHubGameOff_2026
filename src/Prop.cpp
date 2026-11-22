@@ -2,8 +2,8 @@
 
 #include "Renderer.h"
 
-Prop::Prop(Sprite sprite, const Transform2D& transform)
-    : m_Sprite(std::move(sprite)),
+Prop::Prop(SpriteFrameSequence spriteSeq, const Transform2D& transform)
+    : m_SpriteSeq(std::move(spriteSeq)),
       m_Transform(transform)
 {
 }
@@ -11,7 +11,7 @@ Prop::Prop(Sprite sprite, const Transform2D& transform)
 Result<>
 Prop::Render(Renderer& renderer) const
 {
-    GG_CHECK(renderer.QueueSprite(m_Sprite, GetTransform()),
+    GG_CHECK(renderer.QueueSprite(GetSpriteFrame(), GetTransform()),
         "Failed to queue sprite");
 
     return Result<>::Ok;

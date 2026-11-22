@@ -12,21 +12,22 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
     Renderer& renderer,
     WebGpu& webGpu)
 {
-    std::span spriteDefSubspan = levelDef.SpriteDefs;
+    std::span spriteDefSubspan = levelDef.SpriteSeqDefs;
 
-    for(const SpriteDef& def : levelDef.SpriteDefs)
+    for(const SpriteFrameSequenceDef& def : levelDef.SpriteSeqDefs)
     {
         // Check for duplicate names.
         spriteDefSubspan = spriteDefSubspan.subspan(1);
 
-        for(const SpriteDef& def2 : spriteDefSubspan)
+        for(const SpriteFrameSequenceDef& def2 : spriteDefSubspan)
         {
             GG_CHECKB(def2.Name != def.Name, "Duplicate sprite name: {}", def.Name);
         }
     }
 
-    auto spriteLoadResult = SpriteLoader::Load(levelDef.SpriteDefs, fileFetcher, renderer, webGpu);
-    GG_CHECK(spriteLoadResult, "Failed to load sprites");
+    auto spriteSeqLoadResult =
+        SpriteSequenceLoader::Load(levelDef.SpriteSeqDefs, fileFetcher, renderer, webGpu);
+    GG_CHECK(spriteSeqLoadResult, "Failed to load sprites");
 
     BoundedVector<SpriteAnimLoader> spriteAnimLoaders(spriteAnimDefs.size());
 
@@ -60,7 +61,7 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
     }
 
     return LevelLoader(std::move(*cellResult),
-        std::move(*spriteLoadResult),
+        std::move(*spriteSeqLoadResult),
         std::move(spriteAnimLoaders),
         std::move(propDefs));
 }
@@ -81,7 +82,7 @@ LevelLoader::IsPending() const
         }
     }
 
-    return m_SpriteLoader.IsPending();
+    return m_SpriteSeqLoader.IsPending();
 }
 
 Result<>
@@ -92,9 +93,9 @@ LevelLoader::Update()
         GG_CHECK(m_CellMapLoader.Update(), "Failed to update cell map loader");
     }
     
-    if(m_SpriteLoader.IsPending())
+    if(m_SpriteSeqLoader.IsPending())
     {
-        GG_CHECK(m_SpriteLoader.Update(), "Failed to update sprite loader");
+        GG_CHECK(m_SpriteSeqLoader.Update(), "Failed to update sprite loader");
     }
 
     for(SpriteAnimLoader& loader : m_SpriteAnimLoaders)
@@ -127,22 +128,22 @@ LevelLoader::Take()
     auto cellMapResult = m_CellMapLoader.Take();
     GG_CHECK(cellMapResult, "Failed to load cell map");
 
-    auto spritesResult = m_SpriteLoader.Take();
-    GG_CHECK(spritesResult, "Failed to load sprites");
+    auto spriteSeqsResult = m_SpriteSeqLoader.Take();
+    GG_CHECK(spriteSeqsResult, "Failed to load sprite sequeneces");
 
     BoundedVector<Prop> props(m_PropDefs.size());
 
     for(const PropDef& propDef : m_PropDefs)
     {
-        GG_CHECKB(propDef.SpriteId < spritesResult->size(), "Invalid sprite ID for prop");
+        GG_CHECKB(propDef.SpriteId < spriteSeqsResult->size(), "Invalid sprite ID for prop");
 
-        const Sprite& sprite = (*spritesResult)[propDef.SpriteId].GetSprite();
+        const SpriteFrameSequence& seq = (*spriteSeqsResult)[propDef.SpriteId];
 
-        props.emplace_back(sprite, propDef.Transform);
+        props.emplace_back(seq, propDef.Transform);
     }
 
     return std::unique_ptr<Level>(new Level(std::move(*cellMapResult),
-        std::move(*spritesResult),
+        std::move(*spriteSeqsResult),
         std::move(spriteAnims),
         std::move(props)));
 }
@@ -150,11 +151,11 @@ LevelLoader::Take()
 /// Level
 
 Level::Level(CellMap&& cellMap,
-    BoundedVector<NamedSprite>&& sprites,
+    BoundedVector<SpriteFrameSequence>&& spriteSeqs,
     BoundedVector<SpriteAnim>&& spriteAnims,
     BoundedVector<Prop>&& props)
     : m_CellMap(std::move(cellMap)),
-      m_Sprites(std::move(sprites)),
+      m_SpriteSeqs(std::move(spriteSeqs)),
       m_SpriteAnims(std::move(spriteAnims)),
       m_Props(std::move(props))
 {
@@ -164,24 +165,6 @@ const CellMap&
 Level::GetCellMap() const
 {
     return m_CellMap;
-}
-
-Result<const Sprite&>
-Level::GetSprite(const std::string_view name) const
-{
-    const Sprite* foundSprite = nullptr;
-    for(const NamedSprite& namedSprite : m_Sprites)
-    {
-        if(namedSprite.GetName() == name)
-        {
-            foundSprite = &namedSprite.GetSprite();
-            break;
-        }
-    }
-
-    GG_CHECKB(foundSprite, "Sprite not found: {}", name);
-
-    return *foundSprite;
 }
 
 Result<const SpriteAnim&>

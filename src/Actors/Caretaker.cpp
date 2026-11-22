@@ -113,9 +113,9 @@ Caretaker::Render(Renderer& renderer) const
         ? kIsoAngleOffset
         : Angle(0.0f);
         
-    const Sprite sprite =
-        m_CurAnim.GetSprite(m_CurAnim.GetPhase(), m_CurAnim.GetAngle() + angleOffset);
-    GG_CHECKB(renderer.QueueSprite(sprite, GetTransform()), "Failed to queue sprite");
+    const SpriteFrame spriteFrame =
+        m_CurAnim.GetFrame(m_CurAnim.GetPhase(), m_CurAnim.GetAngle() + angleOffset);
+    GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
 }

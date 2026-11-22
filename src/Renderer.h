@@ -57,7 +57,7 @@ public:
     /// Queues a sprite for the next Render() call.
     /// Transform rotation does not rotate the sprite.
     /// Returns an error if the queue is full.
-    Result<> QueueSprite(const Sprite& sprite, const Transform2D& transform);
+    Result<> QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
     /// Queues a rectangle for the next Render() call.
     /// Transform rotation does not rotate the rectangle.
@@ -85,7 +85,7 @@ private:
     {
         glm::vec2 cellXY{};   // Map space cell coordinates of the sprite.
         glm::vec2 pivot{};   // Pivot point of the sprite.
-        glm::vec4 color{};   // Color tint for the sprite.
+        glm::vec4 tint{};   // Color tint for the sprite.
         glm::vec4 srcRect{}; // Source rectangle in the texture (x, y, w, h)
         float scale{ 1.0f }; // Scale factor for the sprite.
         uint32_t pad0{ 0 };
@@ -113,7 +113,7 @@ private:
     struct SpriteDrawRecord
     {
         Transform2D Transform;
-        Sprite Sprite;
+        SpriteFrame SpriteFrame;
         size_t SortTieBreaker{};
     };
 
@@ -128,7 +128,7 @@ private:
     // NOLINTBEGIN(readability-magic-numbers)
     static_assert(offsetof(GpuSpriteState, cellXY) == 0, "SpriteState::cellXY must be at offset 0");
     static_assert(offsetof(GpuSpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
-    static_assert(offsetof(GpuSpriteState, color) == 16, "SpriteState::color must be at offset 16");
+    static_assert(offsetof(GpuSpriteState, tint) == 16, "SpriteState::tint must be at offset 16");
     static_assert(offsetof(GpuSpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
     static_assert(offsetof(GpuSpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
 

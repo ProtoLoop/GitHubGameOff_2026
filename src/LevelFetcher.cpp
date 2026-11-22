@@ -43,7 +43,7 @@ struct ParsedLevel
     uint32_t CellsPerSide;
     BoundedVector<FilePath> TileSheetPaths;
     BoundedVector<FilePath> MaskSheetPaths;
-    BoundedVector<SpriteDef> SpriteDefs;
+    BoundedVector<SpriteFrameSequenceDef> SpriteSeqDefs;
     BoundedVector<Layer> Layers;
     BoundedVector<PropDef> PropDefs;
     LevelDef LevelDef //
@@ -53,25 +53,36 @@ struct ParsedLevel
                 .CellsPerSide = CellsPerSide,
                 .TileSets{ TileSheetPaths },
             },
-            .SpriteDefs{ SpriteDefs },
+            .SpriteSeqDefs{ SpriteSeqDefs },
             .PropDefs{ PropDefs },
         };
 };
 
-Result<SpriteDef>
+Result<SpriteFrameSequenceDef>
 ParsePropAsset(const JsonObject& propAsset)
 {
     std::optional<std::string_view> optTexPath;
-    std::optional<Rect> optRect;
+    std::optional<std::string_view> optName;
+    std::optional<Rect> optSrcRect;
+    std::optional<Dimension2D> optSize;
     std::optional<Rectf> optColRect;
     std::optional<glm::vec2> optPivot;
     std::optional<float> optScale;
+
+    if(std::string_view name; propAsset.TryGetString("name", name))
+    {
+        optName = name;
+    }
+    GG_CHECKB(optName.has_value(), "Missing name (line:{})", propAsset.GetLine());
 
     if(std::string_view path; propAsset.TryGetString("texPath", path))
     {
         optTexPath = path;
     }
-    GG_CHECKB(optTexPath.has_value(), "Missing texture path");
+    GG_CHECKB(optTexPath.has_value(),
+        "Missing texture path: {} (line:{})",
+        *optName,
+        propAsset.GetLine());
 
     if(JsonObject jsonObj; propAsset.TryGetObject("pivot", jsonObj))
     {
@@ -85,12 +96,42 @@ ParsePropAsset(const JsonObject& propAsset)
     {
         uint32_t x{}, y{}, w{}, h{};
 
-        GG_CHECKB(jsonObj.TryGetUint32("x", x), "Missing x in srcRect");
-        GG_CHECKB(jsonObj.TryGetUint32("y", y), "Missing y in srcRect");
-        GG_CHECKB(jsonObj.TryGetUint32("w", w), "Missing w in srcRect");
-        GG_CHECKB(jsonObj.TryGetUint32("h", h), "Missing h in srcRect");
+        const bool haveX = jsonObj.TryGetUint32("x", x).HasValue();
+        const bool haveY = jsonObj.TryGetUint32("y", y).HasValue();
+        const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
+        const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
         
-        optRect = Rect{ x, y, w, h };
+        if(haveX && haveY && haveW && haveH)
+        {
+            optSrcRect = Rect{ x, y, w, h };
+        }
+        else
+        {
+            GG_CHECKB(!haveX && !haveY && !haveW && !haveH,
+                "Incomplete srcRect: {} (line:{})",
+                *optName,
+                jsonObj.GetLine());
+        }
+    }
+
+    if(JsonObject jsonObj; propAsset.TryGetObject("size", jsonObj))
+    {
+        uint32_t w{}, h{};
+
+        const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
+        const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
+        
+        if(haveW && haveH)
+        {
+            optSize = Dimension2D{ .w = w, .h = h };
+        }
+        else
+        {
+            GG_CHECKB(!haveW && !haveH,
+                "Incomplete size: {} (line:{})",
+                *optName,
+                jsonObj.GetLine());
+        }
     }
 
     if(JsonArray jsonArray; propAsset.TryGetArray("collisionRects", jsonArray))
@@ -98,13 +139,27 @@ ParsePropAsset(const JsonObject& propAsset)
         for(const JsonValue& value : jsonArray)
         {
             JsonObject jsonObj;
-            GG_CHECKB(value.TryGetObject(jsonObj), "Failed to get collision rect object");
+            GG_CHECKB(value.TryGetObject(jsonObj),
+                "Failed to get collision rect object: {}",
+                *optName);
             float x{}, y{}, w{}, h{};
 
-            GG_CHECKB(jsonObj.TryGetFloat("x", x), "Missing x in collision rect");
-            GG_CHECKB(jsonObj.TryGetFloat("y", y), "Missing y in collision rect");
-            GG_CHECKB(jsonObj.TryGetFloat("w", w), "Missing w in collision rect");
-            GG_CHECKB(jsonObj.TryGetFloat("h", h), "Missing h in collision rect");
+            GG_CHECKB(jsonObj.TryGetFloat("x", x),
+                "Missing x in collision rect: {} (line:{})",
+                *optName,
+                value.GetLine());
+            GG_CHECKB(jsonObj.TryGetFloat("y", y),
+                "Missing y in collision rect: {} (line:{})",
+                *optName,
+                value.GetLine());
+            GG_CHECKB(jsonObj.TryGetFloat("w", w),
+                "Missing w in collision rect: {} (line:{})",
+                *optName,
+                value.GetLine());
+            GG_CHECKB(jsonObj.TryGetFloat("h", h),
+                "Missing h in collision rect: {} (line:{})",
+                *optName,
+                value.GetLine());
 
             optColRect = Rectf{ x, y, w, h };
         }
@@ -115,52 +170,52 @@ ParsePropAsset(const JsonObject& propAsset)
         optScale = scale;
     }
 
-    const glm::vec2 pivot = optPivot ? *optPivot : glm::vec2{0.5f, 0.5f};
+    const glm::vec2 pivot = optPivot ? *optPivot : glm::vec2{ 0.5f, 0.5f };
 
     const float scaleValue = optScale ? *optScale : 1.0f;
 
-    std::string_view name = *optTexPath;
-
-    // Extract the file name without the path and extension
-    name = name.substr(name.find_last_of('/') + 1);
-    name = name.substr(0, name.find_last_of('.'));
-
-    return SpriteDef //
+    return SpriteFrameSequenceDef //
         {
-            .Name = name,
+            .Name = *optName,
             .TexturePath = *optTexPath,
-            .SrcRect = optRect,
+            .SrcRect = optSrcRect,
+            .Size = optSize,
             .ColRect = optColRect,
             .Pivot = pivot,
             .Scale = scaleValue,
         };
 }
 
-Result<BoundedVector<SpriteDef>>
+Result<BoundedVector<SpriteFrameSequenceDef>>
 ParsePropAssets(const JsonArray& propAssets)
 {
-    BoundedVector<SpriteDef> spriteDefs(propAssets.size());
+    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(propAssets.size());
 
     for(const JsonValue& value : propAssets)
     {
         JsonObject propAsset;
-        GG_CHECKB(value.TryGetObject(propAsset), "Failed to get prop asset object");
+        GG_CHECKB(value.TryGetObject(propAsset),
+            "Failed to get prop asset object (line:{})",
+            value.GetLine());
 
         auto result = ParsePropAsset(propAsset);
-        GG_CHECKB(result, "Failed to parse prop asset");
+        GG_CHECKB(result, "Failed to parse prop asset (line:{})", value.GetLine());
 
-        for(const SpriteDef& spriteDef : spriteDefs)
+        for(const SpriteFrameSequenceDef& spriteSeqDef : spriteSeqDefs)
         {
-            if(spriteDef.Name == result->Name)
+            if(spriteSeqDef.Name == result->Name)
             {
-                GG_CHECKB(false, "Duplicate sprite name: {}", result->Name);
+                GG_CHECKB(false,
+                    "Duplicate sprite sequence name: {} (line:{})",
+                    result->Name,
+                    value.GetLine());
             }
         }
 
-        spriteDefs.push_back(*result);
+        spriteSeqDefs.push_back(*result);
     }
 
-    return spriteDefs;
+    return spriteSeqDefs;
 }
 
 Result<PropDef>
@@ -174,7 +229,7 @@ ParseProp(const JsonObject& prop)
     {
         optAssetIndex = assetIndex;
     }
-    GG_CHECKB(optAssetIndex.has_value(), "Missing asset index");
+    GG_CHECKB(optAssetIndex.has_value(), "Missing asset index (line:{})", prop.GetLine());
 
     if(JsonObject jsonObj; prop.TryGetObject("pos", jsonObj))
     {
@@ -183,13 +238,13 @@ ParseProp(const JsonObject& prop)
             optPos = glm::vec2{ x, y };
         }
     }
-    GG_CHECKB(optPos.has_value(), "Missing position");
+    GG_CHECKB(optPos.has_value(), "Missing position (line:{})", prop.GetLine());
 
     if(float rot{}; prop.TryGetFloat("rot", rot))
     {
         optRot = rot;
     }
-    GG_CHECKB(optRot.has_value(), "Missing rotation");
+    GG_CHECKB(optRot.has_value(), "Missing rotation (line:{})", prop.GetLine());
 
     return PropDef //
         {
@@ -210,10 +265,10 @@ ParseProps(const JsonArray& jsonProps)
     for(const JsonValue& value : jsonProps)
     {
         JsonObject prop;
-        GG_CHECKB(value.TryGetObject(prop), "Failed to get prop object");
+        GG_CHECKB(value.TryGetObject(prop), "Failed to get prop object (line:{})", value.GetLine());
 
         auto result = ParseProp(prop);
-        GG_CHECKB(result, "Failed to parse prop");
+        GG_CHECKB(result, "Failed to parse prop (line:{})", value.GetLine());
 
         props.push_back(*result);
     }
@@ -231,13 +286,13 @@ ParseLayer(const JsonObject& layer)
     {
         optSheetIndex = sheetIndex;
     }
-    GG_CHECKB(optSheetIndex.has_value(), "Missing sheet index");
+    GG_CHECKB(optSheetIndex.has_value(), "Missing sheet index (line:{})", layer.GetLine());
 
     if(JsonArray cellsArray; layer.TryGetArray("cells", cellsArray))
     {
         optCellsArray = cellsArray;
     }
-    GG_CHECKB(optCellsArray.has_value(), "Missing cells array");
+    GG_CHECKB(optCellsArray.has_value(), "Missing cells array (line:{})", layer.GetLine());
 
     const size_t cellCount = optCellsArray->size();
     BoundedVector<uint32_t> cells(cellCount);
@@ -264,10 +319,12 @@ ParseLayers(const JsonArray& jsonLayers)
     for(const JsonValue& value : jsonLayers)
     {
         JsonObject layer;
-        GG_CHECKB(value.TryGetObject(layer), "Failed to get layer object");
+        GG_CHECKB(value.TryGetObject(layer),
+            "Failed to get layer object (line:{})",
+            value.GetLine());
 
         auto layerResult = ParseLayer(layer);
-        GG_CHECKB(layerResult, "Failed to parse layer");
+        GG_CHECKB(layerResult, "Failed to parse layer (line:{})", value.GetLine());
         layers.push_back(std::move(*layerResult));
     }
 
@@ -286,7 +343,7 @@ Parse(std::vector<std::byte>&& data)
 
     std::optional<BoundedVector<FilePath>> optTileSheetPaths;
     std::optional<BoundedVector<FilePath>> optMaskSheetPaths;
-    std::optional<BoundedVector<SpriteDef>> optSpriteDefs;
+    std::optional<BoundedVector<SpriteFrameSequenceDef>> optSpriteSeqDefs;
     std::optional<BoundedVector<Layer>> optLayers;
     std::optional<BoundedVector<PropDef>> optPropDefs;
 
@@ -294,29 +351,33 @@ Parse(std::vector<std::byte>&& data)
     {
         optGridSize = gridSize;
     }
-    GG_CHECKB(optGridSize.has_value(), "Missing grid size");
+    GG_CHECKB(optGridSize.has_value(), "Missing grid size (line:{})", jobj.GetLine());
 
     if(JsonArray tileSheetsArray; jobj.TryGetArray("tileSheets", tileSheetsArray))
     {
         optTileSheetPaths.emplace(tileSheetsArray.size());
 
-        for(const auto& sheet : tileSheetsArray)
+        for(const JsonValue& sheet : tileSheetsArray)
         {
             std::string_view str;
-            GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+            GG_CHECKB(sheet.TryGetString(str),
+                "Failed to get sheet string (line:{})",
+                sheet.GetLine());
             optTileSheetPaths->push_back(str);
         }
     }
-    GG_CHECKB(optTileSheetPaths.has_value(), "Missing tile sheet paths");
+    GG_CHECKB(optTileSheetPaths.has_value(), "Missing tile sheet paths (line:{})", jobj.GetLine());
 
     if(JsonArray maskSheetsArray; jobj.TryGetArray("maskSheets", maskSheetsArray))
     {
         optMaskSheetPaths.emplace(maskSheetsArray.size());
 
-        for(const auto& sheet : maskSheetsArray)
+        for(const JsonValue& sheet : maskSheetsArray)
         {
             std::string_view str;
-            GG_CHECKB(sheet.TryGetString(str), "Failed to get sheet string");
+            GG_CHECKB(sheet.TryGetString(str),
+                "Failed to get sheet string (line:{})",
+                sheet.GetLine());
             optMaskSheetPaths->push_back(str);
         }
     }
@@ -325,16 +386,18 @@ Parse(std::vector<std::byte>&& data)
     if(JsonArray propAssetsArray; jobj.TryGetArray("propAssets", propAssetsArray))
     {
         auto propAssetsResult = ParsePropAssets(propAssetsArray);
-        GG_CHECK(propAssetsResult, "Failed to parse prop assets");
+        GG_CHECK(propAssetsResult,
+            "Failed to parse prop assets (line:{})",
+            propAssetsArray.GetLine());
 
-        optSpriteDefs = std::move(*propAssetsResult);
+        optSpriteSeqDefs = std::move(*propAssetsResult);
     }
     // propAssets is optional - it can be absent in the JSON
 
     if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
     {
         auto propResult = ParseProps(propsArray);
-        GG_CHECK(propResult, "Failed to parse props");
+        GG_CHECK(propResult, "Failed to parse props (line:{})", propsArray.GetLine());
 
         optPropDefs.emplace(std::move(*propResult));
     }
@@ -343,20 +406,20 @@ Parse(std::vector<std::byte>&& data)
     if(JsonArray layersArray; jobj.TryGetArray("layers", layersArray))
     {
         auto layerResult = ParseLayers(layersArray);
-        GG_CHECK(layerResult, "Failed to parse layer");
+        GG_CHECK(layerResult, "Failed to parse layer (line:{})", layersArray.GetLine());
 
         optLayers.emplace(std::move(*layerResult));
     }
-    GG_CHECKB(optLayers.has_value(), "Missing layers");
+    GG_CHECKB(optLayers.has_value(), "Missing layers (line:{})", jobj.GetLine());
 
-    if(!optSpriteDefs || optSpriteDefs->empty())
+    if(!optSpriteSeqDefs || optSpriteSeqDefs->empty())
     {
         GG_CHECKB(!optPropDefs || optPropDefs->empty(),
             "Props must be empty if no prop assets are defined");
     }
 
-    BoundedVector<SpriteDef> spriteDefs =
-        optSpriteDefs ? std::move(*optSpriteDefs) : BoundedVector<SpriteDef>(0);
+    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs =
+        optSpriteSeqDefs ? std::move(*optSpriteSeqDefs) : BoundedVector<SpriteFrameSequenceDef>(0);
     BoundedVector<PropDef> propDefs =
         optPropDefs ? std::move(*optPropDefs) : BoundedVector<PropDef>(0);
 
@@ -365,7 +428,7 @@ Parse(std::vector<std::byte>&& data)
             .CellsPerSide = *optGridSize,
             .TileSheetPaths = std::move(*optTileSheetPaths),
             .MaskSheetPaths = std::move(*optMaskSheetPaths),
-            .SpriteDefs = std::move(spriteDefs),
+            .SpriteSeqDefs = std::move(spriteSeqDefs),
             .Layers = std::move(*optLayers),
             .PropDefs = std::move(propDefs),
         };

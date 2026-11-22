@@ -5,69 +5,69 @@ namespace
 
 /// Warrior Run
 
-constexpr const SpriteSequenceDef kWarrior_AnimSeq_Run[] //
+constexpr const SpriteFrameSequenceDef kWarrior_AnimSeq_Run[] //
     {
         {
             .Name = "Warrior_Run_N",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 720, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_NE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 576, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_E",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 432, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_SE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 288, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_S",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 144, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_SW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 0, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_W",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 1008, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Run_NW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_run.png",
             .SrcRect = Rect{ 0, 864, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
@@ -75,69 +75,69 @@ constexpr const SpriteSequenceDef kWarrior_AnimSeq_Run[] //
 
 /// Warrior Idle
 
-constexpr const SpriteSequenceDef kWarrior_AnimSeq_Idle[] //
+constexpr const SpriteFrameSequenceDef kWarrior_AnimSeq_Idle[] //
     {
         {
             .Name = "Warrior_Idle_N",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 720, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_NE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 576, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_E",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 432, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_SE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 288, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_S",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 144, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_SW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 0, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_W",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 1008, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "Warrior_Idle_NW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/warrior_idle.png",
             .SrcRect = Rect{ 0, 864, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
@@ -145,69 +145,69 @@ constexpr const SpriteSequenceDef kWarrior_AnimSeq_Idle[] //
 
 /// Shadow Hunter Walk
 
-constexpr const SpriteSequenceDef kSH_AnimSeq_Walk[] //
+constexpr const SpriteFrameSequenceDef kSH_AnimSeq_Walk[] //
     {
         {
             .Name = "SH_Walk_N",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 720, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_NE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 576, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_E",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 432, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_SE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 288, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_S",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 144, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_SW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 0, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_W",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 1008, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "SH_Walk_NW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_walk.png",
             .SrcRect = Rect{ 0, 864, 1728, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
@@ -215,196 +215,196 @@ constexpr const SpriteSequenceDef kSH_AnimSeq_Walk[] //
 
 /// Shadow Hunter Hover
 
-constexpr const SpriteSequenceDef kSH_AnimSeq_Hover[] //
+constexpr const SpriteFrameSequenceDef kSH_AnimSeq_Hover[] //
     {
         {
             .Name = "SH_Hover_N",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 720, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_NE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 576, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_E",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 432, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_SE",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 288, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_S",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 144, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_SW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 0, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_W",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 1008, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
         {
             .Name = "SH_Hover_NW",
-            .Dim{ .w = 144, .h = 144 },
             .TexturePath = "/assets/shadow_hunter_hover.png",
             .SrcRect = Rect{ 0, 864, 1152, 144 },
+            .Size = Dimension2D{ .w = 144, .h = 144 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
-            .Color = { 0.5f, 0.5f, 1.0f, 0.70f }
+            .Tint = { 0.5f, 0.5f, 1.0f, 0.70f }
         },
     };
 
 /// Caretaker Idle
 
-constexpr const SpriteSequenceDef kCT_AnimSeq_Idle[] //
+constexpr const SpriteFrameSequenceDef kCT_AnimSeq_Idle[] //
     {
         /// 337 actually points toward zero.
         {
             .Name = "CT_Idle_337",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_337.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_000",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_000.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_022",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_022.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_045",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_045.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_067",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_067.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_090",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_090.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_112",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_112.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_135",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_135.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_157",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_157.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_180",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_180.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_202",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_202.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_225",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_225.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_247",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_247.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_270",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_270.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_292",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_292.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Idle_315",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Idle/Idle_Body_315.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
@@ -412,117 +412,117 @@ constexpr const SpriteSequenceDef kCT_AnimSeq_Idle[] //
 
 /// Caretaker Walk
 
-constexpr const SpriteSequenceDef kCT_AnimSeq_Walk[] //
+constexpr const SpriteFrameSequenceDef kCT_AnimSeq_Walk[] //
     {
         {
             .Name = "CT_Walk_000",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_000.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_022",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_022.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_045",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_045.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_067",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_067.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_090",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_090.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_112",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_112.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_135",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_135.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_157",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_157.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_180",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_180.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_202",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_202.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_225",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_225.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_247",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_247.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_270",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_270.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_292",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_292.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_315",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_315.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Walk_337",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Walk/Walk_Body_337.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
@@ -530,117 +530,117 @@ constexpr const SpriteSequenceDef kCT_AnimSeq_Walk[] //
 
 /// Caretaker Run
 
-constexpr const SpriteSequenceDef kCT_AnimSeq_Run[] //
+constexpr const SpriteFrameSequenceDef kCT_AnimSeq_Run[] //
     {
         {
             .Name = "CT_Run_000",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_000.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_022",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_022.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_045",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_045.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_067",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_067.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_090",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_090.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_112",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_112.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_135",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_135.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_157",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_157.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_180",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_180.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_202",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_202.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_225",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_225.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_247",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_247.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_270",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_270.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_292",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_292.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_315",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_315.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
         },
         {
             .Name = "CT_Run_337",
-            .Dim{ .w = 180, .h = 180 },
             .TexturePath = "/assets/anims/Caretaker/Run/Run_Body_337.png",
+            .Size = Dimension2D{ .w = 180, .h = 180 },
             .ColRect = Rectf{ 0, 0, 1, 1 },
             .Pivot{ 0.5f, 1.0f },
 
