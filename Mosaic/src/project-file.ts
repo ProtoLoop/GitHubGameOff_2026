@@ -1,11 +1,36 @@
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { validateDocument, propName, propTint, type ImageAsset, type PropAsset, type ProjectDocument, type JsonValue } from "./document.ts";
 
+/// Format plain JSON data, keeping small scalar-only objects on one line.
+function formatJson(value: unknown, depth: number, column: number): string
+{
+    if(value === null || typeof value !== "object") { return JSON.stringify(value); }
+    const indent = "  ".repeat(depth);
+    const childIndent = indent + "  ";
+    if(Array.isArray(value))
+    {
+        if(value.length === 0) { return "[]"; }
+        return "[\n" + value.map((item) => childIndent + formatJson(item, depth + 1, childIndent.length))
+            .join(",\n") + "\n" + indent + "]";
+    }
+    const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+    if(entries.length === 0) { return "{}"; }
+    if(entries.every(([, item]) => item === null || typeof item !== "object"))
+    {
+        const compact = JSON.stringify(value);
+        if(column + compact.length <= 120) { return compact; }
+    }
+    return "{\n" + entries.map(([key, item]) => {
+        const prefix = childIndent + JSON.stringify(key) + ": ";
+        return prefix + formatJson(item, depth + 1, prefix.length);
+    }).join(",\n") + "\n" + indent + "}";
+}
+
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
 export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
-    const blob = new Blob([JSON.stringify({
+    const blob = new Blob([formatJson({
         format: "mosaic", version: 24,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
@@ -32,7 +57,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
             activeLayer: project.layers.findIndex((layer) => layer.id === project.activeLayerId),
             view: project.view
         }
-    }, null, 2) + "\n"], { type: "application/json" });
+    }, 0, 0) + "\n"], { type: "application/json" });
     return Promise.resolve(blob);
 }
 

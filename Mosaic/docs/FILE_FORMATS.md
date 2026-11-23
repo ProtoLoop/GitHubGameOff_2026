@@ -21,6 +21,11 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 The container has `format: "mosaic"` and `version: 24`. Only version 24 is supported.
 Older versions are rejected. There is no migration loader.
+
+Saves use two-space indentation, with small objects containing only scalar values
+written on one line using compact JSON when they fit within 120 columns.
+Nonempty arrays and larger or nested objects use multiple lines.
+
 The editor and runtime share painted-cell occupancy and deterministic rendering
 rules. No terrain or mask placements are serialized. The selection and sampling
 algorithms below are part of the versioned format contract.
