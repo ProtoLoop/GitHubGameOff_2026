@@ -62,8 +62,7 @@ SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
 }
 
 Rectf
-SpriteFrame::GetScreenRect(
-    const Rectf& rect,
+SpriteFrame::GetScreenRect(const Rectf& rect,
     const glm::vec2& cellXY,
     const glm::mat2x2 proj,
     const float cellPixPerSide) const
@@ -228,4 +227,114 @@ SpriteFrame
 SpriteAnim::Instance::GetFrame(const float phase, const Angle& angle) const
 {
     return m_Anim->GetFrame(phase, angle);
+}
+
+/// Sprite
+
+Sprite::Sprite(const ResourceName& name, BoundedVector<const SpriteFrameSequence*>&& spriteSeqs)
+    : m_Name(name),
+      m_SpriteSequences(std::move(spriteSeqs))
+{
+}
+
+const ResourceName&
+Sprite::GetName() const
+{
+    return m_Name;
+}
+
+Result<Sprite::Instance>
+Sprite::CreateInstance() const
+{
+    return Instance(*this);
+}
+
+SpriteFrame
+Sprite::GetFrame(const float phase, const Angle& angle) const
+{
+    const size_t dirCount = m_SpriteSequences.size();
+    const float fdir = angle.ToTurns() * static_cast<float>(dirCount);
+    const size_t direction = static_cast<size_t>(std::round(fdir)) % dirCount;
+
+    const SpriteFrameSequence& sequence = *m_SpriteSequences[direction];
+
+    const uint32_t framesPerDirection = sequence.GetFrameCount();
+    const float normalizedPhase = phase - std::floor(phase);
+    const uint32_t frame = GG_VERIFYB(framesPerDirection > 0, "No frames available")
+        ? static_cast<uint32_t>(normalizedPhase * static_cast<float>(framesPerDirection))
+            % framesPerDirection
+        : 0;
+
+    return *sequence.GetFrame(frame);
+}
+
+/// Sprite::Instance
+
+Sprite::Instance::Instance(const Sprite& anim)
+    : m_Sprite(&anim)
+{
+}
+
+const ResourceName&
+Sprite::Instance::GetName() const
+{
+    return m_Sprite->GetName();
+}
+
+void
+Sprite::Instance::Tick(const float deltaTime)
+{
+    SetPhase(m_Phase + (deltaTime / m_Period));
+}
+
+void
+Sprite::Instance::SetPeriod(const float period)
+{
+    constexpr float minPeriod = 1e-6f; // Minimum allowed animation period
+    if(GG_VERIFYB(period > minPeriod, "Animation period must be positive"))
+    {
+        m_Period = period;
+    }
+}
+
+float
+Sprite::Instance::GetPeriod() const
+{
+    return m_Period;
+}
+
+void
+Sprite::Instance::SetPhase(const float phase)
+{
+    m_Phase = phase - std::floor(phase);
+}
+
+float
+Sprite::Instance::GetPhase() const
+{
+    return m_Phase;
+}
+
+void
+Sprite::Instance::SetAngle(const Angle& angle)
+{
+    m_Angle = angle;
+}
+
+const Angle&
+Sprite::Instance::GetAngle() const
+{
+    return m_Angle;
+}
+
+SpriteFrame
+Sprite::Instance::GetFrame() const
+{
+    return m_Sprite->GetFrame(m_Phase, m_Angle);
+}
+
+SpriteFrame
+Sprite::Instance::GetFrame(const float phase, const Angle& angle) const
+{
+    return m_Sprite->GetFrame(phase, angle);
 }

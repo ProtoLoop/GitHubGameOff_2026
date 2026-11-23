@@ -57,6 +57,13 @@ struct SpriteAnimDef
     std::span<const SpriteFrameSequenceDef> SequenceDefs;
 };
 
+struct SpriteDef
+{
+    ResourceName Name;
+    // DO NOT SUBMIT
+    std::vector<ResourceName> SequenceNames;
+};
+
 /// A lightweight representation of a sprite frame within a texture atlas.
 /// Intended to be constructed on the fly and returned by value.
 class SpriteFrame
@@ -263,6 +270,101 @@ private:
     explicit Instance(const SpriteAnim& anim);
 
     const SpriteAnim* m_Anim;
+
+    float m_Period{ 1.0f }; // Duration of one animation cycle.
+    float m_Phase{ 0.0f };
+    Angle m_Angle;
+};
+
+class Sprite
+{
+public:
+    class Instance;
+
+    Sprite() = delete;
+    ~Sprite() = default;
+    Sprite(const Sprite&) = delete;
+    Sprite& operator=(const Sprite&) = delete;
+    Sprite(Sprite&&) = default;
+    Sprite& operator=(Sprite&&) = default;
+
+    /// Returns the name of the sprite.
+    const ResourceName& GetName() const;
+
+    /// Creates an instance of the sprite.
+    /// The instance can be used to control and query the state.
+    Result<Instance> CreateInstance() const;
+
+    /// Returns the sprite frame corresponding to the given phase and angle.
+    /// phase is a value between 0 and 1 representing the progress through a sequence.
+    /// angle is the direction (which maps to a sequence) for which to retrieve the sprite.
+    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
+
+private:
+    friend class LevelLoader;
+
+    Sprite(const ResourceName& name, BoundedVector<const SpriteFrameSequence*>&& spriteSeqs);
+
+    ResourceName m_Name;
+    // FIXME(KB) - borrow storage from global array of sequences.
+    BoundedVector<const SpriteFrameSequence*> m_SpriteSequences;
+};
+
+/// Represents an instance of a sprite.
+/// An instance of a sprite can be used to control and query the sprite state, such as
+/// its current phase and angle.
+/// Borrows a Sprite, which must remain alive at the same address for the
+/// lifetime of this instance.
+class Sprite::Instance
+{
+public:
+    Instance() = delete;
+    ~Instance() = default;
+    Instance(const Instance&) = delete;
+    Instance& operator=(const Instance&) = delete;
+    Instance(Instance&&) = default;
+    Instance& operator=(Instance&&) = default;
+
+    const ResourceName& GetName() const;
+
+    /// Advances the animation by delta time.
+    /// deltaTime is the time elapsed since the last update.
+    void Tick(const float deltaTime);
+
+    /// Sets the period/duration of one animation cycle.
+    void SetPeriod(const float period);
+
+    /// Returns the period/duration of one animation cycle.
+    float GetPeriod() const;
+
+    /// Sets the current animation phase within a cycle.
+    /// phase is a value between 0 and 1.
+    void SetPhase(const float phase);
+
+    /// Returns the current animation phase within a cycle.
+    /// The returned value is between 0 and 1.
+    float GetPhase() const;
+
+    /// Sets the current animation angle - the direction the sprite should face.
+    void SetAngle(const Angle& angle);
+
+    /// Returns the current animation angle - the direction the sprite is facing.
+    const Angle& GetAngle() const;
+
+    /// Returns the sprite frame corresponding to the current animation phase and angle.
+    SpriteFrame GetFrame() const;
+
+    /// Returns the sprite frame corresponding to the given animation phase and angle.
+    /// phase is a value between 0 and 1 representing the animation progress.
+    /// angle is the direction for which to retrieve the sprite.
+    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
+
+private:
+    friend Sprite;
+
+    explicit Instance(const Sprite& anim);
+
+    const Sprite* m_Sprite;
 
     float m_Period{ 1.0f }; // Duration of one animation cycle.
     float m_Phase{ 0.0f };

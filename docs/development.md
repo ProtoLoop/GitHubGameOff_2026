@@ -175,7 +175,10 @@ sequence textures can live anywhere under its `assets/`, while automatic prop
 discovery stays under `assets/props/`. Mosaic version 25 stores named `sequences`
 and `sprites`, with props referencing sprites by name. Each sprite groups ordered
 facing sequences, and the editor displays frame zero of its first sequence.
-The C++ loader and runtime are separate from this Mosaic format transition.
+The C++ level loader also reads `sequences`, `sprites`, and named sprite references
+in `props`. Sprites reference sequences from the level’s shared catalog. Decorative
+props currently display the first frame of the first sequence, with the prop’s
+transform applied.
 Project2 contains 104 sequences grouped into 31 sprites, with its referenced
 actor textures present in the project.
 No texture copying or fallback to repository assets happens automatically.
@@ -418,9 +421,15 @@ lifecycle, initializes WebGPU asynchronously, and advances loading before
 starting `Game`.
 
 `Game` owns the level, renderer, and gameplay entities. Entities own their
-transforms and animation playback state. `Level` owns the cell map, sprite and
-animation resources, and decorative props. Entities are destroyed before the
-level so those resources remain valid.
+transforms and animation playback state. `Level` owns the cell map, sequence
+catalog, sprites, animation resources, and decorative props. Sprites borrow
+sequences from the catalog, and each prop owns a `Sprite::Instance` that borrows
+its sprite. Props are destroyed before sprites, and sprites before sequences.
+Gameplay entities are destroyed before the level.
+
+Gameplay actors continue to use `SpriteAnim` resources loaded from
+`AnimResources`. These remain separate from the level-defined sprites used by
+decorative props.
 
 Each frame, `Game` accumulates elapsed time and advances entities in fixed
 1/60-second simulation steps. A frame can run zero or more steps. Elapsed time

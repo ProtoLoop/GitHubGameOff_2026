@@ -12,18 +12,41 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
     Renderer& renderer,
     WebGpu& webGpu)
 {
-    std::span spriteDefSubspan = levelDef.SpriteSeqDefs;
+    // Check for duplicate sprite frame sequence names.
+
+    std::span spriteSeqDefSubspan = levelDef.SpriteSeqDefs;
 
     for(const SpriteFrameSequenceDef& def : levelDef.SpriteSeqDefs)
     {
-        // Check for duplicate names.
-        spriteDefSubspan = spriteDefSubspan.subspan(1);
+        spriteSeqDefSubspan = spriteSeqDefSubspan.subspan(1);
 
-        for(const SpriteFrameSequenceDef& def2 : spriteDefSubspan)
+        for(const SpriteFrameSequenceDef& def2 : spriteSeqDefSubspan)
         {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite name: {}", def.Name);
+            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite sequence name: {}", def.Name);
         }
     }
+
+    BoundedVector<SpriteDef> spriteDefs(levelDef.SpriteDefs.size());
+
+    // Check for duplicate sprite names, and copy the sprite def array that
+    // will be passed to the sprite loader.
+
+    std::span spriteDefSubspan = levelDef.SpriteDefs;
+
+    for(const SpriteDef& spriteDef : levelDef.SpriteDefs)
+    {
+        spriteDefSubspan = spriteDefSubspan.subspan(1);
+
+        // Check for duplicate names.
+        for(const SpriteDef& def2 : spriteDefSubspan)
+        {
+            GG_CHECKB(def2.Name != spriteDef.Name, "Duplicate sprite name: {}", spriteDef.Name);
+        }
+
+        spriteDefs.push_back(spriteDef);
+    }
+
+    // Load the sprite sequences.
 
     auto spriteSeqLoadResult =
         SpriteSequenceLoader::Load(levelDef.SpriteSeqDefs, fileFetcher, renderer, webGpu);
@@ -53,6 +76,7 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
     auto cellResult = CellMapLoader::Load(levelDef.CellMapDef, renderer, fileFetcher, webGpu);
     GG_CHECK(cellResult, "Failed to load cell map");
 
+    // Copy the prop defs so it can be passed to the level loader.
     BoundedVector<PropDef> propDefs(levelDef.PropDefs.size());
 
     for(const PropDef& propDef : levelDef.PropDefs)
@@ -63,6 +87,7 @@ LevelLoader::Load(const std::span<const SpriteAnimDef> spriteAnimDefs,
     return LevelLoader(std::move(*cellResult),
         std::move(*spriteSeqLoadResult),
         std::move(spriteAnimLoaders),
+        std::move(spriteDefs),
         std::move(propDefs));
 }
 
@@ -92,7 +117,7 @@ LevelLoader::Update()
     {
         GG_CHECK(m_CellMapLoader.Update(), "Failed to update cell map loader");
     }
-    
+
     if(m_SpriteSeqLoader.IsPending())
     {
         GG_CHECK(m_SpriteSeqLoader.Update(), "Failed to update sprite loader");
@@ -125,26 +150,60 @@ LevelLoader::Take()
         spriteAnims.push_back(std::move(*animResult));
     }
 
-    auto cellMapResult = m_CellMapLoader.Take();
-    GG_CHECK(cellMapResult, "Failed to load cell map");
-
     auto spriteSeqsResult = m_SpriteSeqLoader.Take();
     GG_CHECK(spriteSeqsResult, "Failed to load sprite sequeneces");
+
+    // Create the sprites.
+    BoundedVector<Sprite> sprites(m_SpriteDefs.size());
+
+    for(const SpriteDef& spriteDef : m_SpriteDefs)
+    {
+        // Build the array of sprite frame sequences for this sprite.
+        BoundedVector<const SpriteFrameSequence*> spriteSeqs(spriteDef.SequenceNames.size());
+
+        // Find the sprite frame sequences for this sprite.
+        for(const ResourceName& seqName : spriteDef.SequenceNames)
+        {
+            const SpriteFrameSequence* foundSeq = nullptr;
+            for(const SpriteFrameSequence& seq : *spriteSeqsResult)
+            {
+                if(seq.GetName() == seqName)
+                {
+                    foundSeq = &seq;
+                    break;
+                }
+            }
+            GG_CHECKB(foundSeq, "Sprite sequence not found: {}", seqName);
+            spriteSeqs.push_back(foundSeq);
+        }
+
+        GG_CHECKB(!spriteSeqs.empty(), "No sprite sequences found for sprite: {}", spriteDef.Name);
+
+        Sprite sprite(spriteDef.Name, std::move(spriteSeqs));
+        sprites.push_back(std::move(sprite));
+    }
+
+    auto cellMapResult = m_CellMapLoader.Take();
+    GG_CHECK(cellMapResult, "Failed to load cell map");
 
     BoundedVector<Prop> props(m_PropDefs.size());
 
     for(const PropDef& propDef : m_PropDefs)
     {
-        GG_CHECKB(propDef.SpriteId < spriteSeqsResult->size(), "Invalid sprite ID for prop");
+        GG_CHECKB(propDef.SpriteId < sprites.size(), "Invalid sprite ID for prop");
 
-        const SpriteFrameSequence& seq = (*spriteSeqsResult)[propDef.SpriteId];
+        const Sprite& sprite = sprites[propDef.SpriteId];
 
-        props.emplace_back(seq, propDef.Transform);
+        auto spriteInstanceResult = sprite.CreateInstance();
+        GG_CHECK(spriteInstanceResult, "Failed to create sprite instance: {}", sprite.GetName());
+
+        props.emplace_back(std::move(*spriteInstanceResult), propDef.Transform);
     }
 
     return std::unique_ptr<Level>(new Level(std::move(*cellMapResult),
         std::move(*spriteSeqsResult),
         std::move(spriteAnims),
+        std::move(sprites),
         std::move(props)));
 }
 
@@ -153,10 +212,12 @@ LevelLoader::Take()
 Level::Level(CellMap&& cellMap,
     BoundedVector<SpriteFrameSequence>&& spriteSeqs,
     BoundedVector<SpriteAnim>&& spriteAnims,
+    BoundedVector<Sprite>&& sprites,
     BoundedVector<Prop>&& props)
     : m_CellMap(std::move(cellMap)),
       m_SpriteSeqs(std::move(spriteSeqs)),
       m_SpriteAnims(std::move(spriteAnims)),
+      m_Sprites(std::move(sprites)),
       m_Props(std::move(props))
 {
 }

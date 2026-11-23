@@ -8,9 +8,9 @@ class Renderer;
 class Prop : public Transform2DLike<Prop>
 {
 public:
-    Prop(SpriteFrameSequence spriteSeq, const Transform2D& transform);
+    Prop(Sprite::Instance spriteInstance, const Transform2D& transform);
 
-    SpriteFrame GetSpriteFrame() const { return *m_SpriteSeq.GetFrame(0); }
+    SpriteFrame GetSpriteFrame() const { return m_SpriteInstance.GetFrame(); }
 
     Transform2D& GetTransform() { return m_Transform; }
     const Transform2D& GetTransform() const { return m_Transform; }
@@ -18,6 +18,6 @@ public:
     Result<> Render(Renderer& renderer) const;
 
 private:
-    SpriteFrameSequence m_SpriteSeq;
+    Sprite::Instance m_SpriteInstance;
     Transform2D m_Transform;
 };
