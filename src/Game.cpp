@@ -133,12 +133,8 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
 
     for(const Rectf colRect : spriteFrame.GetCollisionRects())
     {
-        Rectf drawRect = colRect - spriteFrame.GetPivot();
+        Rectf drawRect = colRect - (spriteFrame.GetPivot() * rectSize);
 
-        drawRect.x *= rectSize.x;
-        drawRect.y *= rectSize.y;
-        drawRect.w *= rectSize.x;
-        drawRect.h *= rectSize.y;
         drawRect *= spriteFrame.GetScale();
 
         if(!renderer.QueueRectangle(drawRect, transform, kMagenta))
@@ -191,13 +187,15 @@ Game::CheckCollisions()
 
         for(uint32_t i = 0; i < ctSpriteFrame.GetCollisionRects().size(); ++i)
         {
+            const Rectf& ctColRect = ctSpriteFrame.GetCollisionRects()[i];
             const Rectf ctBounds =
-                ctSpriteFrame.GetCollisionScreenRect(i, ctPos, proj, cellPixPerSide);
+                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
 
             for(uint32_t j = 0; j < propSpriteFrame.GetCollisionRects().size(); ++j)
             {
+                const Rectf& propColRect = propSpriteFrame.GetCollisionRects()[j];
                 const Rectf propBounds =
-                    propSpriteFrame.GetCollisionScreenRect(j, propPos, proj, cellPixPerSide);
+                    propSpriteFrame.GetScreenRect(propColRect, propPos, proj, cellPixPerSide);
 
                 if(ctBounds.Intersects(propBounds))
                 {

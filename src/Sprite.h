@@ -34,7 +34,7 @@ struct SpriteFrameSequenceDef
     /// 1,1 represents the bottom-right corner of the frame.
     /// If not present then there is no collision.
     /// Collision rectangles CAN be outside the [0,1] range.
-    /// If not present then use the entire texture.
+    /// When loaded normalized collision rectangles are converted to the sprite's coordinate space.
     std::optional<Rectf> ColRect = std::nullopt;
     /// Normalized pivot point within the sprite's frame.
     /// 0,0 represents the top-left corner of the frame.
@@ -73,9 +73,8 @@ public:
     /// Returns the rectangle defining the sprite within the texture atlas.
     const Rect& GetSrcRect() const { return m_SrcRect; }
 
-    /// Returns the normalized collision rectangles of the sprite.
-    /// 0,0 is top-left, 1,1 is bottom-right.
-    /// Collision rectangles CAN be outside the [0,1] range.
+    /// Returns the collision rectangles of the sprite.
+    /// Collision rectangles are in the same coordinate space as the sprite's rectangle.
     std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
 
     /// Returns the bounding rectangle that encompasses all the collision rectangles.
@@ -95,11 +94,6 @@ public:
         const glm::mat2x2 proj,
         const float cellPixPerSide) const;
 
-    Rectf GetCollisionScreenRect(const uint32_t rectIndex,
-        const glm::vec2& cellXY,
-        const glm::mat2x2 proj,
-        const float cellPixPerSide) const;
-
 private:
     friend class SpriteAnimLoader;
     friend class SpriteFrameSequence;
@@ -108,7 +102,7 @@ private:
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
     /// rect specifies the portion of the texture to use for the sprite.
-    /// colRects specifies the normalized collision rectangles of the sprite.
+    /// colRects specifies the collision rectangles of the sprite.
     /// pivot specifies the pivot point within the sprite's rectangle.
     /// tint specifies the color tint for the sprite.
     /// scale specifies the scale factor for the sprite.
@@ -122,9 +116,8 @@ private:
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_SrcRect;                     // Source rectangle within the texture atlas.
-    // Collection of normalized collision rectangles of the sprite.
-    // 0,0 is top-left, 1,1 is bottom-right.
-    // If empty, the sprite has no collision rectangles.
+    // Collection of collision rectangles of the sprite.
+    // Collision rectangles are in the same coordinate space as the sprite's rectangle.
     std::span<const Rectf> m_ColRects;
     // Union of collision rectangles - used for quick collision checks.
     Rectf m_CollisionBounds;
@@ -173,8 +166,8 @@ private:
     Dimension2D m_Size;
     // Source rectangle of the sequence within the texture atlas.
     Rect m_SrcRect;
-    // Normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is
-    // bottom-right.
+    // Collection of collision rectangles of the sprite.
+    // Collision rectangles are in the same coordinate space as the sprite's rectangle.
     InlineVector<Rectf, 1> m_ColRects;
     // Union of collision rectangles - used for quick collision checks.
     Rectf m_CollisionBounds;

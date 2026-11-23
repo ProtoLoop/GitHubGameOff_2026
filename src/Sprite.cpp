@@ -17,7 +17,7 @@ ComputeFrameCount(const Rect& srcRect, const Dimension2D& size)
 /// Computes the bounding rectangle that encompasses all the given collision rectangles.
 /// If colRects is empty, returns a rectangle with zero size at the origin.
 Rectf
-ComputeCollisionBounds(const std::span<const Rectf> colRects, const glm::vec2 spriteSize)
+ComputeCollisionBounds(const std::span<const Rectf> colRects)
 {
     if(colRects.empty())
     {
@@ -38,10 +38,7 @@ ComputeCollisionBounds(const std::span<const Rectf> colRects, const glm::vec2 sp
         bounds.h = y2 - y1;
     }
 
-    return Rectf(bounds.x * spriteSize.x,
-        bounds.y * spriteSize.y,
-        bounds.w * spriteSize.x,
-        bounds.h * spriteSize.y);
+    return bounds;
 }
 } // namespace
 
@@ -81,25 +78,6 @@ SpriteFrame::GetScreenRect(
     return Rectf(origin, rs.Size());
 }
 
-Rectf
-SpriteFrame::GetCollisionScreenRect(const uint32_t rectIndex,
-    const glm::vec2& cellXY,
-    const glm::mat2x2 proj,
-    const float cellPixPerSide) const
-{
-    if(!GG_VERIFYB(rectIndex < m_ColRects.size(),
-           "Invalid collision rectangle index: {}",
-           rectIndex))
-    {
-        return Rectf(0, 0, 0, 0);
-    }
-
-    const Rectf& colRect = m_ColRects[rectIndex];
-    const glm::vec2 size(GetSize());
-    const Rectf r = Rectf(colRect.Origin() * size, colRect.Size() * size);
-    return GetScreenRect(r, cellXY, proj, cellPixPerSide);
-}
-
 /// SpriteSequence
 
 SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
@@ -115,7 +93,7 @@ SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
       m_Size(size),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
-      m_CollisionBounds(ComputeCollisionBounds(colRects, glm::vec2(size.w, size.h))),
+      m_CollisionBounds(ComputeCollisionBounds(colRects)),
       m_Pivot(pivot),
       m_Tint(tint),
       m_Scale(scale),

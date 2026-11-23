@@ -161,7 +161,7 @@ SpriteSequenceLoader::Take()
     // For each sprite replace its bind group with a bindgroup containing the loaded texture.
     for(size_t i = 0; i < m_SpriteSequences.size(); ++i)
     {
-        const SpriteFrameSequence& seq = m_SpriteSequences[i];
+        SpriteFrameSequence& seq = m_SpriteSequences[i];
         const size_t texIndex = m_SequenceToTextureMap[i];
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
@@ -218,6 +218,15 @@ SpriteSequenceLoader::Take()
             srcRect.h,
             texSize.w - srcRect.x,
             texSize.h - srcRect.y);
+
+        /// Convert collision rectangles from normalized coordinates to pixel coordinates based on
+        /// the sprite size.
+        const glm::vec2 spriteSizeVec(spriteSize.w, spriteSize.h);
+
+        for(Rectf& colRect : seq.m_ColRects)
+        {
+            colRect = Rectf(colRect.Origin() * spriteSizeVec, colRect.Size() * spriteSizeVec);
+        }
 
         // Create a new sequence and replace the old one.
         SpriteFrameSequence newSeq(seq.GetName(),
