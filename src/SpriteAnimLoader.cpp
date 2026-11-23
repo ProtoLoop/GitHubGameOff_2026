@@ -10,6 +10,8 @@ Result<SpriteAnimLoader>
 SpriteAnimLoader::Load(
     const SpriteAnimDef& animDef, FileFetcher& fileFetcher, Renderer& renderer, WebGpu& webGpu)
 {
+    GG_CHECKB(!animDef.SequenceDefs.empty(), "No sprite sequences defined: {}", animDef.Name);
+
     auto spriteSeqLoaderResult =
         SpriteSequenceLoader::Load(animDef.SequenceDefs, fileFetcher, renderer, webGpu);
     GG_CHECKB(spriteSeqLoaderResult, "Failed to load sprite sequences: {}", animDef.Name);

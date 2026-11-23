@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
 
 struct Rectf
 {
@@ -23,6 +24,14 @@ struct Rectf
           y(origin.y),
           w(size.x),
           h(size.y)
+    {
+    }
+
+    constexpr explicit Rectf(const glm::vec4& r)
+        : x(r.x),
+          y(r.y),
+          w(r.z),
+          h(r.w)
     {
     }
 

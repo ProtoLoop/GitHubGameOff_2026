@@ -11,11 +11,11 @@ namespace
 {
 constexpr uint32_t kNullXYWH = std::numeric_limits<uint32_t>::max();
 // Sentinel rect to use if no rect is specified.
-// Will use the entire texture as the rect.
+// If no rect is specified will use the entire texture as the rect.
 constexpr Rect kNullRect{ kNullXYWH, kNullXYWH, kNullXYWH, kNullXYWH };
 
 // Sentinel size to use if no size is specified.
-// Will use the entire texture as the size.
+// If no size is specified will use the entire source rectangle size as the size.
 constexpr Dimension2D kNullSize{ .w = kNullXYWH, .h = kNullXYWH };
 
 } // namespace
@@ -85,12 +85,20 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
             colRects.push_back(*def.ColRect);
         }
 
+        const Dimension2D size = def.Size ? *def.Size : kNullSize;
+        const Rect srcRect = def.SrcRect ? *def.SrcRect : kNullRect;
+
+        GG_CHECKB(size.w> 0 && size.h > 0,
+            "Sprite size must be greater than zero: {} : {}",
+            def.Name,
+            def.TexturePath);
+
         // If src rect is not specified it will be set to the
         // the size of the texture when the texture is loaded.
         SpriteFrameSequence spriteSeq(def.Name,
             defaultBindGroup,
-            def.Size ? *def.Size : kNullSize,
-            def.SrcRect ? *def.SrcRect : kNullRect,
+            size,
+            srcRect,
             colRects,
             def.Pivot,
             def.Tint,
@@ -176,7 +184,8 @@ SpriteSequenceLoader::Take()
 
         if(kNullSize == spriteSize)
         {
-            spriteSize = texSize;
+            spriteSize.w = rect.w;
+            spriteSize.h = rect.h;
         }
 
         GG_CHECKB(spriteSize.w <= rect.w && spriteSize.h <= rect.h,

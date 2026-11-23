@@ -6,6 +6,7 @@
 #include "Geometry2D.h"
 #include "InlineString.h"
 
+#include <glm/mat2x2.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <span>
@@ -27,15 +28,18 @@ struct SpriteFrameSequenceDef
     FilePath TexturePath;
     // If not present then use the entire texture.
     std::optional<Rect> SrcRect = std::nullopt;
-    /// Collision rectangles are normalized within the texture's dimensions.
-    /// 0,0 represents the top-left corner of the texture.
-    /// 1,1 represents the bottom-right corner of the texture.
+    std::optional<Dimension2D> Size = std::nullopt;
+    /// Collision rectangles are normalized within the sprite's frame.
+    /// 0,0 represents the top-left corner of the frame.
+    /// 1,1 represents the bottom-right corner of the frame.
     /// If not present then there is no collision.
     /// Collision rectangles CAN be outside the [0,1] range.
-    // If not present then use the entire texture.
-    std::optional<Dimension2D> Size = std::nullopt;
+    /// If not present then use the entire texture.
     std::optional<Rectf> ColRect = std::nullopt;
-    glm::vec2 Pivot{0, 0};
+    /// Normalized pivot point within the sprite's frame.
+    /// 0,0 represents the top-left corner of the frame.
+    /// 1,1 represents the bottom-right corner of the frame.
+    glm::vec2 Pivot{ 0, 0 };
     glm::vec4 Tint = glm::vec4(1.0f);
     float Scale = 1.0f;
 };
@@ -74,6 +78,9 @@ public:
     /// Collision rectangles CAN be outside the [0,1] range.
     std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
 
+    /// Returns the bounding rectangle that encompasses all the collision rectangles.
+    const Rectf& GetCollisionBounds() const { return m_CollisionBounds; }
+
     /// Returns the pivot point within the sprite's rectangle.
     const glm::vec2& GetPivot() const { return m_Pivot; }
 
@@ -82,6 +89,23 @@ public:
 
     /// Returns the color tint for the sprite.
     const glm::vec4& GetTint() const { return m_Tint; }
+
+    Rectf GetScreenRect(const Rectf& rect,
+        const glm::vec2& cellXY,
+        const glm::mat2x2 proj,
+        const float cellPixPerSide) const;
+
+    /// Returns the screen space rectangle.
+    /// cellXY is the cell position on the map.
+    /// proj is the projection used (isometric, ortho, etc).
+    /// cellPixPerSide is the number of pixels per side of a map cell.
+    Rectf GetScreenRect(
+        const glm::vec2& cellXY, const glm::mat2x2 proj, const float cellPixPerSide) const;
+
+    Rectf GetCollisionScreenRect(const uint32_t rectIndex,
+        const glm::vec2& cellXY,
+        const glm::mat2x2 proj,
+        const float cellPixPerSide) const;
 
 private:
     friend class SpriteAnimLoader;
@@ -98,16 +122,19 @@ private:
     SpriteFrame(wgpu::BindGroup bindGroup,
         const Rect& srcRect,
         const std::span<const Rectf> colRects,
+        const Rectf& collisionBounds,
         const glm::vec2& pivot,
         const glm::vec4& tint,
         const float scale);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
-    Rect m_SrcRect; // Source rectangle within the texture atlas.
+    Rect m_SrcRect;                     // Source rectangle within the texture atlas.
     // Collection of normalized collision rectangles of the sprite.
     // 0,0 is top-left, 1,1 is bottom-right.
     // If empty, the sprite has no collision rectangles.
     std::span<const Rectf> m_ColRects;
+    // Union of collision rectangles - used for quick collision checks.
+    Rectf m_CollisionBounds;
     glm::vec2 m_Pivot;
     glm::vec4 m_Tint;
     float m_Scale;
@@ -127,6 +154,9 @@ public:
     /// 0,0 is top-left, 1,1 is bottom-right.
     /// Collision rectangles CAN be outside the [0,1] range.
     std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
+
+    /// Returns the bounding rectangle that encompasses all the collision rectangles.
+    const Rectf& GetCollisionBounds() const { return m_CollisionBounds; }
 
     /// Returns the pivot point within the sprite's rectangle.
     const glm::vec2& GetPivot() const { return m_Pivot; }
@@ -161,8 +191,11 @@ private:
     Dimension2D m_Size;
     // Source rectangle of the sequence within the texture atlas.
     Rect m_SrcRect;
-    // Normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
-    InlineVector<Rectf, 1> m_ColRects; // Collection of normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is bottom-right.
+    // Normalized collision rectangles within the sprite's rectangle. 0,0 is top-left, 1,1 is
+    // bottom-right.
+    InlineVector<Rectf, 1> m_ColRects;
+    // Union of collision rectangles - used for quick collision checks.
+    Rectf m_CollisionBounds;
     glm::vec2 m_Pivot;
     glm::vec4 m_Tint;
     float m_Scale;

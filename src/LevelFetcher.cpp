@@ -68,20 +68,34 @@ ParsePropAsset(const JsonObject& propAsset)
     std::optional<Rectf> optColRect;
     std::optional<glm::vec2> optPivot;
     std::optional<float> optScale;
-
-    if(std::string_view name; propAsset.TryGetString("name", name))
-    {
-        optName = name;
-    }
-    GG_CHECKB(optName.has_value(), "Missing name (line:{})", propAsset.GetLine());
+    std::optional<glm::vec4> optTint;
 
     if(std::string_view path; propAsset.TryGetString("texPath", path))
     {
         optTexPath = path;
     }
-    GG_CHECKB(optTexPath.has_value(),
-        "Missing texture path: {} (line:{})",
-        *optName,
+    GG_CHECKB(optTexPath.has_value() && !optTexPath->empty(),
+        "Missing texture path (line:{})",
+        propAsset.GetLine());
+
+    if(std::string_view name; propAsset.TryGetString("name", name))
+    {
+        optName = name;
+    }
+    else
+    {
+        name = *optTexPath;
+        // Remove the directory and extension to get the stem of the file path.
+        name.remove_prefix(name.find_last_of('/') + 1);
+        const size_t extension = name.find_last_of('.');
+        if(extension != std::string_view::npos && extension > 0)
+        {
+            name = name.substr(0, extension);
+        }
+        optName = name;
+    }
+    GG_CHECKB(optName.has_value() && !optName->empty(),
+        "Missing name (line:{})",
         propAsset.GetLine());
 
     if(JsonObject jsonObj; propAsset.TryGetObject("pivot", jsonObj))
@@ -100,7 +114,7 @@ ParsePropAsset(const JsonObject& propAsset)
         const bool haveY = jsonObj.TryGetUint32("y", y).HasValue();
         const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
         const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
-        
+
         if(haveX && haveY && haveW && haveH)
         {
             optSrcRect = Rect{ x, y, w, h };
@@ -114,13 +128,47 @@ ParsePropAsset(const JsonObject& propAsset)
         }
     }
 
+    if(JsonObject jsonObj; propAsset.TryGetObject("tint", jsonObj))
+    {
+        float r{}, g{}, b{}, a{};
+
+        const bool haveR = jsonObj.TryGetFloat("r", r).HasValue();
+        const bool haveG = jsonObj.TryGetFloat("g", g).HasValue();
+        const bool haveB = jsonObj.TryGetFloat("b", b).HasValue();
+        const bool haveA = jsonObj.TryGetFloat("a", a).HasValue();
+
+        if(haveR && haveG && haveB && haveA)
+        {
+            GG_CHECKB(r >= 0.0f
+                    && r <= 1.0f
+                    && g >= 0.0f
+                    && g <= 1.0f
+                    && b >= 0.0f
+                    && b <= 1.0f
+                    && a >= 0.0f
+                    && a <= 1.0f,
+                "Tint values must be between 0 and 1: {} (line:{})",
+                *optName,
+                jsonObj.GetLine());
+
+            optTint = glm::vec4{ r, g, b, a };
+        }
+        else
+        {
+            GG_CHECKB(!haveR && !haveG && !haveB && !haveA,
+                "Incomplete tint: {} (line:{})",
+                *optName,
+                jsonObj.GetLine());
+        }
+    }
+
     if(JsonObject jsonObj; propAsset.TryGetObject("size", jsonObj))
     {
         uint32_t w{}, h{};
 
         const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
         const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
-        
+
         if(haveW && haveH)
         {
             optSize = Dimension2D{ .w = w, .h = h };
@@ -172,6 +220,8 @@ ParsePropAsset(const JsonObject& propAsset)
 
     const glm::vec2 pivot = optPivot ? *optPivot : glm::vec2{ 0.5f, 0.5f };
 
+    const glm::vec4 tint = optTint ? *optTint : glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
+
     const float scaleValue = optScale ? *optScale : 1.0f;
 
     return SpriteFrameSequenceDef //
@@ -182,6 +232,7 @@ ParsePropAsset(const JsonObject& propAsset)
             .Size = optSize,
             .ColRect = optColRect,
             .Pivot = pivot,
+            .Tint = tint,
             .Scale = scaleValue,
         };
 }

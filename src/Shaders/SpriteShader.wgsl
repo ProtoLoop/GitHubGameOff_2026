@@ -122,7 +122,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
     var p = textureSample(texture, smp, i.uv, 0) * i.color;
     //p = drawBoundingRect(i.brectUV, p);
-    //p = drawPivot(i, p);
+    p = drawPivot(i, p);
     return p;
 }
 
@@ -132,7 +132,7 @@ fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
     var p = textureSample(texture, smp, i.uv, 0) * i.color;
     //p = drawBoundingRect(i.brectUV, p);
-    //p = drawPivot(i, p);
+    p = drawPivot(i, p);
     return linear_to_srgb(p);
 }
 )";

@@ -158,42 +158,51 @@ void
 Game::CheckCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
-
     const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
     const SpriteFrame& ctSpriteFrame = m_Caretaker->GetSpriteFrame();
-    const glm::vec2 ctRectScale = ctSpriteFrame.GetSize();
 
     float collisionDist = std::numeric_limits<float>::max();
     glm::vec2 collisionNormal;
     bool hasCollision = false;
 
-    for(Rectf ctBounds : ctSpriteFrame.GetCollisionRects())
+    const glm::vec2& ctPos = m_Caretaker->GetPos();
+
+    const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
+        ctPos,
+        proj,
+        cellPixPerSide);
+
+    for(const Prop& prop : m_Level->GetProps())
     {
-        ctBounds -= ctSpriteFrame.GetPivot();
-        ctBounds.x *= ctRectScale.x;
-        ctBounds.y *= ctRectScale.y;
-        ctBounds.w *= ctRectScale.x;
-        ctBounds.h *= ctRectScale.y;
-        ctBounds *= ctSpriteFrame.GetScale();
-        ctBounds += (proj * m_Caretaker->GetPos() * pixelScale); // Offset by projected position
+        const glm::vec2& propPos = prop.GetPos();
+        const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
+        const Rectf propRect = propSpriteFrame.GetScreenRect(propSpriteFrame.GetCollisionBounds(),
+            propPos,
+            proj,
+            cellPixPerSide);
 
-        for(const Prop& prop : m_Level->GetProps())
+        if(!ctRect.Intersects(propRect))
         {
-            const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
-            const glm::vec2 propRectScale = propSpriteFrame.GetSize();
+            continue;
+        }
 
-            for(Rectf propBounds : propSpriteFrame.GetCollisionRects())
+        GG_INFO("****");
+
+        const glm::vec2 ctSrcSize = ctSpriteFrame.GetSize();
+        const glm::vec2 propSrcSize = propSpriteFrame.GetSize();
+
+        for(uint32_t i = 0; i < ctSpriteFrame.GetCollisionRects().size(); ++i)
+        {
+            const Rectf ctBounds =
+                ctSpriteFrame.GetCollisionScreenRect(i, ctPos, proj, cellPixPerSide);
+
+            for(uint32_t j = 0; j < propSpriteFrame.GetCollisionRects().size(); ++j)
             {
-                propBounds -= propSpriteFrame.GetPivot();
-                propBounds.x *= propRectScale.x;
-                propBounds.y *= propRectScale.y;
-                propBounds.w *= propRectScale.x;
-                propBounds.h *= propRectScale.y;
-                propBounds *= propSpriteFrame.GetScale();
-                propBounds += (proj * prop.GetPos() * pixelScale); // Offset by projected position
+                const Rectf propBounds =
+                    propSpriteFrame.GetCollisionScreenRect(j, propPos, proj, cellPixPerSide);
 
                 if(ctBounds.Intersects(propBounds))
                 {

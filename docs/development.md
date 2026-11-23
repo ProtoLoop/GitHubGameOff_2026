@@ -161,18 +161,14 @@ When deploying, publish the required assets under `/assets/` on the same origin
 as the game, even if the HTML is hosted in a subdirectory. The build does not
 copy assets or package them into the WebAssembly filesystem.
 
-Sprite names must be unique within a level, including across subdirectories.
-The level loader derives each sprite name from its texture filename without the
-directory or extension. For example, `trees/oak.png` and `decoration/oak.png` both
-produce `oak` and cannot coexist in the same level’s sprite catalog. Duplicate
-names cause level loading to fail.
+Sprite sequence names must be unique within a level’s catalog. The C++ loader
+uses explicit `name` values, falling back to the texture filename without its
+directory or final extension. Distinct names may share a texture.
 
-Mosaic version 24 separately stores explicit sequence names in `propAssets`,
-allows shared texture paths, and treats omitted frame `size` as the full resolved
-source rectangle. Its `tint` field is also editor-side metadata until game-loader
-integration is updated. The C++ loader's filename-derived naming and texture-size
-default described above have not changed. C++ still uses `Dim` and reads the
-JSON field `dim`, not Mosaic's new `size` field.
+Frame dimensions use JSON `size` and C++ `SpriteFrameSequenceDef::Size`.
+Omission uses the resolved source rectangle’s dimensions. The loader reads
+RGBA `tint` components in `[0, 1]`. Omitted, `null`, or empty-object tints
+default to white.
 
 Mosaic resolves texture paths against each project's own directory. Explicit
 sequence textures can live anywhere under its `assets/`, while automatic prop

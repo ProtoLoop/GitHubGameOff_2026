@@ -18,8 +18,8 @@ public:
     using iterator = T*;
     using const_iterator = const T*;
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
-    InlineVector() = default;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, modernize-use-equals-default)
+    InlineVector() {}
 
     ~InlineVector() { clear(); }
 
@@ -174,7 +174,11 @@ private:
         return reinterpret_cast<const T*>(&m_Storage[(sizeof(T) * index)]);
     }
 
-    alignas(alignof(T)) std::byte m_Storage[sizeof(T) * N];
+    union
+    {
+        alignas(alignof(T)) std::byte m_Storage[sizeof(T) * N];
+        T m_DebugElements[N];   // Only for viewing in the debugger.
+    };
 
     size_t m_Size{};
 };

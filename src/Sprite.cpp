@@ -2,21 +2,120 @@
 
 #include "Angle.h"
 
+namespace
+{
+uint32_t
+ComputeFrameCount(const Rect& srcRect, const Dimension2D& size)
+{
+    if(GG_VERIFYB(size.w > 0 && size.h > 0, "Invalid sprite size: {}x{}", size.w, size.h))
+    {
+        return (srcRect.w / size.w) * (srcRect.h / size.h);
+    }
+    return 0;
+}
+
+/// Computes the bounding rectangle that encompasses all the given collision rectangles.
+/// If colRects is empty, returns a rectangle with zero size at the origin.
+Rectf
+ComputeCollisionBounds(const std::span<const Rectf> colRects, const glm::vec2 spriteSize)
+{
+    if(colRects.empty())
+    {
+        return Rectf(0, 0, 0, 0);
+    }
+
+    Rectf bounds = colRects[0];
+    for(size_t i = 1; i < colRects.size(); ++i)
+    {
+        const Rectf& r = colRects[i];
+        const float x1 = std::min(bounds.x, r.x);
+        const float y1 = std::min(bounds.y, r.y);
+        const float x2 = std::max(bounds.x + bounds.w, r.x + r.w);
+        const float y2 = std::max(bounds.y + bounds.h, r.y + r.h);
+        bounds.x = x1;
+        bounds.y = y1;
+        bounds.w = x2 - x1;
+        bounds.h = y2 - y1;
+    }
+
+    return Rectf(bounds.x * spriteSize.x,
+        bounds.y * spriteSize.y,
+        bounds.w * spriteSize.x,
+        bounds.h * spriteSize.y);
+}
+} // namespace
+
 /// Sprite
 
 SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
     const Rect& srcRect,
     const std::span<const Rectf> colRects,
+    const Rectf& collisionBounds,
     const glm::vec2& pivot,
     const glm::vec4& tint,
     const float scale)
     : m_TextureBindGroup(std::move(bindGroup)),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
+      m_CollisionBounds(collisionBounds),
       m_Pivot(pivot),
       m_Tint(tint),
       m_Scale(scale)
 {
+}
+
+Rectf
+SpriteFrame::GetScreenRect(
+    const Rectf& rect,
+    const glm::vec2& cellXY,
+    const glm::mat2x2 proj,
+    const float cellPixPerSide) const
+{
+    // Y flip when going from map space +Y up/north, to screen space +Y down.
+    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
+
+    const Rectf rs = rect * GetScale();
+    const glm::vec2 pivot = glm::vec2(GetSize()) * GetScale() * GetPivot();
+    const glm::vec2 origin = rs.Origin() + ((proj * cellXY * pixelScale) - pivot);
+
+    return Rectf(origin, rs.Size());
+}
+
+Rectf
+SpriteFrame::GetScreenRect(
+    const glm::vec2& cellXY, const glm::mat2x2 proj, const float cellPixPerSide) const
+{
+    // Y flip when going from map space +Y up/north, to screen space +Y down.
+    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
+
+    const glm::vec2 size = glm::vec2(GetSize()) * GetScale();
+    const glm::vec2 pivot = size * GetPivot();
+    const glm::vec2 origin((proj * cellXY * pixelScale) - pivot);
+
+    return Rectf(origin, size);
+}
+
+Rectf
+SpriteFrame::GetCollisionScreenRect(const uint32_t rectIndex,
+    const glm::vec2& cellXY,
+    const glm::mat2x2 proj,
+    const float cellPixPerSide) const
+{
+    if(!GG_VERIFYB(rectIndex < m_ColRects.size(),
+           "Invalid collision rectangle index: {}",
+           rectIndex))
+    {
+        return Rectf(0, 0, 0, 0);
+    }
+
+    const Rectf colRect = m_ColRects[rectIndex] - GetPivot();
+    const glm::vec2 size = GetSize();
+
+    Rectf r(colRect.x * size.x, colRect.y * size.y, colRect.w * size.x, colRect.h * size.y);
+    r *= GetScale();
+    r += proj * cellXY * glm::vec2(1, -1) * cellPixPerSide;
+
+    return r;
 }
 
 /// SpriteSequence
@@ -34,10 +133,11 @@ SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
       m_Size(size),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
+      m_CollisionBounds(ComputeCollisionBounds(colRects, glm::vec2(size.w, size.h))),
       m_Pivot(pivot),
       m_Tint(tint),
       m_Scale(scale),
-      m_FrameCount((srcRect.w / size.w) * (srcRect.h / size.h))
+      m_FrameCount(ComputeFrameCount(srcRect, size))
 {
 }
 
@@ -57,7 +157,7 @@ SpriteFrameSequence::GetFrame(const uint32_t index) const
             m_Size.h,
         };
 
-    return SpriteFrame(m_BindGroup, rect, m_ColRects, m_Pivot, m_Tint, m_Scale);
+    return SpriteFrame(m_BindGroup, rect, m_ColRects, m_CollisionBounds, m_Pivot, m_Tint, m_Scale);
 }
 
 /// SpriteAnim
@@ -91,9 +191,10 @@ SpriteAnim::GetFrame(const float phase, const Angle& angle) const
 
     const uint32_t framesPerDirection = sequence.GetFrameCount();
     const float normalizedPhase = phase - std::floor(phase);
-    const uint32_t frame =
-        static_cast<uint32_t>(normalizedPhase * static_cast<float>(framesPerDirection))
-        % framesPerDirection;
+    const uint32_t frame = GG_VERIFYB(framesPerDirection > 0, "No frames available")
+        ? static_cast<uint32_t>(normalizedPhase * static_cast<float>(framesPerDirection))
+            % framesPerDirection
+        : 0;
 
     return *sequence.GetFrame(frame);
 }
