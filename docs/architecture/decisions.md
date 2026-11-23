@@ -928,7 +928,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic sprite sequence size
 
-Date: 2026-11-22. Status: Accepted.
+Date: 2026-11-22. Status: Accepted. Version support is superseded by
+[Mosaic sprites and facing sequences](#mosaic-sprites-and-facing-sequences).
 
 Version 24 renames the optional sequence field `dim` to `size`. The serialized
 shape remains `{ w, h }`, with positive integer frame dimensions that fit within
@@ -944,5 +945,47 @@ This supersedes version support and frame-dimension naming in
 
 C++ files are unchanged. The game's `Dim` member and JSON `dim` field remain
 separate integration work. No dependencies, licenses, or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic sprites and facing sequences
+
+Date: 2026-11-23. Status: Accepted.
+
+Version 25 renames `propAssets` to `sequences` and adds `sprites`. Each sprite
+has a unique name and a nonempty ordered list of sequence names, one per facing
+direction. Props reference sprite names through `sprite`, replacing numeric
+`index` references. Name references let catalogs be reordered without changing
+placements or sprite membership. Sequence and sprite names occupy separate
+namespaces, and sequences may be shared by sprites.
+
+The palette offers sprites. Drawing, previews, picking, selection outlines, and
+collision overlays use frame zero of the first sequence. Existing prop rotation
+still transforms that frame, without choosing another direction. This follows
+the game's concept of grouping facing sequences while deferring direction
+selection and playback in Mosaic. Size, pivot, scale, tint, and collision
+rectangles remain sequence-owned. Sprite defaults and inheritance are future work.
+
+Documents and history snapshots share immutable sprite and sequence definitions
+and decoded textures. Loading resolves names to those definitions and rejects
+missing references, duplicate names, and empty sprite groups before installation.
+Newly discovered images create one sequence and one same-named sprite, preserving
+the add-image-and-reload workflow. Name conflicts fail instead of merging groups
+or silently renaming definitions.
+
+Project2 keeps its 104 sequence definitions and groups them into 24 static
+sprites and seven directional actor sprites. The existing direction order is
+preserved, including Caretaker Idle starting with `CT_Idle_337`. The four placed
+static props retain their transforms and appearance. Referenced actor textures
+are now present, resolving the missing-texture limitation recorded in the
+[named sequence decision](#mosaic-named-sprite-sequences).
+
+Mosaic reads and writes version 25 only, without migration support or legacy
+field aliases. This supersedes version support in
+[sprite sequence size](#mosaic-sprite-sequence-size) and the direct sequence
+references in [named sprite sequences](#mosaic-named-sprite-sequences).
+The C++ loader and runtime are unchanged. No dependencies, licenses, or build
+requirements change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

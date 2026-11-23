@@ -1,8 +1,8 @@
 import { kCellSize } from "./grid.ts";
-import { type Prop, type PropAsset } from "./document.ts";
+import { type Prop, type SpriteSequence } from "./document.ts";
 
 /// Scaled sprite bounds in Y-down pixels relative to the pivot, before rotation.
-export function propImageRect(asset: PropAsset): { x: number; y: number; width: number; height: number }
+export function propImageRect(asset: SpriteSequence): { x: number; y: number; width: number; height: number }
 {
     const width = (asset.size?.w ?? asset.srcRect.w) * asset.scale;
     const height = (asset.size?.h ?? asset.srcRect.h) * asset.scale;
@@ -39,7 +39,7 @@ export function hitProp(props: readonly Prop[], x: number, y: number): Prop | nu
         const dy = (prop.y - y) * kCellSize;
         const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
         const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-        const rect = propImageRect(prop.asset);
+        const rect = propImageRect(prop.sprite.sequences[0]);
         if(localX >= rect.x && localX <= rect.x + rect.width
             && localY >= rect.y && localY <= rect.y + rect.height)
         {

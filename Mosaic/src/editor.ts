@@ -1,4 +1,4 @@
-import { validateDocument, type ProjectDocument, type Layer, type Prop, type PropAsset, type ImageAsset } from "./document.ts";
+import { validateDocument, type ProjectDocument, type Layer, type Prop, type Sprite, type ImageAsset } from "./document.ts";
 import { History } from "./history.ts";
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
@@ -52,20 +52,20 @@ export class Editor
     private project: ProjectDocument;
     private selection = new Set<number>();
     private mode: Tool = "select";
-    private propAsset: PropAsset | null;
+    private sprite: Sprite | null;
     private gesture: Gesture | null = null;
 
     constructor(project: ProjectDocument, readonly history: History)
     {
         validateDocument(project);
         this.project = project;
-        this.propAsset = project.propAssets[0] ?? null;
+        this.sprite = project.sprites[0] ?? null;
     }
 
     get document(): ProjectDocument { return this.project; }
     get committedDocument(): ProjectDocument { return this.history.committedState(this.project); }
     get selectedPropIds(): ReadonlySet<number> { return this.selection; }
-    get selectedPropAsset(): PropAsset | null { return this.propAsset; }
+    get selectedSprite(): Sprite | null { return this.sprite; }
     get tool(): Tool { return this.mode; }
     get activeGesture(): { readonly kind: Gesture["kind"]; readonly pointerId: number } | null { return this.gesture; }
     get selectionBox(): SelectionBox | null
@@ -88,11 +88,11 @@ export class Editor
         if(tool !== "select") { this.selection.clear(); }
     }
 
-    chooseProp(asset: PropAsset): void
+    chooseProp(sprite: Sprite): void
     {
         this.requireIdle();
-        if(!this.project.propAssets.includes(asset)) { throw new Error("Prop image is not in this project"); }
-        this.propAsset = asset;
+        if(!this.project.sprites.includes(sprite)) { throw new Error("Sprite is not in this project"); }
+        this.sprite = sprite;
         this.setTool("place");
     }
 
@@ -135,11 +135,11 @@ export class Editor
     placeProp(point: Point): EditResult
     {
         return this.edit("Place prop", (project) => {
-            if(!this.propAsset) { throw new Error("Add an image to assets/props/ and reload the project."); }
+            if(!this.sprite) { throw new Error("Add an image to assets/props/ and reload the project."); }
             if(project.props.length >= 10000) { throw new Error("The level already contains 10,000 props."); }
             const id = project.nextPropId++;
             const position = clampPropPoint(point.x, point.y, this.project.gridSize);
-            project.props.push({ id, asset: this.propAsset,
+            project.props.push({ id, sprite: this.sprite,
                 x: Math.round(position.x * 1000) / 1000,
                 y: Math.round(position.y * 1000) / 1000, rotation: 0 });
             this.selection = new Set([id]);
@@ -386,7 +386,7 @@ export class Editor
     private reconcileSelection(): void
     {
         this.selection = new Set(this.project.props.filter((prop) => this.selection.has(prop.id)).map((prop) => prop.id));
-        if(!this.propAsset || !this.project.propAssets.includes(this.propAsset)) { this.propAsset = this.project.propAssets[0] ?? null; }
+        if(!this.sprite || !this.project.sprites.includes(this.sprite)) { this.sprite = this.project.sprites[0] ?? null; }
     }
 
     private requireIdle(): void

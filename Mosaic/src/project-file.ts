@@ -1,5 +1,5 @@
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
-import { validateDocument, propName, propTint, type ImageAsset, type PropAsset, type ProjectDocument, type JsonValue } from "./document.ts";
+import { validateDocument, appendDiscoveredSequences, sequenceName, sequenceTint, type ImageAsset, type SpriteSequence, type ProjectDocument, type JsonValue } from "./document.ts";
 
 /// Format plain JSON data, keeping small scalar-only objects on one line.
 function formatJson(value: unknown, depth: number, column: number): string
@@ -31,20 +31,21 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([formatJson({
-        format: "mosaic", version: 24,
+        format: "mosaic", version: 25,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
-        propAssets: project.propAssets.map((asset) => ({
-            name: propName(asset), size: asset.size, tint: propTint(asset),
+        sequences: project.sequences.map((asset) => ({
+            name: sequenceName(asset), size: asset.size, tint: sequenceTint(asset),
             texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
             srcRect: asset.srcRect.x === 0 && asset.srcRect.y === 0
                 && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? {} : { ...asset.srcRect },
             collisionRects: asset.collisionRects.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
+        sprites: project.sprites.map((sprite) => ({ name: sprite.name, sequences: sprite.sequences.map(sequenceName) })),
         props: project.props.map((prop) => ({
-            index: project.propAssets.indexOf(prop.asset),
+            sprite: prop.sprite.name,
             pos: { x: Math.round(prop.x * 1000) / 1000, y: Math.round(prop.y * 1000) / 1000 },
             rot: prop.rotation
         })),
@@ -115,21 +116,21 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function projectTexturePaths(blob: Blob): Promise<string[]>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 24) { throw new Error("Unsupported Mosaic project format/version"); }
-    return [...new Set(list(data.propAssets, 0, 256).map((entry) => assetId(object(entry).texPath)))];
+    if(data.format !== "mosaic" || data.version !== 25) { throw new Error("Unsupported Mosaic project format/version"); }
+    return [...new Set(list(data.sequences, 0, 256).map((entry) => assetId(object(entry).texPath)))];
 }
 
-export async function readProject(blob: Blob, available: readonly (ImageAsset | PropAsset)[]): Promise<ProjectDocument>
+export async function readProject(blob: Blob, available: readonly (ImageAsset | SpriteSequence)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 24)
+    if(data.format !== "mosaic" || data.version !== 25)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
     const editor = object(data.editor);
     const assets = new Map(available.filter((asset) => asset.kind !== "prop").map((asset) => [asset.id, asset]));
     const propImages = new Map(available.filter((asset) => asset.kind === "prop").map((asset) => [asset.id, asset]));
-    const lookup = (id: unknown): ImageAsset | PropAsset => {
+    const lookup = (id: unknown): ImageAsset | SpriteSequence => {
         const asset = assets.get(assetId(id));
         if(!asset) { throw new Error(`Missing image: ${id}`); }
         return asset;
@@ -141,7 +142,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     };
     const tileSheets = list(data.tileSheets, 1, 256).map(terrainAsset);
     const masks = list(data.maskSheets, 1, 64).map(terrainAsset);
-    const propAssets = list(data.propAssets, 0, 256).map((item) => {
+    const sequences = list(data.sequences, 0, 256).map((item) => {
         const entry = object(item);
         const asset = propImages.get(assetId(entry.texPath));
         if(!asset) { throw new Error(`Missing image: ${entry.texPath}`); }
@@ -164,7 +165,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
             }
             return { x: rect.x as number, y: rect.y as number, w: rect.w as number, h: rect.h as number };
         });
-        const name = entry.name === undefined ? propName(asset) : entry.name;
+        const name = entry.name === undefined ? sequenceName(asset) : entry.name;
         if(typeof name !== "string") { throw new Error("Invalid sequence name"); }
         const size = entry.size === undefined ? undefined : object(entry.size);
         const frameSize = size === undefined ? undefined
@@ -185,6 +186,18 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
             pivotY: numberOrDefault(pivot.y, 0.5),
             scale: numberOrDefault(entry.scale, 1), collisionRects };
     });
+    const sequenceNames = new Map(sequences.map((sequence) => [sequence.name, sequence]));
+    const sprites = list(data.sprites, 0, 256).map((item) => {
+        const entry = object(item);
+        if(typeof entry.name !== "string") { throw new Error("Invalid sprite name"); }
+        return { name: entry.name, sequences: list(entry.sequences, 1, 256).map((name) => {
+            if(typeof name !== "string") { throw new Error("Invalid sequence reference"); }
+            const sequence = sequenceNames.get(name);
+            if(!sequence) { throw new Error(`Missing sequence: ${name}`); }
+            return sequence;
+        }) };
+    });
+    const spriteNames = new Map(sprites.map((sprite) => [sprite.name, sprite]));
     const props = list(data.props, 0, 10000).map((item, id) => {
         const prop = object(item);
         const pos = object(prop.pos);
@@ -192,7 +205,10 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         {
             throw new Error("Invalid prop coordinate or rotation");
         }
-        return { id, asset: propAssets[integer(prop.index, 0, propAssets.length - 1)],
+        if(typeof prop.sprite !== "string") { throw new Error("Invalid sprite reference"); }
+        const sprite = spriteNames.get(prop.sprite);
+        if(!sprite) { throw new Error(`Missing sprite: ${prop.sprite}`); }
+        return { id, sprite,
             x: pos.x, y: pos.y, rotation: prop.rot };
     });
     const gridSize = integer(data.gridSize, kMinGridSize, kMaxGridSize);
@@ -203,7 +219,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         extensions: data.extensions as JsonValue | undefined,
         gridSize,
         nextLayerId: layers.length,
-        propAssets, props, nextPropId: props.length,
+        sequences, sprites, props, nextPropId: props.length,
         activeLayerId: integer(editor.activeLayer, 0, layers.length - 1),
         maskMode: data.maskMode === "random" ? "random" : integer(data.maskMode, 0, masks.length - 1),
         tileSheets, masks, view: object(editor.view) as ProjectDocument["view"],
@@ -228,8 +244,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         asset.kind === "tile" && !tileSheets.includes(asset))];
     project.masks = [...masks, ...available.filter((asset): asset is ImageAsset =>
         asset.kind === "mask" && !masks.includes(asset))];
-    project.propAssets = [...propAssets, ...available.filter((asset): asset is PropAsset =>
-        asset.kind === "prop" && !propAssets.some((saved) => saved.id === asset.id))];
+    appendDiscoveredSequences(project, available.filter((asset): asset is SpriteSequence => asset.kind === "prop"));
     validateDocument(project);
     // Validate the original coordinates before rounding so invalid bounds still fail.
     for(const prop of project.props)

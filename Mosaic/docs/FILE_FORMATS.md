@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 24`. Only version 24 is supported.
+The container has `format: "mosaic"` and `version: 25`. Only version 25 is supported.
 Older versions are rejected. There is no migration loader.
 
 Saves use two-space indentation, with small objects containing only scalar values
@@ -37,8 +37,9 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `propAssets` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `scale`, `tint`, and `collisionRects` |
-| `props` | Decorative instances in back-to-front draw order |
+| `sequences` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `scale`, `tint`, and `collisionRects` |
+| `sprites` | Named sprites with ordered sequence-name references, one per facing direction |
+| `props` | Decorative instances referencing sprite names, in back-to-front draw order |
 | `editor` | Editor settings described below |
 | `extensions` | Optional opaque JSON preserved across loads and saves |
 
@@ -48,7 +49,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-Extension preservation was introduced in version 21 and continues in version 24.
+Extension preservation was introduced in version 21 and continues in version 25.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -197,18 +198,19 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 
 ### Decorative props
 
-`propAssets` and `props` are required arrays, and may be empty. For example:
+`sequences`, `sprites`, and `props` are required arrays, and may be empty. For example:
 
 ```json
 {
-  "propAssets": [
+  "sequences": [
     { "name": "headstone", "tint": { "r": 1, "g": 1, "b": 1, "a": 1 }, "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": {}, "collisionRects": [] }
   ],
-  "props": [{ "index": 0, "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
+  "sprites": [{ "name": "headstone", "sequences": ["headstone"] }],
+  "props": [{ "sprite": "headstone", "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
 }
 ```
 
-Each asset entry requires `texPath`, a project-root image path under
+Each sequence entry requires `texPath`, a project-root image path under
 `/assets/`. Automatic discovery remains limited to `/assets/props/`. `pivot.x` and `pivot.y` are finite numbers between 0 and 1, inclusive,
 measured from one frame's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
 omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
@@ -230,7 +232,8 @@ Newly discovered assets also use the full texture. Saves write `{}` whenever the
 rectangle covers the entire texture, including when loaded from an explicit
 full-texture object. Cropped rectangles save as objects. The source rectangle
 selects the region containing the sequence's frames. Drawing, palette and placement
-previews, picking, selection outlines, and viewport culling all use frame zero.
+previews, picking, selection outlines, and viewport culling all use frame zero
+of the sprite's first sequence.
 The source offset selects pixels without shifting the sprite's world pivot.
 
 `name` identifies a sequence independently of its texture. Names are case-sensitive,
@@ -272,7 +275,20 @@ then apply the same pivot, scale, rotation, and position as the image. These are
 local rectangles, not world-axis-aligned rectangles. Collision rectangles do not affect picking,
 placement limits, or resizing. The Show collision rectangles toggle is session-only.
 
-Each instance uses `index` to reference a zero-based entry in `propAssets`. `pos.x` and `pos.y` are required finite fractional
+Each sprite requires a `name` and a nonempty `sequences` array of sequence names.
+Names follow the sequence-name rules, but sprite names are required and unique
+within their own catalog. A sprite may have the same name as a sequence. Each
+sequence reference identifies a facing direction, in the saved array order.
+Sequences may be shared between sprites. Mosaic displays frame zero of the first
+sequence, including its geometry, tint, pivot, scale, and collision rectangles.
+Rotation transforms that image and does not select another facing direction.
+There is no animation playback or sprite-level metadata inheritance yet.
+
+Each instance uses `sprite` to reference a sprite by name. Reordering the top-level
+sequence or sprite catalog does not change references. Reordering a sprite's
+sequence list changes its direction order and which sequence Mosaic displays.
+
+`pos.x` and `pos.y` are required finite fractional
 cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2`
 inclusive. The origin is at the map center, with X increasing rightward and Y
 increasing upward. `(0, 0)` is the corner shared by the four central cells.
@@ -293,13 +309,14 @@ Clip artwork at map edges, even when its pivot lies inside the map.
 
 A catalog entry selects a sprite sequence within its source texture. Rectangular textures are allowed,
 with each dimension from 1 to 4096 pixels. The catalog supports at most 256 named
-sequences and the level at most 10,000 instances. Asset dimensions come from the
+sequences, 256 sprites, and 256 sequence references per sprite. The level supports
+at most 10,000 instances. Asset dimensions come from the
 images. Sequence entries sharing a texture share its decoded image and URL.
 Missing referenced images, incorrect asset kinds, invalid source rectangles or transforms,
 and invalid catalog references fail loading before installation.
 
 The document owns prop placements. Snapshots copy their transforms and share
-immutable decoded images and asset name, source-rectangle, frame-dimension, tint, pivot, scale, and collision rectangle settings. Placement, movement, and deletion are undoable,
+immutable sprite definitions, sequence definitions, and decoded images. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
@@ -382,9 +399,12 @@ read or write.
 
 Catalog order is preserved on load. Discovered images are sorted by their full
 encoded resource URLs. Newly discovered images append in that deterministic order,
-without changing existing catalog indices or prop placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
+without changing existing references or prop placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
 and scales are preserved. Textures already referenced by any saved sequence are
-not appended as new entries. New entries use the filename stem as name, the full
+not appended as new entries. Each new sequence also gets a same-named sprite
+containing only that sequence. Existing sprite groups are preserved. A generated
+name conflicting with either catalog fails loading rather than silently renaming
+or merging definitions. New entries use the filename stem as name, the full
 texture, omitted `size`, white tint, pivot `(0.5, 0.5)`, and scale `1`. Newly discovered terrain textures
 must match the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
@@ -414,9 +434,9 @@ sequence textures anywhere under that project's `assets/` directory. Paths retai
 literal filename characters and are encoded by segment for HTTP requests.
 Traversal and paths outside `assets/` are rejected. Each distinct sequence texture
 is decoded once per project load, including when multiple entries reference it.
-Missing referenced textures fail loading before installation. Project2's converted
-actor textures are not yet present in its project folder, so it currently fails
-this check. No repository-level fallback or placeholder images are used.
+Missing referenced textures fail loading before installation. Project2 includes
+its referenced actor textures. No repository-level fallback or placeholder images
+are used.
 
 Save sends the complete JSON body with PUT `/projects/<name>/level.json` and
 `Content-Type: application/json`. A successful HTTP response marks that revision

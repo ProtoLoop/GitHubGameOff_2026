@@ -1,5 +1,5 @@
 import { mapPixels, propImageRect, type SelectionBox } from "./props.ts";
-import { propTint, type ProjectDocument, type MaskPlacement, type PropAsset, type ImageAsset } from "./document.ts";
+import { sequenceTint, type ProjectDocument, type MaskPlacement, type SpriteSequence, type ImageAsset } from "./document.ts";
 import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
 import { kCellSize, kHalfCellSize } from "./grid.ts";
 
@@ -109,7 +109,7 @@ export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasE
 
 export interface ImagePreview
 {
-    readonly asset: PropAsset | ImageAsset;
+    readonly asset: SpriteSequence | ImageAsset;
     /// Optional terrain preview dimensions in map pixels. Props use their asset scale.
     readonly size?: { readonly width: number; readonly height: number };
     /// Prop pivot or terrain preview center in fractional cells.
@@ -136,14 +136,14 @@ function terrainPreviewImage(asset: ImageAsset): OffscreenCanvas
     return canvas;
 }
 
-const tintedFrames = new WeakMap<PropAsset, OffscreenCanvas>();
+const tintedFrames = new WeakMap<SpriteSequence, OffscreenCanvas>();
 
 /// Share the same frame-zero crop and tint between the palette and map previews.
-export function propFrameSource(asset: PropAsset): { image: CanvasImageSource; x: number; y: number; w: number; h: number }
+export function propFrameSource(asset: SpriteSequence): { image: CanvasImageSource; x: number; y: number; w: number; h: number }
 {
     const { x, y } = asset.srcRect;
     const w = asset.size?.w ?? asset.srcRect.w, h = asset.size?.h ?? asset.srcRect.h;
-    const tint = propTint(asset);
+    const tint = sequenceTint(asset);
     if(tint.r === 1 && tint.g === 1 && tint.b === 1 && tint.a === 1)
     {
         return { image: asset.image, x, y, w, h };
@@ -181,7 +181,7 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
     const visible = (prop: ProjectDocument["props"][number]): boolean => {
         const point = mapPixels(prop, project.gridSize);
         const angle = prop.rotation * Math.PI / 180;
-        const rect = propImageRect(prop.asset);
+        const rect = propImageRect(prop.sprite.sequences[0]);
         const cos = Math.cos(angle), sin = Math.sin(angle);
         const offsetX = rect.x + rect.width / 2, offsetY = rect.y + rect.height / 2;
         const centerX = point.x + offsetX * cos - offsetY * sin;
@@ -200,8 +200,8 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         const point = mapPixels(prop, project.gridSize);
         context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
-        const rect = propImageRect(prop.asset);
-        const source = propFrameSource(prop.asset);
+        const rect = propImageRect(prop.sprite.sequences[0]);
+        const source = propFrameSource(prop.sprite.sequences[0]);
         context.drawImage(source.image, source.x, source.y, source.w, source.h,
             rect.x, rect.y, rect.width, rect.height);
         context.restore();
@@ -211,18 +211,19 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         // Collision rectangles can extend beyond the image, so image culling must not hide them.
         for(const prop of project.props)
         {
-            if(prop.asset.collisionRects.length === 0) { continue; }
+            const sequence = prop.sprite.sequences[0];
+            if(sequence.collisionRects.length === 0) { continue; }
             context.save();
             const point = mapPixels(prop, project.gridSize);
             context.translate(point.x, point.y);
             context.rotate(prop.rotation * Math.PI / 180);
             context.strokeStyle = "#00e5ff";
             context.lineWidth = 2 / view.zoom;
-            const { width, height } = propImageRect(prop.asset);
-            for(const rect of prop.asset.collisionRects)
+            const { width, height } = propImageRect(sequence);
+            for(const rect of sequence.collisionRects)
             {
-                context.strokeRect((rect.x - prop.asset.pivotX) * width,
-                    (rect.y - prop.asset.pivotY) * height, rect.w * width, rect.h * height);
+                context.strokeRect((rect.x - sequence.pivotX) * width,
+                    (rect.y - sequence.pivotY) * height, rect.w * width, rect.h * height);
             }
             context.restore();
         }
@@ -236,7 +237,7 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         context.rotate(selected.rotation * Math.PI / 180);
         context.strokeStyle = "#ffdc60";
         context.lineWidth = 2 / view.zoom;
-        const rect = propImageRect(selected.asset);
+        const rect = propImageRect(selected.sprite.sequences[0]);
         context.strokeRect(rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }

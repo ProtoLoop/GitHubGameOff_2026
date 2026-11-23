@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 24,
+  "version": 25,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",
@@ -15,7 +15,7 @@
     "/assets/masks/alpha-set-d.png"
   ],
   "maskMode": "random",
-  "propAssets": [
+  "sequences": [
     {
       "name": "Cemetery_Ancient_Tree_001",
       "tint": {"r":1,"g":1,"b":1,"a":1},
@@ -1241,24 +1241,285 @@
       ]
     }
   ],
+  "sprites": [
+    {
+      "name": "Cemetery_Ancient_Tree_001",
+      "sequences": [
+        "Cemetery_Ancient_Tree_001"
+      ]
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_002",
+      "sequences": [
+        "Cemetery_Ancient_Tree_002"
+      ]
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_003",
+      "sequences": [
+        "Cemetery_Ancient_Tree_003"
+      ]
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_004",
+      "sequences": [
+        "Cemetery_Ancient_Tree_004"
+      ]
+    },
+    {
+      "name": "Cemetery_Bell_001",
+      "sequences": [
+        "Cemetery_Bell_001"
+      ]
+    },
+    {
+      "name": "Cemetery_Bell_002",
+      "sequences": [
+        "Cemetery_Bell_002"
+      ]
+    },
+    {
+      "name": "Cemetery_Bell_003",
+      "sequences": [
+        "Cemetery_Bell_003"
+      ]
+    },
+    {
+      "name": "Cemetery_Bell_004",
+      "sequences": [
+        "Cemetery_Bell_004"
+      ]
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_001",
+      "sequences": [
+        "Cemetery_Stonewall_and_Boundary_001"
+      ]
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_002",
+      "sequences": [
+        "Cemetery_Stonewall_and_Boundary_002"
+      ]
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_003",
+      "sequences": [
+        "Cemetery_Stonewall_and_Boundary_003"
+      ]
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_004",
+      "sequences": [
+        "Cemetery_Stonewall_and_Boundary_004"
+      ]
+    },
+    {
+      "name": "Forgotten_Headstone_001",
+      "sequences": [
+        "Forgotten_Headstone_001"
+      ]
+    },
+    {
+      "name": "Forgotten_Headstone_002",
+      "sequences": [
+        "Forgotten_Headstone_002"
+      ]
+    },
+    {
+      "name": "Forgotten_Headstone_003",
+      "sequences": [
+        "Forgotten_Headstone_003"
+      ]
+    },
+    {
+      "name": "Forgotten_Headstone_004",
+      "sequences": [
+        "Forgotten_Headstone_004"
+      ]
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_001",
+      "sequences": [
+        "Gothic_Necropolis_Gate_001"
+      ]
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_002",
+      "sequences": [
+        "Gothic_Necropolis_Gate_002"
+      ]
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_003",
+      "sequences": [
+        "Gothic_Necropolis_Gate_003"
+      ]
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_004",
+      "sequences": [
+        "Gothic_Necropolis_Gate_004"
+      ]
+    },
+    {
+      "name": "Noble_Family_Tombstone_001",
+      "sequences": [
+        "Noble_Family_Tombstone_001"
+      ]
+    },
+    {
+      "name": "Noble_Family_Tombstone_002",
+      "sequences": [
+        "Noble_Family_Tombstone_002"
+      ]
+    },
+    {
+      "name": "Noble_Family_Tombstone_003",
+      "sequences": [
+        "Noble_Family_Tombstone_003"
+      ]
+    },
+    {
+      "name": "Noble_Family_Tombstone_004",
+      "sequences": [
+        "Noble_Family_Tombstone_004"
+      ]
+    },
+    {
+      "name": "Warrior_Run",
+      "sequences": [
+        "Warrior_Run_N",
+        "Warrior_Run_NE",
+        "Warrior_Run_E",
+        "Warrior_Run_SE",
+        "Warrior_Run_S",
+        "Warrior_Run_SW",
+        "Warrior_Run_W",
+        "Warrior_Run_NW"
+      ]
+    },
+    {
+      "name": "Warrior_Idle",
+      "sequences": [
+        "Warrior_Idle_N",
+        "Warrior_Idle_NE",
+        "Warrior_Idle_E",
+        "Warrior_Idle_SE",
+        "Warrior_Idle_S",
+        "Warrior_Idle_SW",
+        "Warrior_Idle_W",
+        "Warrior_Idle_NW"
+      ]
+    },
+    {
+      "name": "SH_Walk",
+      "sequences": [
+        "SH_Walk_N",
+        "SH_Walk_NE",
+        "SH_Walk_E",
+        "SH_Walk_SE",
+        "SH_Walk_S",
+        "SH_Walk_SW",
+        "SH_Walk_W",
+        "SH_Walk_NW"
+      ]
+    },
+    {
+      "name": "SH_Hover",
+      "sequences": [
+        "SH_Hover_N",
+        "SH_Hover_NE",
+        "SH_Hover_E",
+        "SH_Hover_SE",
+        "SH_Hover_S",
+        "SH_Hover_SW",
+        "SH_Hover_W",
+        "SH_Hover_NW"
+      ]
+    },
+    {
+      "name": "CT_Idle",
+      "sequences": [
+        "CT_Idle_337",
+        "CT_Idle_000",
+        "CT_Idle_022",
+        "CT_Idle_045",
+        "CT_Idle_067",
+        "CT_Idle_090",
+        "CT_Idle_112",
+        "CT_Idle_135",
+        "CT_Idle_157",
+        "CT_Idle_180",
+        "CT_Idle_202",
+        "CT_Idle_225",
+        "CT_Idle_247",
+        "CT_Idle_270",
+        "CT_Idle_292",
+        "CT_Idle_315"
+      ]
+    },
+    {
+      "name": "CT_Walk",
+      "sequences": [
+        "CT_Walk_000",
+        "CT_Walk_022",
+        "CT_Walk_045",
+        "CT_Walk_067",
+        "CT_Walk_090",
+        "CT_Walk_112",
+        "CT_Walk_135",
+        "CT_Walk_157",
+        "CT_Walk_180",
+        "CT_Walk_202",
+        "CT_Walk_225",
+        "CT_Walk_247",
+        "CT_Walk_270",
+        "CT_Walk_292",
+        "CT_Walk_315",
+        "CT_Walk_337"
+      ]
+    },
+    {
+      "name": "CT_Run",
+      "sequences": [
+        "CT_Run_000",
+        "CT_Run_022",
+        "CT_Run_045",
+        "CT_Run_067",
+        "CT_Run_090",
+        "CT_Run_112",
+        "CT_Run_135",
+        "CT_Run_157",
+        "CT_Run_180",
+        "CT_Run_202",
+        "CT_Run_225",
+        "CT_Run_247",
+        "CT_Run_270",
+        "CT_Run_292",
+        "CT_Run_315",
+        "CT_Run_337"
+      ]
+    }
+  ],
   "props": [
     {
-      "index": 7,
+      "sprite": "Cemetery_Bell_004",
       "pos": {"x":-5,"y":3.005},
       "rot": 0
     },
     {
-      "index": 22,
+      "sprite": "Noble_Family_Tombstone_003",
       "pos": {"x":-1.291,"y":4.678},
       "rot": 0
     },
     {
-      "index": 22,
+      "sprite": "Noble_Family_Tombstone_003",
       "pos": {"x":-0.388,"y":2.865},
       "rot": 0
     },
     {
-      "index": 0,
+      "sprite": "Cemetery_Ancient_Tree_001",
       "pos": {"x":-5.742,"y":5.151},
       "rot": 0
     }

@@ -24,11 +24,10 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The main
 project is `project2`. Copy its asset folders to make a new project.
-Project2 now references 80 actor sequences converted from `AnimResources.cpp`.
-Their 52 textures have not been copied into the project. Until those textures
-are supplied at the referenced project-relative paths, Mosaic reports missing
-images and cannot open project2. There is no fallback to repository-level assets.
-Mosaic reads and writes version 24 only, with no migration support. Existing
+Project2 contains 104 sequences grouped into 31 sprites: 24 static sprites and
+seven directional actor sprites. The referenced actor textures are present in the
+project. There is no fallback to repository-level assets.
+Mosaic reads and writes version 25 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -94,10 +93,10 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   Choose a prop swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
   reload to update the palette. Rectangular images support 1–4096 pixels per axis.
-- `propAssets` is a catalog of named sprite sequences. Each entry stores `name`,
+- `sequences` is a catalog of named image sequences. Each entry stores `name`,
   `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects`, with optional
   `size: { w, h }` specifying one frame's pixel dimensions. Omit `size` to use the
-  full resolved source rectangle as one frame. Mosaic displays frame zero only.
+  full resolved source rectangle as one frame.
   Sequence names must be unique, nonblank, and at most 63 UTF-8 bytes, without
   control characters. Unnamed entries use their filename without its extension.
   Saves write the name explicitly and preserve it on reload. Name collisions
@@ -115,7 +114,15 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale is finite and positive, defaulting to
   `1`. Scale and rotation both operate about the pivot. Edit these asset settings
   in JSON and reload the project to apply them.
-- Add normalized collision rectangles to an asset’s `collisionRects` array using `x`, `y`,
+- `sprites` groups sequences by facing direction. Each entry has a unique `name`
+  and a nonempty ordered `sequences` array of sequence names. The palette lists
+  sprites, and placed `props` reference them through `sprite: "name"`. Mosaic
+  displays frame zero of each sprite's first sequence. Rotation still rotates
+  that image. Size, pivot, scale, tint, and collision rectangles stay on sequences.
+  Reordering either top-level catalog does not change references. Edit sprite
+  groups in JSON and reload. Newly discovered images each get one sequence and
+  one same-named sprite. Name conflicts fail loading.
+- Add normalized collision rectangles to a sequence’s `collisionRects` array using `x`, `y`,
   `w`, and `h`. Omitted `collisionRects` or `[]` means no collision. Dimensions must be
   positive, and rectangles may extend outside the cropped sprite. Collision rectangles use the
   frame dimensions for normalization: `(0, 0)` is the upper-left corner

@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { Editor } from "./editor.ts";
 import { History } from "./history.ts";
-import { createDocument, cloneDocument, sameContent, validateDocument, type ImageAsset, type PropAsset } from "./document.ts";
+import { sequenceName, createDocument, cloneDocument, sameContent, validateDocument, type ImageAsset, type SpriteSequence } from "./document.ts";
 
 function fixture(): Editor
 {
@@ -11,12 +11,13 @@ function fixture(): Editor
     const project = createDocument([tile, other], [{ ...tile, kind: "mask", id: "assets/masks/a.png" }]);
     project.layers.push({ id: 2, sheet: tile, painted: Array(project.gridSize * project.gridSize).fill(false) });
     project.nextLayerId = 3;
-    const asset: PropAsset = { kind: "prop", id: "assets/props/a.png", label: "a",
+    const asset: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 20, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
-    project.propAssets = [asset];
-    project.props = [2, 6, 10].map((x, id) => ({ id, asset, x, y: 2, rotation: 0 }));
+    project.sequences = [asset];
+    project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.props = [2, 6, 10].map((x, id) => ({ id, sprite: project.sprites[0], x, y: 2, rotation: 0 }));
     project.nextPropId = 3;
     return new Editor(project, new History(100, 64 * 1024 * 1024));
 }
@@ -166,7 +167,7 @@ Deno.test("palette modes and placement keep selection transient while Escape alw
     const editor = fixture();
     assert.equal(editor.tool, "select");
     assert.equal(editor.selectedPropIds.size, 0);
-    editor.chooseProp(editor.document.propAssets[0]);
+    editor.chooseProp(editor.document.sprites[0]);
     assert.equal(editor.tool, "place");
     editor.placeProp({ x: 18, y: 18 });
     const id = editor.document.props.at(-1)!.id;

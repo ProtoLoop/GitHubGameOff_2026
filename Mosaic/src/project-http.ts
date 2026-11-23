@@ -1,4 +1,4 @@
-import { createDocument, decodeAsset, decodePropAsset, validateDocument, type ImageAsset, type PropAsset } from "./document.ts";
+import { createDocument, decodeAsset, decodeSequence, appendDiscoveredSequences, validateDocument, type ImageAsset, type SpriteSequence } from "./document.ts";
 import { readProject, projectTexturePaths } from "./project-file.ts";
 
 /// Accept only immediate children of the requested directory, regardless of link text.
@@ -66,7 +66,7 @@ function relativeAssetPath(root: string, url: string): string
 /// The candidate owns its decoded images until installed. Failures release the entire candidate.
 export async function loadProject(folder: string)
 {
-    const decoded: (ImageAsset | PropAsset)[] = [];
+    const decoded: (ImageAsset | SpriteSequence)[] = [];
     try
     {
         for(const kind of ["tile", "mask"] as const)
@@ -89,7 +89,7 @@ export async function loadProject(folder: string)
             const filename = relativeAssetPath(propRoot, url);
             const response = await fetch(url, { cache: "no-store" });
             if(!response.ok) { throw new Error(`Could not load ${filename} (HTTP ${response.status})`); }
-            decoded.push(await decodePropAsset(await response.blob(), filename, propFolder + filename));
+            decoded.push(await decodeSequence(await response.blob(), filename, propFolder + filename));
         }
         const response = await fetch(new URL("level.json", folder), { cache: "no-store" });
         if(!response.ok && response.status !== 404) { throw new Error(`Could not load level.json (HTTP ${response.status})`); }
@@ -103,7 +103,7 @@ export async function loadProject(folder: string)
                 const url = new URL(id.split("/").map(encodeURIComponent).join("/"), folder);
                 const imageResponse = await fetch(url, { cache: "no-store" });
                 if(!imageResponse.ok) { throw new Error(`Could not load ${id} (HTTP ${imageResponse.status})`); }
-                decoded.push(await decodePropAsset(await imageResponse.blob(), id, id));
+                decoded.push(await decodeSequence(await imageResponse.blob(), id, id));
                 known.add(id);
             }
         }
@@ -112,7 +112,7 @@ export async function loadProject(folder: string)
         if(!tiles.length || !masks.length) { throw new Error("Project needs at least one tile sheet and one alpha mask"); }
         const project = levelBlob === null ? createDocument(tiles, masks)
             : await readProject(levelBlob, decoded);
-        if(response.status === 404) { project.propAssets = decoded.filter((asset) => asset.kind === "prop"); }
+        if(response.status === 404) { appendDiscoveredSequences(project, decoded.filter((asset) => asset.kind === "prop")); }
         validateDocument(project);
         return { project, saved: response.status !== 404 };
     }

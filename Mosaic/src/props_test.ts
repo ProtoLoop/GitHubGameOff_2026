@@ -1,12 +1,12 @@
 import { strict as assert } from "node:assert";
-import { type PropAsset, type Prop } from "./document.ts";
+import { type SpriteSequence, type Prop } from "./document.ts";
 import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelta, propImageRect } from "./props.ts";
 
-const asset: PropAsset = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
+const asset: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
     blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
-const prop: Prop = { id: 0, asset, x: 100 / 64, y: -200 / 64, rotation: 90 };
+const prop: Prop = { id: 0, sprite: { name: "Stone", sequences: [asset] }, x: 100 / 64, y: -200 / 64, rotation: 90 };
 
 Deno.test("prop picking respects rotation, native rectangular bounds and placement order", () => {
     assert.equal(hitProp([prop], 100 / 64, -235 / 64), prop);
@@ -24,13 +24,13 @@ Deno.test("prop picking respects rotation, native rectangular bounds and placeme
 Deno.test("picking follows scaled rectangles rotated about non-center pivots", () => {
     // A bottom-left pivot at (0, 0), scaled to 160 by 40 pixels and rotated clockwise 90 degrees.
     // Its world rectangle extends right by 40 pixels and down by 160 pixels from the fixed pivot.
-    const anchored = { ...prop, x: 0, y: 0, asset: { ...asset, pivotX: 0, pivotY: 1, scale: 2 } };
+    const anchored = { ...prop, x: 0, y: 0, sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 0, pivotY: 1, scale: 2 }] } };
     assert.equal(hitProp([anchored], 20 / 64, -80 / 64), anchored);
     assert.equal(hitProp([anchored], -1 / 64, -80 / 64), null);
     assert.equal(hitProp([anchored], 41 / 64, -80 / 64), null);
     assert.equal(hitProp([anchored], 20 / 64, 1 / 64), null);
     assert.equal(hitProp([anchored], 20 / 64, -161 / 64), null);
-    const small = { ...anchored, rotation: 0, asset: { ...asset, pivotX: 1, pivotY: 0, scale: 0.25 } };
+    const small = { ...anchored, rotation: 0, sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 1, pivotY: 0, scale: 0.25 }] } };
     assert.equal(hitProp([small], -10 / 64, -2 / 64), small);
     assert.equal(hitProp([small], 1 / 64, -2 / 64), null);
     assert.equal(hitProp([small], -21 / 64, -2 / 64), null);
@@ -78,8 +78,8 @@ Deno.test("group translations clamp on all four centered boundaries without defo
 
 Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pivots and rotation", () => {
     const cropped = { ...prop, x: 0, y: 0, rotation: 90,
-        asset: { ...asset, srcRect: { x: 30, y: 4, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2 } };
-    assert.deepEqual(propImageRect(cropped.asset), { x: -20, y: -20, width: 80, height: 20 });
+        sprite: { name: "Stone", sequences: [{ ...asset, srcRect: { x: 30, y: 4, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2 }] } };
+    assert.deepEqual(propImageRect(cropped.sprite.sequences[0]), { x: -20, y: -20, width: 80, height: 20 });
     // After rotation, the crop covers X [0, 20] and Y [-20, 60] in Y-down pixels.
     assert.equal(hitProp([cropped], 10 / 64, -30 / 64), cropped);
     for(const [x, y] of [[-1, 30], [21, 30], [10, -21], [10, 61]])
@@ -87,15 +87,15 @@ Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pi
         assert.equal(hitProp([cropped], x / 64, -y / 64), null);
     }
     // Moving the source rectangle within the texture does not move the sprite or its pivot.
-    const moved = { ...cropped, asset: { ...cropped.asset, srcRect: { ...cropped.asset.srcRect, x: 0, y: 0 } } };
-    assert.deepEqual(propImageRect(moved.asset), propImageRect(cropped.asset));
+    const moved = { ...cropped, sprite: { name: "Stone", sequences: [{ ...cropped.sprite.sequences[0], srcRect: { ...cropped.sprite.sequences[0].srcRect, x: 0, y: 0 } }] } };
+    assert.deepEqual(propImageRect(moved.sprite.sequences[0]), propImageRect(cropped.sprite.sequences[0]));
     assert.equal(hitProp([moved], 10 / 64, -30 / 64), moved);
 });
 
 Deno.test("sequence picking and bounds use one frame while omitted size uses the full crop", () => {
     const sequence = { ...asset, srcRect: { x: 8, y: 2, w: 60, h: 16 }, size: { w: 12, h: 8 },
         pivotX: 0.5, pivotY: 1, scale: 2 };
-    const placed = { ...prop, asset: sequence, x: 0, y: 0, rotation: 0 };
+    const placed = { ...prop, sprite: { name: "Stone", sequences: [sequence, asset] }, x: 0, y: 0, rotation: 0 };
     assert.deepEqual(propImageRect(sequence), { x: -12, y: -16, width: 24, height: 16 });
     assert.equal(hitProp([placed], 10 / 64, 8 / 64), placed);
     assert.equal(hitProp([placed], 13 / 64, 8 / 64), null);

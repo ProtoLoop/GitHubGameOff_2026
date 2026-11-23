@@ -172,9 +172,12 @@ default to white.
 
 Mosaic resolves texture paths against each project's own directory. Explicit
 sequence textures can live anywhere under its `assets/`, while automatic prop
-discovery stays under `assets/props/`. Project2 contains 80 converted actor sequence
-entries whose 52 textures have not yet been copied from repository assets into
-the project. It cannot open in Mosaic until those referenced files are supplied.
+discovery stays under `assets/props/`. Mosaic version 25 stores named `sequences`
+and `sprites`, with props referencing sprites by name. Each sprite groups ordered
+facing sequences, and the editor displays frame zero of its first sequence.
+The C++ loader and runtime are separate from this Mosaic format transition.
+Project2 contains 104 sequences grouped into 31 sprites, with its referenced
+actor textures present in the project.
 No texture copying or fallback to repository assets happens automatically.
 
 ## macOS

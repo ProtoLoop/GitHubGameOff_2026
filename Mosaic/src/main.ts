@@ -1,6 +1,6 @@
 import { listDirectory, loadProject } from "./project-http.ts";
-import { documentAssets, sameTerrainContent, propName,
-    type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type PropAsset } from "./document.ts";
+import { documentAssets, sameTerrainContent,
+    type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type SpriteSequence } from "./document.ts";
 import { Editor, type Tool, type EditResult } from "./editor.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
@@ -12,7 +12,7 @@ import { mapPoint, type Point } from "./props.ts";
 let editor: Editor;
 let ready = false;
 let fileBusy = false;
-const assets = new Set<TileAtlas | PropAsset>();
+const assets = new Set<TileAtlas | SpriteSequence>();
 let hoverClient: Point | null = null;
 let overlayFrame: number | null = null;
 let viewportFrame: number | null = null;
@@ -69,7 +69,7 @@ function renderPropOverlay(): void
 {
     if(overlayFrame !== null) { cancelAnimationFrame(overlayFrame); overlayFrame = null; }
     let preview: ImagePreview | null = null;
-    const asset = editor.tool === "place" ? editor.selectedPropAsset : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
+    const asset = editor.tool === "place" ? editor.selectedSprite?.sequences[0] : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
     if(asset && hoverClient && editor.activeGesture?.kind !== "pan" && !fileBusy
         && !dialogOpen())
     {
@@ -103,7 +103,7 @@ function renderPropOverlay(): void
 function updatePropControls(): void
 {
     const selected = editor.selectedPropIds.size === 1 ? editor.document.props.find((prop) => editor.selectedPropIds.has(prop.id)) : undefined;
-    required("prop-selection", HTMLOutputElement).value = (selected ? propName(selected.asset) : undefined)
+    required("prop-selection", HTMLOutputElement).value = (selected ? selected.sprite.name : undefined)
         ?? (editor.selectedPropIds.size > 1 ? `${editor.selectedPropIds.size} props selected` : "No prop selected");
 }
 
@@ -111,15 +111,16 @@ function renderPropPalette(): void
 {
     const palette = required("prop-palette", HTMLDivElement);
     palette.replaceChildren();
-    for(const asset of editor.document.propAssets)
+    for(const sprite of editor.document.sprites)
     {
+        const asset = sprite.sequences[0];
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
         const source = propFrameSource(asset);
-        button.title = `${propName(asset)} — ${asset.id} (${source.w}×${source.h})`;
-        button.setAttribute("aria-label", propName(asset));
-        button.setAttribute("aria-pressed", String(editor.tool === "place" && asset === editor.selectedPropAsset));
+        button.title = `${sprite.name} — ${asset.id} (${source.w}×${source.h})`;
+        button.setAttribute("aria-label", sprite.name);
+        button.setAttribute("aria-pressed", String(editor.tool === "place" && sprite === editor.selectedSprite));
         const preview = document.createElement("canvas");
         preview.width = 56;
         preview.height = 56;
@@ -135,12 +136,12 @@ function renderPropPalette(): void
         button.append(preview);
         button.addEventListener("click", () => {
             finishInteraction("commit");
-            editor.chooseProp(asset);
+            editor.chooseProp(sprite);
             refreshTool();
         });
         palette.append(button);
     }
-    if(editor.document.propAssets.length === 0)
+    if(editor.document.sprites.length === 0)
     {
         palette.textContent = "Add images to assets/props/ and reload the project.";
     }

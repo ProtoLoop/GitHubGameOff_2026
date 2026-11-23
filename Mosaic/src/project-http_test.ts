@@ -109,9 +109,11 @@ Deno.test("project loading retains nested identities and labels, decoding filena
         {
             assert.equal(saved, false);
             assert.deepEqual(project.tileSheets.map((asset) => asset.id), ["assets/tiles/one/ground.png", "assets/tiles/two/ground.png"]);
-            assert.deepEqual(project.propAssets.map((asset) => asset.id), ["assets/props/grave #/stone%20.png", "assets/props/other/other%20.png"]);
+            assert.deepEqual(project.sequences.map((asset) => asset.id), ["assets/props/grave #/stone%20.png", "assets/props/other/other%20.png"]);
             assert.deepEqual(project.tileSheets.map((asset) => asset.label), ["one/ground.png", "two/ground.png"]);
-            assert.equal(project.propAssets[0].label, "grave #/stone%20.png");
+            assert.equal(project.sequences[0].label, "grave #/stone%20.png");
+            assert.deepEqual(project.sprites.map((sprite) => sprite.name), ["stone%20", "other%20"]);
+            assert.equal(project.sprites[0].sequences[0], project.sequences[0]);
         }
         finally { for(const asset of documentAssets(project)) { URL.revokeObjectURL(asset.url); } }
     }
@@ -127,10 +129,11 @@ Deno.test("explicit sequence textures load once within the project root and fail
     const folder = "http://localhost/projects/test/";
     const texture = folder + "assets/anims/actor%20%23.png";
     const data = {
-        format: "mosaic", version: 24, gridSize: 2,
+        format: "mosaic", version: 25, gridSize: 2,
         tileSheets: ["/assets/tiles/tile.png"], maskSheets: ["/assets/masks/mask.png"], maskMode: "random",
         layers: [{ sheet: 0, cells: [] }], props: [],
-        propAssets: [
+        sprites: [{ name: "Actor", sequences: ["Walk", "Idle"] }],
+        sequences: [
             { name: "Walk", texPath: "/assets/anims/actor #.png", size: { w: 16, h: 16 } },
             { name: "Idle", texPath: "/assets/anims/actor #.png", size: { w: 32, h: 32 } }
         ],
@@ -160,16 +163,19 @@ Deno.test("explicit sequence textures load once within the project root and fail
     {
         const { project, saved } = await loadProject(folder);
         assert(saved);
-        assert.equal(project.propAssets.length, 2);
-        assert.equal(project.propAssets[0].image, project.propAssets[1].image);
-        assert.equal(project.propAssets[0].url, project.propAssets[1].url);
+        assert.equal(project.sequences.length, 2);
+        assert.equal(project.sequences[0].image, project.sequences[1].image);
+        assert.equal(project.sequences[0].url, project.sequences[1].url);
+        assert.equal(project.sprites.length, 1);
+        assert.equal(project.sprites[0].name, "Actor");
+        assert.deepEqual(project.sprites[0].sequences, project.sequences);
         assert.equal(server.requests.filter((url) => url === texture).length, 1);
         for(const url of new Set(documentAssets(project).map((asset) => asset.url))) { URL.revokeObjectURL(url); }
         revoked.length = 0;
         missing = true;
         await assert.rejects(() => loadProject(folder), /HTTP 404/);
         assert.equal(new Set(revoked).size, 2);
-        data.propAssets[0].texPath = "/assets/../outside.png";
+        data.sequences[0].texPath = "/assets/../outside.png";
         await assert.rejects(() => loadProject(folder), /Invalid project asset path/);
         assert(!server.requests.some((url) => url.endsWith("outside.png")));
     }

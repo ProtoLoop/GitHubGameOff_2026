@@ -17,7 +17,7 @@ export interface PropCollisionRect
     readonly h: number;
 }
 
-export interface PropAsset extends Asset
+export interface SpriteSequence extends Asset
 {
     readonly kind: "prop";
     readonly name?: string;
@@ -37,22 +37,29 @@ export interface PropAsset extends Asset
 }
 
 /// Generated once for unnamed entries, then saved explicitly.
-export function propName(asset: PropAsset): string
+export function sequenceName(asset: SpriteSequence): string
 {
     const filename = asset.id.slice(asset.id.lastIndexOf("/") + 1);
     const extension = filename.lastIndexOf(".");
     return asset.name ?? (extension > 0 ? filename.slice(0, extension) : filename);
 }
 
-export function propTint(asset: PropAsset): { readonly r: number; readonly g: number; readonly b: number; readonly a: number }
+export function sequenceTint(asset: SpriteSequence): { readonly r: number; readonly g: number; readonly b: number; readonly a: number }
 {
     return asset.tint ?? { r: 1, g: 1, b: 1, a: 1 };
+}
+
+/// Ordered facing directions. Mosaic displays frame zero of the first sequence.
+export interface Sprite
+{
+    readonly name: string;
+    readonly sequences: readonly SpriteSequence[];
 }
 
 export interface Prop
 {
     readonly id: number;
-    readonly asset: PropAsset;
+    readonly sprite: Sprite;
     /// Pivot in centered, Y-up fractional cells, rounded to three decimal places during editing.
     x: number;
     y: number;
@@ -95,7 +102,8 @@ export interface ProjectDocument
     /// Opaque loaded JSON, shared unchanged by history and save snapshots.
     readonly extensions?: JsonValue;
     gridSize: number;
-    propAssets: readonly PropAsset[];
+    sequences: readonly SpriteSequence[];
+    sprites: readonly Sprite[];
     props: Prop[];
     nextPropId: number;
     layers: Layer[];
@@ -116,7 +124,7 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     const sheets = [tiles[0], tiles[Math.min(1, tiles.length - 1)]];
     const project: ProjectDocument = {
         gridSize: kDefaultGridSize, nextLayerId: 2, activeLayerId: 1,
-        propAssets: [], props: [], nextPropId: 0,
+        sequences: [], sprites: [], props: [], nextPropId: 0,
         tileSheets: [...tiles], masks: [...masks], maskMode: "random",
         view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true },
         layers: sheets.map((sheet, id) => ({
@@ -131,7 +139,7 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
 export function cloneDocument(project: ProjectDocument): ProjectDocument
 {
     return {
-        ...project, propAssets: [...project.propAssets], props: project.props.map((prop) => ({ ...prop })),
+        ...project, sequences: [...project.sequences], sprites: [...project.sprites], props: project.props.map((prop) => ({ ...prop })),
         view: { ...project.view }, tileSheets: [...project.tileSheets], masks: [...project.masks],
         layers: project.layers.map((layer) => ({ ...layer, painted: [...layer.painted] }))
     };
@@ -141,18 +149,21 @@ export function documentBytes(project: ProjectDocument): number
 {
     // Conservative estimate for boolean array slots, excluding shared images.
     return project.layers.reduce((total, layer) => total + 128 + layer.painted.length * 8,
-        256 + project.props.length * 128 + (project.tileSheets.length + project.masks.length + project.propAssets.length) * 8);
+        256 + project.props.length * 128
+            + (project.tileSheets.length + project.masks.length + project.sequences.length + project.sprites.length) * 8);
 }
 
 /// View changes and swatch selection do not create undo actions.
 export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
 {
     if(a.gridSize !== b.gridSize || a.nextPropId !== b.nextPropId || a.props.length !== b.props.length
-        || a.propAssets.length !== b.propAssets.length
-        || a.propAssets.some((asset, index) => asset !== b.propAssets[index])
+        || a.sequences.length !== b.sequences.length
+        || a.sequences.some((asset, index) => asset !== b.sequences[index])
+        || a.sprites.length !== b.sprites.length
+        || a.sprites.some((sprite, index) => sprite !== b.sprites[index])
         || a.props.some((prop, index) => {
             const other = b.props[index];
-            return prop.id !== other.id || prop.asset !== other.asset || prop.x !== other.x
+            return prop.id !== other.id || prop.sprite !== other.sprite || prop.x !== other.x
                 || prop.y !== other.y || prop.rotation !== other.rotation;
         })
         || a.nextLayerId !== b.nextLayerId || a.maskMode !== b.maskMode
@@ -185,13 +196,13 @@ export function sameTerrainContent(a: ProjectDocument, b: ProjectDocument): bool
         });
 }
 
-export function documentAssets(project: ProjectDocument): (ImageAsset | PropAsset)[]
+export function documentAssets(project: ProjectDocument): (ImageAsset | SpriteSequence)[]
 {
-    return [...new Set([...project.tileSheets, ...project.masks, ...project.propAssets])];
+    return [...new Set([...project.tileSheets, ...project.masks, ...project.sequences])];
 }
 
 /// Asset IDs contain literal filenames, not URL escapes. Masks remain a flat catalog.
-function validAssetPath(asset: ImageAsset | PropAsset): boolean
+function validAssetPath(asset: ImageAsset | SpriteSequence): boolean
 {
     const root = asset.kind === "tile" ? "tiles" : asset.kind === "mask" ? "masks" : "props";
     const parts = asset.id.split("/");
@@ -203,6 +214,20 @@ function validAssetPath(asset: ImageAsset | PropAsset): boolean
         && parts[0] === "assets" && (asset.kind === "prop" || parts[1] === root)
         && (asset.kind !== "mask" || parts.length === 3)
         && parts.every((part) => part.length > 0 && part !== "." && part !== ".." && !part.includes("\\"));
+}
+
+function validName(name: string): boolean
+{
+    return typeof name === "string" && name.trim().length > 0 && new TextEncoder().encode(name).length <= 63
+        && ![...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127);
+}
+
+/// New images become one-sequence sprites. Explicit catalogs retain their grouping.
+export function appendDiscoveredSequences(project: ProjectDocument, available: readonly SpriteSequence[]): void
+{
+    const added = available.filter((asset) => !project.sequences.some((sequence) => sequence.id === asset.id));
+    project.sequences = [...project.sequences, ...added];
+    project.sprites = [...project.sprites, ...added.map((sequence) => ({ name: sequenceName(sequence), sequences: [sequence] }))];
 }
 
 export function validateDocument(project: ProjectDocument): void
@@ -260,23 +285,22 @@ export function validateDocument(project: ProjectDocument): void
     {
         fail("invalid mask set or selection");
     }
-    if(project.propAssets.length > 256 || project.props.length > 10000
-        || new Set(project.propAssets).size !== project.propAssets.length)
+    if(project.sequences.length > 256 || project.sprites.length > 256 || project.props.length > 10000
+        || new Set(project.sequences).size !== project.sequences.length)
     {
         fail("invalid prop catalog or instance count");
     }
     const names = new Set<string>();
-    for(const asset of project.propAssets)
+    for(const asset of project.sequences)
     {
-        const name = propName(asset);
-        if(!name.trim() || new TextEncoder().encode(name).length > 63
-            || [...name].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))
+        const name = sequenceName(asset);
+        if(!validName(name))
         {
             fail("invalid sequence name");
         }
         if(names.has(name)) { fail(`duplicate sequence name: ${name}`); }
         names.add(name);
-        const tint = propTint(asset);
+        const tint = sequenceTint(asset);
         if([tint.r, tint.g, tint.b, tint.a].some((value) => !Number.isFinite(value) || value < 0 || value > 1))
         {
             fail("invalid sequence tint");
@@ -310,11 +334,23 @@ export function validateDocument(project: ProjectDocument): void
             fail("invalid prop collision rectangles");
         }
     }
+    const spriteNames = new Set<string>();
+    for(const sprite of project.sprites)
+    {
+        if(!validName(sprite.name)) { fail("invalid sprite name"); }
+        if(spriteNames.has(sprite.name)) { fail(`duplicate sprite name: ${sprite.name}`); }
+        spriteNames.add(sprite.name);
+        if(sprite.sequences.length === 0 || sprite.sequences.length > 256
+            || sprite.sequences.some((sequence) => !project.sequences.includes(sequence)))
+        {
+            fail("invalid sprite sequences");
+        }
+    }
     const propIds = new Set<number>();
     for(const prop of project.props)
     {
         if(!Number.isSafeInteger(prop.id) || prop.id < 0 || propIds.has(prop.id)
-            || !project.propAssets.includes(prop.asset)
+            || !project.sprites.includes(prop.sprite)
             || !Number.isFinite(prop.x) || !Number.isFinite(prop.y)
             || Math.abs(prop.x) > project.gridSize / 2 || Math.abs(prop.y) > project.gridSize / 2
             || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360)
@@ -390,7 +426,7 @@ export async function decodeAsset(blob: Blob, label: string, id: string, kind: "
 }
 
 /// Keep a decoded canvas with each immutable asset so drawing never waits for image loading.
-export async function decodePropAsset(blob: Blob, label: string, id: string): Promise<PropAsset>
+export async function decodeSequence(blob: Blob, label: string, id: string): Promise<SpriteSequence>
 {
     let bitmap: ImageBitmap;
     try { bitmap = await createImageBitmap(blob); }

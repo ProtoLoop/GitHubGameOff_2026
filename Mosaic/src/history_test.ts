@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { createDocument, sameTerrainContent, type ImageAsset, type PropAsset, type ProjectDocument } from "./document.ts";
+import { sequenceName, createDocument, sameTerrainContent, type ImageAsset, type SpriteSequence, type ProjectDocument } from "./document.ts";
 import { cellMasks, terrainSourceOffset } from "./placement.ts";
 import { History } from "./history.ts";
 
@@ -114,15 +114,16 @@ Deno.test("undo and redo restore terrain materials without changing occupancy or
 
 Deno.test("prop placement, multi-event movement, rotation and deletion undo as complete actions", () => {
     let project = fixture();
-    const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
+    const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         name: "Stone", size: { w: 20, h: 20 }, tint: { r: 0.5, g: 1, b: 1, a: 0.7 },
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
-    project.propAssets = [asset];
+    project.sequences = [asset];
+    project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
     const history = new History(100, 64 * 1024 * 1024);
     history.begin(project, "Place prop");
-    project.props.push({ id: project.nextPropId++, asset, x: 1, y: 2, rotation: 0 });
+    project.props.push({ id: project.nextPropId++, sprite: project.sprites[0], x: 1, y: 2, rotation: 0 });
     history.commit(project);
     history.begin(project, "Move prop");
     project.props[0].x = 1.5;
@@ -144,27 +145,30 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
     project = history.undo(project)!;
     assert.equal(project.props.length, 0);
     project = history.redo(project)!;
-    assert.equal(project.props[0].asset, asset);
-    assert.deepEqual(project.props[0].asset.size, { w: 20, h: 20 });
-    assert.deepEqual(project.props[0].asset.tint, { r: 0.5, g: 1, b: 1, a: 0.7 });
-    assert.equal(project.props[0].asset.name, "Stone");
+    assert.equal(project.props[0].sprite.sequences[0], asset);
+    assert.equal(project.props[0].sprite, project.sprites[0]);
+    assert.deepEqual(project.props[0].sprite.sequences[0].size, { w: 20, h: 20 });
+    assert.deepEqual(project.props[0].sprite.sequences[0].tint, { r: 0.5, g: 1, b: 1, a: 0.7 });
+    assert.equal(project.props[0].sprite.sequences[0].name, "Stone");
     history.begin(project, "Cancelled drag");
     project.props[0].x = 3.33;
     project = history.rollback()!;
     assert.equal(project.props[0].x, 1);
-    assert(history.retainedStates().some((state) => state.propAssets.includes(asset)));
+    assert.equal(project.props[0].sprite, project.sprites[0]);
+    assert(history.retainedStates().some((state) => state.sequences.includes(asset)));
 });
 
 Deno.test("terrain comparison skips prop edits through undo and redo but detects terrain edits and rollback", () => {
     let project = fixture();
-    const asset: PropAsset = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
+    const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
-    project.propAssets = [asset];
+    project.sequences = [asset];
+    project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
     const history = new History(100, 64 * 1024 * 1024);
     for(const mutate of [
-        () => { project.props.push({ id: project.nextPropId++, asset, x: 1, y: 2, rotation: 0 }); },
+        () => { project.props.push({ id: project.nextPropId++, sprite: project.sprites[0], x: 1, y: 2, rotation: 0 }); },
         () => { project.props[0].x = 3.0; },
         () => { project.props[0].rotation = 90; },
         () => { project.props = []; }
