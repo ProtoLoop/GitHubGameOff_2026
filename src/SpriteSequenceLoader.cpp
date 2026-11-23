@@ -166,70 +166,64 @@ SpriteSequenceLoader::Take()
         const wgpu::BindGroup& bindGroup = bindGroups[texIndex];
         const wgpu::Texture& texture = textures[texIndex];
 
-        Rect rect = seq.GetSrcRect();
+        Rect srcRect = seq.GetSrcRect();
         Dimension2D spriteSize = seq.m_Size;
         const Dimension2D texSize{ .w = texture.GetWidth(), .h = texture.GetHeight() };
-        InlineVector<Rectf, 1> colRects;
-        
-        for(const Rectf& colRect : seq.GetCollisionRects())
-        {
-            colRects.push_back(colRect);
-        }
 
         // If no rect was specified, use the entire texture.
-        if(kNullRect == rect)
+        if(kNullRect == srcRect)
         {
-            rect = Rect{ 0, 0, texSize.w, texSize.h };
+            srcRect = Rect{ 0, 0, texSize.w, texSize.h };
         }
 
         if(kNullSize == spriteSize)
         {
-            spriteSize.w = rect.w;
-            spriteSize.h = rect.h;
+            spriteSize.w = srcRect.w;
+            spriteSize.h = srcRect.h;
         }
 
-        GG_CHECKB(spriteSize.w <= rect.w && spriteSize.h <= rect.h,
+        GG_CHECKB(spriteSize.w <= srcRect.w && spriteSize.h <= srcRect.h,
             "Sequence dimensions exceed rect dimensions: {} : {}x{} > {}x{}",
             seq.GetName(),
             spriteSize.w,
             spriteSize.h,
-            rect.w,
-            rect.h);
+            srcRect.w,
+            srcRect.h);
 
-        GG_CHECKB(rect.w > 0 && rect.h > 0,
+        GG_CHECKB(srcRect.w > 0 && srcRect.h > 0,
             "Sprite rect has zero dimensions: {} - {}x{}x{}x{}",
             seq.GetName(),
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h);
+            srcRect.x,
+            srcRect.y,
+            srcRect.w,
+            srcRect.h);
 
         GG_CHECKB(
-            rect.w <= texSize.w && rect.h <= texSize.h && rect.x < texSize.w && rect.y < texSize.h,
+            srcRect.w <= texSize.w && srcRect.h <= texSize.h && srcRect.x < texSize.w && srcRect.y < texSize.h,
             "Sprite rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
             seq.GetName(),
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
+            srcRect.x,
+            srcRect.y,
+            srcRect.w,
+            srcRect.h,
             texSize.w,
             texSize.h);
 
-        GG_CHECKB(texSize.w - rect.x >= rect.w && texSize.h - rect.y >= rect.h,
+        GG_CHECKB(texSize.w - srcRect.x >= srcRect.w && texSize.h - srcRect.y >= srcRect.h,
             "Sprite rect exceeds texture bounds: {} - {}x{}x{}x{} > {}x{}",
             seq.GetName(),
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            texSize.w - rect.x,
-            texSize.h - rect.y);
+            srcRect.x,
+            srcRect.y,
+            srcRect.w,
+            srcRect.h,
+            texSize.w - srcRect.x,
+            texSize.h - srcRect.y);
 
         // Create a new sequence and replace the old one.
         SpriteFrameSequence newSeq(seq.GetName(),
             bindGroup,
             spriteSize,
-            rect,
+            srcRect,
             seq.m_ColRects,
             seq.m_Pivot,
             seq.GetTint(),

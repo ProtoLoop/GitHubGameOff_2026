@@ -18,7 +18,7 @@ struct CellMapParams
 
 struct SpriteState
 {
-    cellXY: vec2f,   // World-cell position of the sprite’s pivot.
+    cellXY: vec2f,  // World-cell position of the sprite’s pivot.
     pivot: vec2f,   // Normalized position within the sprite frame, with (0,0) top-left and (1,1) bottom-right.
     tint : vec4f,   // Linear RGBA tint.
     srcRect: vec4f, // Source rectangle in texture pixels, before scaling.

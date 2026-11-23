@@ -75,24 +75,10 @@ SpriteFrame::GetScreenRect(
     const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
     const Rectf rs = rect * GetScale();
-    const glm::vec2 pivot = glm::vec2(GetSize()) * GetScale() * GetPivot();
+    const glm::vec2 pivot = GetPivot() * glm::vec2(GetSize()) * GetScale();
     const glm::vec2 origin = rs.Origin() + ((proj * cellXY * pixelScale) - pivot);
 
     return Rectf(origin, rs.Size());
-}
-
-Rectf
-SpriteFrame::GetScreenRect(
-    const glm::vec2& cellXY, const glm::mat2x2 proj, const float cellPixPerSide) const
-{
-    // Y flip when going from map space +Y up/north, to screen space +Y down.
-    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
-
-    const glm::vec2 size = glm::vec2(GetSize()) * GetScale();
-    const glm::vec2 pivot = size * GetPivot();
-    const glm::vec2 origin((proj * cellXY * pixelScale) - pivot);
-
-    return Rectf(origin, size);
 }
 
 Rectf
@@ -108,14 +94,10 @@ SpriteFrame::GetCollisionScreenRect(const uint32_t rectIndex,
         return Rectf(0, 0, 0, 0);
     }
 
-    const Rectf colRect = m_ColRects[rectIndex] - GetPivot();
-    const glm::vec2 size = GetSize();
-
-    Rectf r(colRect.x * size.x, colRect.y * size.y, colRect.w * size.x, colRect.h * size.y);
-    r *= GetScale();
-    r += proj * cellXY * glm::vec2(1, -1) * cellPixPerSide;
-
-    return r;
+    const Rectf& colRect = m_ColRects[rectIndex];
+    const glm::vec2 size(GetSize());
+    const Rectf r = Rectf(colRect.Origin() * size, colRect.Size() * size);
+    return GetScreenRect(r, cellXY, proj, cellPixPerSide);
 }
 
 /// SpriteSequence

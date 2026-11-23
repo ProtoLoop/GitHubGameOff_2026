@@ -112,10 +112,11 @@ Game::QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transfor
 
     Renderer& renderer = *m_Renderer;
 
-    Rectf rect{ spriteFrame.GetSize() };
-    rect -= rect.Size() * spriteFrame.GetPivot();
+    Rectf drawRect{ spriteFrame.GetSize() };
+    drawRect -= drawRect.Size() * spriteFrame.GetPivot();
+    drawRect *= spriteFrame.GetScale();
 
-    if(!renderer.QueueRectangle(rect, transform, spriteFrame.GetScale(), kYellow))
+    if(!renderer.QueueRectangle(drawRect, transform, kYellow))
     {
         GG_ERROR("Failed to queue rectangle for prop");
     }
@@ -128,25 +129,19 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
 
     Renderer& renderer = *m_Renderer;
 
-    Rectf rect{ spriteFrame.GetSize() };
-    rect -= rect.Size() * spriteFrame.GetPivot();
-
-    const std::span<const Rectf> colRects = spriteFrame.GetCollisionRects();
-
     const glm::vec2 rectSize = spriteFrame.GetSize();
 
-    for(const Rectf colRect : colRects)
+    for(const Rectf colRect : spriteFrame.GetCollisionRects())
     {
-        Rectf drawRect //
-            {
-                colRect.x * rect.Size().x,
-                colRect.y * rect.Size().y,
-                colRect.w * rect.Size().x,
-                colRect.h * rect.Size().y,
-            };
+        Rectf drawRect = colRect - spriteFrame.GetPivot();
 
-        drawRect -= rectSize * spriteFrame.GetPivot();
-        if(!renderer.QueueRectangle(drawRect, transform, spriteFrame.GetScale(), kMagenta))
+        drawRect.x *= rectSize.x;
+        drawRect.y *= rectSize.y;
+        drawRect.w *= rectSize.x;
+        drawRect.h *= rectSize.y;
+        drawRect *= spriteFrame.GetScale();
+
+        if(!renderer.QueueRectangle(drawRect, transform, kMagenta))
         {
             GG_ERROR("Failed to queue rectangle for prop collision rect");
             break;

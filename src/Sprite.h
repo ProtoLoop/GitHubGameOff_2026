@@ -95,13 +95,6 @@ public:
         const glm::mat2x2 proj,
         const float cellPixPerSide) const;
 
-    /// Returns the screen space rectangle.
-    /// cellXY is the cell position on the map.
-    /// proj is the projection used (isometric, ortho, etc).
-    /// cellPixPerSide is the number of pixels per side of a map cell.
-    Rectf GetScreenRect(
-        const glm::vec2& cellXY, const glm::mat2x2 proj, const float cellPixPerSide) const;
-
     Rectf GetCollisionScreenRect(const uint32_t rectIndex,
         const glm::vec2& cellXY,
         const glm::mat2x2 proj,
@@ -149,17 +142,6 @@ public:
 
     /// Returns the rectangle defining the sprite sequence within the texture atlas.
     const Rect& GetSrcRect() const { return m_SrcRect; }
-
-    /// Returns the normalized collision rectangles of the sprite.
-    /// 0,0 is top-left, 1,1 is bottom-right.
-    /// Collision rectangles CAN be outside the [0,1] range.
-    std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
-
-    /// Returns the bounding rectangle that encompasses all the collision rectangles.
-    const Rectf& GetCollisionBounds() const { return m_CollisionBounds; }
-
-    /// Returns the pivot point within the sprite's rectangle.
-    const glm::vec2& GetPivot() const { return m_Pivot; }
 
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetTint() const { return m_Tint; }

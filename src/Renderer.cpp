@@ -314,7 +314,7 @@ Renderer::QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transfo
 
 Result<>
 Renderer::QueueRectangle(
-    const Rectf& rectangle, const Transform2D& transform, const float scale, const glm::vec4& color)
+    const Rectf& rectangle, const Transform2D& transform, const glm::vec4& color)
 {
     GG_CHECKB(m_RectangleDrawQueue.size() < m_RectangleDrawQueue.capacity(),
         "Exceeded rectangle draw queue");
@@ -323,7 +323,6 @@ Renderer::QueueRectangle(
         {
             .Transform = transform,
             .Rectangle = rectangle,
-            .Scale = scale,
             .color = color,
         });
 
@@ -588,7 +587,6 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
         rectState.xywh = glm::vec4(rect.x, rect.y, rect.w, rect.h);
         rectState.color = rec.color;
         rectState.cellXY = rec.Transform.Pos;
-        rectState.scale = rec.Scale;
     }
 
     GG_CHECK(EnsureRectangleStateBuffer(sizeof(GpuRectangleState) * m_RectangleStates.size()),

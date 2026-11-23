@@ -64,7 +64,6 @@ public:
     /// Returns an error if the queue is full.
     Result<> QueueRectangle(const Rectf& rectangle,
         const Transform2D& transform,
-        const float scale,
         const glm::vec4& color);
 
     Result<wgpu::BindGroup> CreateSpriteTextureBindGroup(const wgpu::Texture& texture);
@@ -98,8 +97,8 @@ private:
         glm::vec4 xywh{};    // x, y, width, height in pixels
         glm::vec4 color{};   // linear RGBA outline color
         glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
-        float scale{ 1.0f }; // Scale factor for the rectangle
         uint32_t pad0{ 0 };
+        uint32_t pad1{ 0 };
     };
 
     struct alignas(k16ByteAlignment) GpuCellMapParams
@@ -121,7 +120,6 @@ private:
     {
         Transform2D Transform;
         Rectf Rectangle{0,0,0,0};
-        float Scale{ 1.0f };
         glm::vec4 color{1, 0, 1, 1};   // linear RGBA color for the rectangle
     };
 
@@ -135,8 +133,8 @@ private:
     static_assert(offsetof(GpuRectangleState, xywh) == 0, "RectangleState::xywh must be at offset 0");
     static_assert(offsetof(GpuRectangleState, color) == 16, "RectangleState::color must be at offset 16");
     static_assert(offsetof(GpuRectangleState, cellXY) == 32, "RectangleState::cellXY must be at offset 32");
-    static_assert(offsetof(GpuRectangleState, scale) == 40, "RectangleState::scale must be at offset 40");
-    static_assert(offsetof(GpuRectangleState, pad0) == 44, "RectangleState::pad0 must be at offset 44");
+    static_assert(offsetof(GpuRectangleState, pad0) == 40, "RectangleState::pad0 must be at offset 40");
+    static_assert(offsetof(GpuRectangleState, pad1) == 44, "RectangleState::pad1 must be at offset 44");
 
     static_assert(offsetof(GpuCellMapParams, proj) == 0, "CellMapParams::proj must be at offset 0");
     static_assert(offsetof(GpuCellMapParams, viewXY) == 16, "CellMapParams::viewXY must be at offset 16");

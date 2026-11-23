@@ -19,8 +19,8 @@ struct Rectangle
     xywh : vec4f,       // x, y, width, height in pixels
     color : vec4f,      // linear RGBA outline color
     cellXY : vec2f,     // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
-    scale : f32,        // Scale factor for the rectangle
     pad0: u32,
+    pad1: u32,
 };
 
 @group(0) @binding(0) var<storage, read> rectangles : array<Rectangle>;
@@ -49,7 +49,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) rectId: u3
     let rect = rectangles[rectId];
 
     // vec2f(1.0, -1.0) - flip Y from sprite image coordinates (Y down) to screen space coordinates (Y up)
-    let offset = (rect.xywh.xy + rectVerts[vid] * rect.xywh.zw) * rect.scale * vec2f(1.0, -1.0);
+    let offset = (rect.xywh.xy + rectVerts[vid] * rect.xywh.zw) * vec2f(1.0, -1.0);
 
     // Round to the nearest pixel in camera space.
     // This duplicates the rounding logic used for tiles to ensure pixel-perfect alignment
