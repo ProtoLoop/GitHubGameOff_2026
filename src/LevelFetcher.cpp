@@ -250,6 +250,7 @@ ParseSpriteSequences(const JsonArray& sequences)
         auto result = ParseSpriteSequence(sequence);
         GG_CHECKB(result, "Failed to parse sprite sequence (line:{})", value.GetLine());
 
+        // Check for duplicate sprite sequence names
         for(const SpriteFrameSequenceDef& spriteSeqDef : spriteSeqDefs)
         {
             if(spriteSeqDef.Name == result->Name)
@@ -295,7 +296,10 @@ ParseSprite(const JsonObject& sprite)
             seqNames.emplace_back(seqName);
         }
     }
-    GG_CHECKB(!seqNames.empty(), "Missing or empty sequences: {} (line:{})", *optName, sprite.GetLine());
+    GG_CHECKB(!seqNames.empty(),
+        "Missing or empty sequences: {} (line:{})",
+        *optName,
+        sprite.GetLine());
 
     return SpriteDef //
         {
@@ -318,6 +322,18 @@ ParseSprites(const JsonArray& sprites)
 
         auto result = ParseSprite(sprite);
         GG_CHECKB(result, "Failed to parse sprite (line:{})", value.GetLine());
+
+        // Check for duplicate sprite names
+        for(const SpriteDef& spriteDef : spriteDefs)
+        {
+            if(spriteDef.Name == result->Name)
+            {
+                GG_CHECKB(false,
+                    "Duplicate sprite name: {} (line:{})",
+                    result->Name,
+                    value.GetLine());
+            }
+        }
 
         spriteDefs.push_back(std::move(*result));
     }
@@ -453,6 +469,70 @@ ParseLayers(const JsonArray& jsonLayers)
     return layers;
 }
 
+/// Prunes the list of sprite frame sequences to only include those that are actually used by the
+/// given sprite definitions.
+Result<BoundedVector<SpriteFrameSequenceDef>>
+PruneSpriteSequences(const std::span<const SpriteFrameSequenceDef> seqDefs,
+    const std::span<const SpriteDef> spriteDefs)
+{
+    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(seqDefs.size());
+
+    // Build the sprite sequence list from sprite sequences that are actually used, instead of
+    // all the sequences listed in the file.
+    for(const SpriteDef& spriteDef : spriteDefs)
+    {
+        // For each sequence referenced by the sprite find it in the list of sprite sequences.
+        for(const ResourceName& seqName : spriteDef.SequenceNames)
+        {
+            const SpriteFrameSequenceDef* foundSeq = nullptr;
+            for(const SpriteFrameSequenceDef& seqDef : seqDefs)
+            {
+                if(seqDef.Name == seqName)
+                {
+                    foundSeq = &seqDef;
+                    break;
+                }
+            }
+            GG_CHECKB(foundSeq, "Missing sprite sequence: {}", seqName.c_str());
+
+            // Now add the found sequence to the list of used sequences if it's not already there.
+            bool foundInList = false;
+            for(const SpriteFrameSequenceDef& seqDef : spriteSeqDefs)
+            {
+                if(seqDef.Name == foundSeq->Name)
+                {
+                    foundInList = true;
+                    break;
+                }
+            }
+
+            if(!foundInList)
+            {
+                spriteSeqDefs.push_back(*foundSeq);
+            }
+        }
+    }
+    return spriteSeqDefs;
+}
+
+/// Prunes the list of tile sheet paths to only include those that are actually used by the
+/// layers.
+Result<BoundedVector<FilePath>>
+PruneTileSheets(const std::span<const FilePath> paths, const std::span<const Layer> layers)
+{
+    BoundedVector<FilePath> tileSheetPaths(layers.size());
+
+    for(const Layer& layer : layers)
+    {
+        const uint32_t sheetIndex = layer.GetSheetIndex();
+        GG_CHECKB(sheetIndex < paths.size(), "Invalid sheet index: {}", sheetIndex);
+
+        const FilePath& tileSheetPath = paths[sheetIndex];
+        tileSheetPaths.push_back(tileSheetPath);
+    }
+    return tileSheetPaths;
+}
+
 Result<ParsedLevel>
 Parse(std::vector<std::byte>&& data)
 {
@@ -521,8 +601,12 @@ Parse(std::vector<std::byte>&& data)
     }
     // sequences is optional - it can be absent in the JSON
 
-    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs =
-        optSpriteSeqDefs ? std::move(*optSpriteSeqDefs) : BoundedVector<SpriteFrameSequenceDef>(0);
+    // Ensure we have a valid sprite sequence list, even if it's empty.
+    // Sequence defs are optional in the JSON, but we need a valid list to work with.
+    if(!optSpriteSeqDefs.has_value())
+    {
+        optSpriteSeqDefs.emplace(BoundedVector<SpriteFrameSequenceDef>(0));
+    }
 
     // Sprites
     if(JsonArray spritesArray; jobj.TryGetArray("sprites", spritesArray))
@@ -534,21 +618,29 @@ Parse(std::vector<std::byte>&& data)
     }
     // sprites is optional - it can be absent in the JSON
 
-    BoundedVector<SpriteDef> spriteDefs =
-        optSpriteDefs ? std::move(*optSpriteDefs) : BoundedVector<SpriteDef>(0);
+    // Ensure we have a valid sprite definition list, even if it's empty.
+    // Sprite defs are optional in the JSON, but we need a valid list to work with.
+    if(!optSpriteDefs.has_value())
+    {
+        optSpriteDefs.emplace(BoundedVector<SpriteDef>(0));
+    }
 
     // Props
     if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
     {
-        auto propResult = ParseProps(propsArray, spriteDefs);
+        auto propResult = ParseProps(propsArray, *optSpriteDefs);
         GG_CHECK(propResult, "Failed to parse props (line:{})", propsArray.GetLine());
 
         optPropDefs.emplace(std::move(*propResult));
     }
     // props is optional - it can be absent in the JSON
 
-    BoundedVector<PropDef> propDefs =
-        optPropDefs ? std::move(*optPropDefs) : BoundedVector<PropDef>(0);
+    // Ensure we have a valid prop definition list, even if it's empty.
+    // Prop defs are optional in the JSON, but we need a valid list to work with.
+    if(!optPropDefs.has_value())
+    {
+        optPropDefs.emplace(BoundedVector<PropDef>(0));
+    }
 
     // Layers
     if(JsonArray layersArray; jobj.TryGetArray("layers", layersArray))
@@ -560,25 +652,22 @@ Parse(std::vector<std::byte>&& data)
     }
     GG_CHECKB(optLayers.has_value(), "Missing layers (line:{})", jobj.GetLine());
 
-    // Build tile sheet paths from the tile sheets actually used in the layers.
-    BoundedVector<FilePath> tileSheetPaths(optLayers->size());
-    for(const Layer& layer : *optLayers)
-    {
-        const uint32_t sheetIndex = layer.GetSheetIndex();
-        GG_CHECKB(sheetIndex < optTileSheetPaths->size(), "Invalid sheet index: {}", sheetIndex);
+    // Prune the sprite sequences to only include those actually used by the sprite definitions.
+    auto prunedSpriteSeqDefs = PruneSpriteSequences(*optSpriteSeqDefs, *optSpriteDefs);
+    GG_CHECK(prunedSpriteSeqDefs, "Failed to prune sprite sequences");
 
-        const FilePath& tileSheetPath = (*optTileSheetPaths)[sheetIndex];
-        tileSheetPaths.push_back(tileSheetPath);
-    }
+    // Prune the tile sheet paths to only include those actually used by the layers.
+    auto prunedTileSheetPaths = PruneTileSheets(*optTileSheetPaths, *optLayers);
+    GG_CHECK(prunedTileSheetPaths, "Failed to prune tile sheets");
 
     return ParsedLevel //
         {
             .CellsPerSide = *optGridSize,
-            .TileSheetPaths = std::move(tileSheetPaths),
+            .TileSheetPaths = std::move(*prunedTileSheetPaths),
             .MaskSheetPaths = std::move(*optMaskSheetPaths),
-            .SpriteSeqDefs = std::move(spriteSeqDefs),
-            .SpriteDefs = std::move(spriteDefs),
-            .PropDefs = std::move(propDefs),
+            .SpriteSeqDefs = std::move(*prunedSpriteSeqDefs),
+            .SpriteDefs = std::move(*optSpriteDefs),
+            .PropDefs = std::move(*optPropDefs),
         };
 }
 } // namespace
@@ -623,10 +712,8 @@ LevelFetcher::Update()
             const auto parseResult = Parse(std::move(*dataResult));
             GG_CHECK(parseResult, "Failed to parse level data");
 
-            auto levelLoaderResult = LevelLoader::Load(parseResult->LevelDef,
-                *m_Fetcher,
-                *m_Renderer,
-                *m_WebGpu);
+            auto levelLoaderResult =
+                LevelLoader::Load(parseResult->LevelDef, *m_Fetcher, *m_Renderer, *m_WebGpu);
             GG_CHECK(levelLoaderResult, "Failed to load level");
 
             m_LevelLoader = std::move(*levelLoaderResult);
