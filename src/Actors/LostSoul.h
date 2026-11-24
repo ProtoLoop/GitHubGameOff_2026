@@ -19,7 +19,7 @@ public:
 
     static Result<LostSoul> Create(Game& game);
 
-    SpriteFrame GetSpriteFrame() const { return m_CurAnim.GetFrame(); }
+    SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
     Result<> Tick(const float deltaTime, Game& game);
 
@@ -46,12 +46,12 @@ private:
     void TickMoving(const float deltaTime, Game& game);
     void TickTurning(const float deltaTime, Game& game);
 
-    struct Anims
+    struct Sprites
     {
-        SpriteAnim::Instance Hover;
+        Sprite::Instance Hover;
     };
 
-    explicit LostSoul(const Anims& anims);
+    explicit LostSoul(const Sprites& sprites);
 
     CountdownTimer m_Timer;
 
@@ -59,7 +59,7 @@ private:
 
     float m_TurnDir{ 1.0f };
 
-    Anims m_Anims;
-    SpriteAnim::Instance m_CurAnim;
+    Sprites m_Sprites;
+    Sprite::Instance m_CurSprite;
     State m_State{ State::Init };
 };

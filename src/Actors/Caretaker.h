@@ -19,7 +19,7 @@ public:
 
     static Result<Caretaker> Create(Game& game);
 
-    SpriteFrame GetSpriteFrame() const { return m_CurAnim.GetFrame(); }
+    SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
     Result<> Tick(const float deltaTime, Game& game);
 
@@ -30,18 +30,18 @@ public:
 
 private:
 
-    struct Anims
+    struct Sprites
     {
-        SpriteAnim::Instance Idle;
-        SpriteAnim::Instance Run;
+        Sprite::Instance Idle;
+        Sprite::Instance Run;
     };
 
-    explicit Caretaker(const Anims& anims);
+    explicit Caretaker(const Sprites& sprites);
 
     Transform2D m_Transform;
     glm::vec2 m_Velocity{};
 
-    Anims m_Anims;
-    SpriteAnim::Instance m_CurAnim;
-    float m_CurAnimPeriod;
+    Sprites m_Sprites;
+    Sprite::Instance m_CurSprite;
+    float m_CurSpritePeriod;
 };

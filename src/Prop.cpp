@@ -3,7 +3,7 @@
 #include "Renderer.h"
 
 Prop::Prop(Sprite::Instance spriteInstance, const Transform2D& transform)
-    : m_SpriteInstance(std::move(spriteInstance)),
+    : m_SpriteInstance(spriteInstance),
       m_Transform(transform)
 {
 }

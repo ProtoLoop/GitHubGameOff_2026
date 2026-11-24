@@ -2,7 +2,6 @@
 
 #include "Game.h"
 #include "Renderer.h"
-#include "Resources/AnimResources.h"
 
 namespace
 {
@@ -13,13 +12,13 @@ constexpr float kAnimPeriod = 1.0f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr ResourceName kAnimName_hover = AnimResources::kSH_AnimName_Hover;
+constexpr ResourceName kSpriteName_hover{"SH_Hover"};
 
 } // namespace
 
-LostSoul::LostSoul(const Anims& anims)
-    : m_Anims(anims),
-      m_CurAnim(m_Anims.Hover)
+LostSoul::LostSoul(const Sprites& sprites)
+    : m_Sprites(sprites),
+      m_CurSprite(m_Sprites.Hover)
 {
 }
 
@@ -28,12 +27,12 @@ LostSoul::Create(Game& game)
 {
     const Level& level = game.GetLevel();
 
-    GG_TRY(hoverAnim,
-        level.CreateSpriteAnimInstance(kAnimName_hover),
-        "Failed to create sprite anim instance for {}",
-        kAnimName_hover);
+    GG_TRY(hoverSprite,
+        level.CreateSpriteInstance(kSpriteName_hover),
+        "Failed to create sprite instance for {}",
+        kSpriteName_hover);
 
-    return LostSoul(Anims{ .Hover = hoverAnim });
+    return LostSoul(Sprites{ .Hover = hoverSprite });
 }
 
 Result<>
@@ -43,7 +42,7 @@ LostSoul::Tick(const float deltaTime, Game& game)
     {
         case State::Init:
             EnterIdle(game);
-            m_CurAnim.SetPhase(game.GetEntityRng().NextFloat());
+            m_CurSprite.SetPhase(game.GetEntityRng().NextFloat());
             break;
         case State::Idle:
             TickIdle(deltaTime, game);
@@ -56,9 +55,9 @@ LostSoul::Tick(const float deltaTime, Game& game)
             break;
     }
 
-    m_CurAnim.SetPeriod(kAnimPeriod);
-    m_CurAnim.SetAngle(GetRot());
-    m_CurAnim.Tick(deltaTime);
+    m_CurSprite.SetPeriod(kAnimPeriod);
+    m_CurSprite.SetAngle(GetRot());
+    m_CurSprite.Tick(deltaTime);
     m_Timer.Tick(deltaTime);
 
     return Result<>::Ok;
@@ -73,7 +72,7 @@ LostSoul::Render(Renderer& renderer) const
         : Angle(0.0f);
         
     const SpriteFrame spriteFrame =
-        m_CurAnim.GetFrame(m_CurAnim.GetPhase(), m_CurAnim.GetAngle() + angleOffset);
+        m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle() + angleOffset);
     GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
@@ -91,9 +90,9 @@ LostSoul::EnterIdle(Game& game)
 
     m_State = State::Idle;
     m_Timer.Start(idleTime);
-    const float phase = m_CurAnim.GetPhase();
-    m_CurAnim = m_Anims.Hover;
-    m_CurAnim.SetPhase(phase);
+    const float phase = m_CurSprite.GetPhase();
+    m_CurSprite = m_Sprites.Hover;
+    m_CurSprite.SetPhase(phase);
 }
 
 void
@@ -106,9 +105,9 @@ LostSoul::EnterMoving(Game& game)
 
     m_State = State::Moving;
     m_Timer.Start(moveTime);
-    const float phase = m_CurAnim.GetPhase();
-    m_CurAnim = m_Anims.Hover;
-    m_CurAnim.SetPhase(phase);
+    const float phase = m_CurSprite.GetPhase();
+    m_CurSprite = m_Sprites.Hover;
+    m_CurSprite.SetPhase(phase);
 }
 
 void

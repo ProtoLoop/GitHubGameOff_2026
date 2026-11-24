@@ -179,7 +179,7 @@ The C++ level loader also reads `sequences`, `sprites`, and named sprite referen
 in `props`. Sprites reference sequences from the level’s shared catalog. Decorative
 props currently display the first frame of the first sequence, with the prop’s
 transform applied.
-Project2 contains 104 sequences grouped into 31 sprites, with its referenced
+Project2 contains 48 sequences grouped into 27 sprites, with its referenced
 actor textures present in the project.
 No texture copying or fallback to repository assets happens automatically.
 
@@ -421,15 +421,17 @@ lifecycle, initializes WebGPU asynchronously, and advances loading before
 starting `Game`.
 
 `Game` owns the level, renderer, and gameplay entities. Entities own their
-transforms and animation playback state. `Level` owns the cell map, sequence
-catalog, sprites, animation resources, and decorative props. Sprites borrow
-sequences from the catalog, and each prop owns a `Sprite::Instance` that borrows
-its sprite. Props are destroyed before sprites, and sprites before sequences.
-Gameplay entities are destroyed before the level.
+transforms and animation playback state. `Level` owns the cell map, shared
+sequence catalog, sprites, and decorative props. Sprites borrow sequences from
+the catalog. Gameplay actors and decorative props hold `Sprite::Instance`
+values that borrow level-owned sprites.
 
-Gameplay actors continue to use `SpriteAnim` resources loaded from
-`AnimResources`. These remain separate from the level-defined sprites used by
-decorative props.
+Props are destroyed before sprites, and sprites before sequences. Gameplay
+entities are destroyed before the level.
+
+Gameplay actors use the same level-defined sprite catalog as decorative props.
+`Caretaker` requires sprites named `Warrior_Idle` and `Warrior_Run`. `LostSoul`
+requires `SH_Hover`. Game startup fails if a required sprite is missing.
 
 Each frame, `Game` accumulates elapsed time and advances entities in fixed
 1/60-second simulation steps. A frame can run zero or more steps. Elapsed time

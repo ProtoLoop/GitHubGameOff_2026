@@ -3,7 +3,6 @@
 #include "Game.h"
 #include "Input.h"
 #include "Renderer.h"
-#include "Resources/AnimResources.h"
 
 namespace
 {
@@ -15,15 +14,15 @@ constexpr float kAnimPeriod_Idle = 2.0f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr ResourceName kAnimName_Idle = AnimResources::kWarrior_AnimName_Idle;
-constexpr ResourceName kAnimName_Run = AnimResources::kWarrior_AnimName_Run;
+constexpr ResourceName kSpriteName_Idle{ "Warrior_Idle" };
+constexpr ResourceName kSpriteName_Run{ "Warrior_Run" };
 
 } // namespace
 
-Caretaker::Caretaker(const Anims& anims)
-    : m_Anims(anims),
-      m_CurAnim(m_Anims.Idle),
-      m_CurAnimPeriod(kAnimPeriod_Idle)
+Caretaker::Caretaker(const Sprites& sprites)
+    : m_Sprites(sprites),
+      m_CurSprite(m_Sprites.Idle),
+      m_CurSpritePeriod(kAnimPeriod_Idle)
 {
 }
 
@@ -32,17 +31,17 @@ Caretaker::Create(Game& game)
 {
     const Level& level = game.GetLevel();
 
-    GG_TRY(idleAnim,
-        level.CreateSpriteAnimInstance(kAnimName_Idle),
+    GG_TRY(idleSprite,
+        level.CreateSpriteInstance(kSpriteName_Idle),
         "Failed to create sprite anim instance for {}",
-        kAnimName_Idle);
+        kSpriteName_Idle);
 
-    GG_TRY(runAnim,
-        level.CreateSpriteAnimInstance(kAnimName_Run),
+    GG_TRY(runSprite,
+        level.CreateSpriteInstance(kSpriteName_Run),
         "Failed to create sprite anim instance for {}",
-        kAnimName_Run);
+        kSpriteName_Run);
 
-    return Caretaker(Anims{ .Idle = idleAnim, .Run = runAnim });
+    return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite });
 }
 
 Result<>
@@ -89,18 +88,18 @@ Caretaker::Tick(const float deltaTime, Game& game)
 
     MoveBy(m_Velocity * deltaTime);
 
-    const SpriteAnim::Instance& desiredAnim = isMoving ? m_Anims.Run : m_Anims.Idle;
+    const Sprite::Instance& desiredSprite = isMoving ? m_Sprites.Run : m_Sprites.Idle;
 
-    if(m_CurAnim.GetName() != desiredAnim.GetName())
+    if(m_CurSprite.GetName() != desiredSprite.GetName())
     {
-        m_CurAnim = desiredAnim;
-        m_CurAnim.SetPhase(0);
-        m_CurAnimPeriod = isMoving ? kAnimPeriod_Run : kAnimPeriod_Idle;
+        m_CurSprite = desiredSprite;
+        m_CurSprite.SetPhase(0);
+        m_CurSpritePeriod = isMoving ? kAnimPeriod_Run : kAnimPeriod_Idle;
     }
 
-    m_CurAnim.SetPeriod(m_CurAnimPeriod);
-    m_CurAnim.SetAngle(GetRot());
-    m_CurAnim.Tick(deltaTime);
+    m_CurSprite.SetPeriod(m_CurSpritePeriod);
+    m_CurSprite.SetAngle(GetRot());
+    m_CurSprite.Tick(deltaTime);
 
     return Result<>::Ok;
 }
@@ -114,7 +113,7 @@ Caretaker::Render(Renderer& renderer) const
         : Angle(0.0f);
         
     const SpriteFrame spriteFrame =
-        m_CurAnim.GetFrame(m_CurAnim.GetPhase(), m_CurAnim.GetAngle() + angleOffset);
+        m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle() + angleOffset);
     GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;

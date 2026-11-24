@@ -8,9 +8,6 @@
 #include <optional>
 #include <string_view>
 
-// DO NOT SUBMIT
-#include "Resources/AnimResources.h"
-
 namespace
 {
 
@@ -610,8 +607,7 @@ LevelFetcher::Update()
             const auto parseResult = Parse(std::move(*dataResult));
             GG_CHECK(parseResult, "Failed to parse level data");
 
-            auto levelLoaderResult = LevelLoader::Load(AnimResources::GetAnimDefs(),
-                parseResult->LevelDef,
+            auto levelLoaderResult = LevelLoader::Load(parseResult->LevelDef,
                 *m_Fetcher,
                 *m_Renderer,
                 *m_WebGpu);

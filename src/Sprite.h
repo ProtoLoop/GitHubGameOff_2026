@@ -44,23 +44,16 @@ struct SpriteFrameSequenceDef
     float Scale = 1.0f;
 };
 
-/// Defines an animation's equally spaced facing directions.
-/// SequenceDefs order determines direction: index 0 corresponds to zero turns,
-/// and subsequent indices advance by 1 / SequenceDefs.size() turns.
-/// Playback selects the nearest direction. Each sequence's own frame count
+/// Defines a sprite.
+/// A sprite is a collection of sprite frame sequences, each representing a different facing direction.
+/// The sequence at index 0 corresponds to the sprite facing zero turns (North),
+/// and subsequent indices advance by 1 / (sequence count) turns.
+/// Playback selects the nearest direction based on the angle. Each sequence's frame count
 /// spans one complete animation cycle.
-struct SpriteAnimDef
-{
-    ResourceName Name;
-    /// Borrows sequence storage, which must remain valid whenever this definition
-    /// is read. SpriteAnimLoader::Load copies the data it needs before returning.
-    std::span<const SpriteFrameSequenceDef> SequenceDefs;
-};
-
 struct SpriteDef
 {
     ResourceName Name;
-    // DO NOT SUBMIT
+    // FIXME(KB) - use a borrwed span from TBD SpriteCatalog
     std::vector<ResourceName> SequenceNames;
 };
 
@@ -102,9 +95,7 @@ public:
         const float cellPixPerSide) const;
 
 private:
-    friend class SpriteAnimLoader;
     friend class SpriteFrameSequence;
-    friend class SpriteSequenceLoader;
 
     /// Constructs a sprite with the given bind group and rectangle.
     /// bindGroup is the bind group for the sprite's texture.
@@ -155,7 +146,6 @@ public:
     uint32_t GetFrameCount() const { return m_FrameCount; }
 
 private:
-    friend class SpriteAnimLoader;
     friend class SpriteSequenceLoader;
 
     SpriteFrameSequence(const ResourceName& name,
@@ -184,98 +174,11 @@ private:
     uint32_t m_FrameCount;
 };
 
-/// A sprite animation resource.
-/// It defines the frames, directions, and textures for a sprite animation.
-/// To control individual instances of the animation create an Instance using CreateInstance().
-class SpriteAnim
-{
-public:
-    class Instance;
-
-    SpriteAnim() = delete;
-    ~SpriteAnim() = default;
-    SpriteAnim(const SpriteAnim&) = delete;
-    SpriteAnim& operator=(const SpriteAnim&) = delete;
-    SpriteAnim(SpriteAnim&&) = default;
-    SpriteAnim& operator=(SpriteAnim&&) = default;
-
-    /// Returns the name of the sprite animation.
-    const ResourceName& GetName() const;
-
-    /// Creates an instance of the sprite animation.
-    /// The instance can be used to control and query the animation state.
-    Result<Instance> CreateInstance() const;
-
-    /// Returns the sprite frame corresponding to the given animation phase and angle.
-    /// phase is a value between 0 and 1 representing the animation progress.
-    /// angle is the direction for which to retrieve the sprite.
-    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
-
-private:
-    friend class SpriteAnimLoader;
-
-    SpriteAnim(const ResourceName& name, BoundedVector<SpriteFrameSequence>&& spriteSeqs);
-
-    ResourceName m_Name;
-    BoundedVector<SpriteFrameSequence> m_SpriteSequences;
-};
-
-/// Represents an instance of a sprite animation.
-/// An instance of a sprite animation can be used to control and query the animation state, such as
-/// its current phase and angle.
-/// Borrows a SpriteAnim, which must remain alive at the same address for the
-/// lifetime of this instance.
-class SpriteAnim::Instance
-{
-public:
-    Instance() = delete;
-
-    const ResourceName& GetName() const;
-
-    /// Advances the animation by delta time.
-    /// deltaTime is the time elapsed since the last update.
-    void Tick(const float deltaTime);
-
-    /// Sets the period/duration of one animation cycle.
-    void SetPeriod(const float period);
-
-    /// Returns the period/duration of one animation cycle.
-    float GetPeriod() const;
-
-    /// Sets the current animation phase within a cycle.
-    /// phase is a value between 0 and 1.
-    void SetPhase(const float phase);
-
-    /// Returns the current animation phase within a cycle.
-    /// The returned value is between 0 and 1.
-    float GetPhase() const;
-
-    /// Sets the current animation angle - the direction the sprite should face.
-    void SetAngle(const Angle& angle);
-
-    /// Returns the current animation angle - the direction the sprite is facing.
-    const Angle& GetAngle() const;
-
-    /// Returns the sprite frame corresponding to the current animation phase and angle.
-    SpriteFrame GetFrame() const;
-
-    /// Returns the sprite frame corresponding to the given animation phase and angle.
-    /// phase is a value between 0 and 1 representing the animation progress.
-    /// angle is the direction for which to retrieve the sprite.
-    SpriteFrame GetFrame(const float phase, const Angle& angle) const;
-
-private:
-    friend SpriteAnim;
-
-    explicit Instance(const SpriteAnim& anim);
-
-    const SpriteAnim* m_Anim;
-
-    float m_Period{ 1.0f }; // Duration of one animation cycle.
-    float m_Phase{ 0.0f };
-    Angle m_Angle;
-};
-
+/// A sprite is a collection of sprite frame sequences, each representing a different facing direction.
+/// The sequence at index 0 corresponds to the sprite facing zero turns (North),
+/// and subsequent indices advance by 1 / (sequence count) turns.
+/// Playback selects the nearest direction based on the angle. Each sequence's frame count
+/// spans one complete animation cycle.
 class Sprite
 {
 public:
@@ -319,11 +222,6 @@ class Sprite::Instance
 {
 public:
     Instance() = delete;
-    ~Instance() = default;
-    Instance(const Instance&) = delete;
-    Instance& operator=(const Instance&) = delete;
-    Instance(Instance&&) = default;
-    Instance& operator=(Instance&&) = default;
 
     const ResourceName& GetName() const;
 

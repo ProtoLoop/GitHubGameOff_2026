@@ -94,8 +94,6 @@ set(GAMEOFF_SOURCES
     src/Actors/Caretaker.cpp
     src/Actors/LostSoul.h
     src/Actors/LostSoul.cpp
-    src/Resources/AnimResources.h
-    src/Resources/AnimResources.cpp
     src/Angle.h
     src/BoundedVector.h
     src/CellMap.h
@@ -130,8 +128,6 @@ set(GAMEOFF_SOURCES
     src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp
-    src/SpriteAnimLoader.h
-    src/SpriteAnimLoader.cpp
     src/SpriteSequenceLoader.h
     src/SpriteSequenceLoader.cpp
     src/TextureLoader.h
