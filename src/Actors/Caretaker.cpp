@@ -60,19 +60,18 @@ Caretaker::Tick(const float deltaTime, Game& game)
     }
 
     const glm::vec2& forward = GetForward();
-    const glm::vec2& right = GetRight();
 
     bool isMoving = false;
     m_Velocity = glm::vec2(0.0f);
 
     if(input.IsTriggered(Input::ActionId::MoveLeft, value))
     {
-        m_Velocity -= right * value * kMoveSpeed;
+        m_Velocity -= glm::vec2(1, 0) * value * kMoveSpeed;
         isMoving = true;
     }
     if(input.IsTriggered(Input::ActionId::MoveRight, value))
     {
-        m_Velocity += right * value * kMoveSpeed;
+        m_Velocity += glm::vec2(1, 0) * value * kMoveSpeed;
         isMoving = true;
     }
     if(input.IsTriggered(Input::ActionId::MoveForward, value))

@@ -7,7 +7,7 @@
             "request": "launch",
             "expressions": "native",
             "program": "${command:cmake.launchTargetPath}",
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}/projects/project1"
         },
         {
             "name": "Game (Browser)",

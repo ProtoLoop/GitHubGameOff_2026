@@ -5,6 +5,7 @@ struct VSOut
     @location(0)        uv  : vec2f,
     @location(1)        brectUV : vec2f, // Used to draw grid outlines
     @location(3) @interpolate(flat) texLayer : u32,
+    @location(4)        cellXY : vec2f
 };
 
 struct CellMapParams
@@ -132,6 +133,7 @@ fn vs_main(@builtin(vertex_index) vidx : u32, @builtin(instance_index) worldCell
         (sheetTileXY + tileVertUV) / vec2f(f32(sheetTilesPerSide)), // uv
         cellUV, // gridUV
         layer % textureNumLayers(tileSheets), // texLayer
+        vec2f(mapCellXY) + cellUV, // cellXY
     );
 }
 
@@ -154,7 +156,11 @@ fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 {
+    let n = valueNoise2(i.cellXY / 2.0, i.texLayer);
+    let alpha = smoothstep(0.35, 0.55, n);
     var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
+    //p = vec4f(vec3f(alpha), 1.0);
+    p.a = select(1.0, alpha, i.texLayer > 0u);
     //p = drawBoundingRect(i.brectUV, p);
     return p;
 }
@@ -163,8 +169,49 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
 {
+    let n = valueNoise2(i.cellXY / 2.0, i.texLayer);
+    let alpha = smoothstep(0.35, 0.55, n);
     var p = textureSample(tileSheets, smp, i.uv, i.texLayer);
+    //p = vec4f(vec3f(alpha), 1.0);
+    p.a = select(1.0, alpha, i.texLayer > 0u);
     //p = drawBoundingRect(i.brectUV, p);
     return linear_to_srgb(p);
+}
+
+// Generates repeatable values for the four grid corners.
+// Unsigned arithmetic intentionally wraps on overflow.
+fn noiseHash4(v: vec4u) -> vec4f
+{
+    var h = v;
+    h = (h ^ (h >> vec4u(16u))) * 0x7feb352du;
+    h = (h ^ (h >> vec4u(15u))) * 0x846ca68bu;
+    h = h ^ (h >> vec4u(16u));
+
+    // Use the upper 24 bits for conversion to floats in [0, 1).
+    return vec4f(h >> vec4u(8u)) * (1.0 / 16777216.0);
+}
+
+// Smooth 2D value noise in [0, 1].
+// Use a different seed for each texture layer.
+fn valueNoise2(p: vec2f, seed: u32) -> f32
+{
+    let cell = vec2i(floor(p));
+    let f = fract(p);
+
+    // Preserve signed coordinate bits, including negative coordinates.
+    let c = bitcast<vec2u>(cell);
+
+    // Corner order: bottom-left, bottom-right, top-left, top-right.
+    let x = vec4u(c.x, c.x + 1u, c.x, c.x + 1u);
+    let y = vec4u(c.y, c.y, c.y + 1u, c.y + 1u);
+    let values = noiseHash4(
+        (x * 0x8da6b343u) ^ (y * 0xd8163841u) ^ vec4u(seed));
+
+    // Cubic interpolation gives continuous slopes at grid boundaries.
+    let t = f * f * (vec2f(3.0) - 2.0 * f);
+    return mix(
+        mix(values.x, values.y, t.x),
+        mix(values.z, values.w, t.x),
+        t.y);
 }
 )";

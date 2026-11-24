@@ -17,7 +17,7 @@
 
 namespace
 {
-constexpr const char* kLevelFilePath = "/assets/level.json";
+constexpr const char* kLevelFilePath = "/level.json";
 
 struct App
 {

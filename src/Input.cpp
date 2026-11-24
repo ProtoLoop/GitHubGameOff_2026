@@ -34,12 +34,6 @@ constexpr Input::KeyMapping const KeyMappings[] //
             .Value = 1,
         },
         {
-            .Key = SDL_SCANCODE_S,
-            .Action = Input::ActionId::MoveBackward,
-            .Trigger = Input::Trigger::Held,
-            .Value = 1,
-        },
-        {
             .Key = SDL_SCANCODE_UP,
             .Action = Input::ActionId::MoveForward,
             .Trigger = Input::Trigger::Held,
