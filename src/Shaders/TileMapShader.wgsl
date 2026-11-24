@@ -18,6 +18,10 @@ struct CellMapParams
 
 @group(0) @binding(0) var<uniform> cellMapParams : CellMapParams;
 
+// FIXME(KB) - support the same texture in multiple layers using tileSheetIndices
+// as the indirect lookup into tileSheets.
+@group(0) @binding(1) var<storage, read> tileSheetIndices : array<u32>;
+
 @group(1) @binding(0) var tileSheets : texture_2d_array<f32>;
 @group(1) @binding(1) var smp : sampler;
 

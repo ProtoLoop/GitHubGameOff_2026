@@ -446,7 +446,7 @@ Renderer::Render(const Level& level)
 Result<>
 Renderer::RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
 {
-    GG_CHECK(EnsureCellMapParamsBuffer(), "Failed to ensure cell map params buffer");
+    GG_CHECK(EnsureTileMapShaderBuffers(), "Failed to ensure cell map params buffer");
     GG_CHECK(EnsureCellMapBindGroups(), "Failed to ensure cell map bind groups");
 
     m_CellMapParams.proj = GetProjectionMatrix();
@@ -708,7 +708,7 @@ Renderer::EnsureSpriteStateBuffer(const size_t size)
 }
 
 Result<>
-Renderer::EnsureCellMapParamsBuffer()
+Renderer::EnsureTileMapShaderBuffers()
 {
     if(!m_CellMapParamsBuffer)
     {

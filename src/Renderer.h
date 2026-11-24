@@ -154,7 +154,7 @@ private:
         const wgpu::RenderPassEncoder& renderPass) const;
     Result<> EnsurePipelines();
     Result<> EnsureSpriteStateBuffer(const size_t size);
-    Result<> EnsureCellMapParamsBuffer();
+    Result<> EnsureTileMapShaderBuffers();
     Result<> EnsureRectangleStateBuffer(const size_t size);
     Result<> EnsureSpriteBindGroups();
     Result<> EnsureCellMapBindGroups();

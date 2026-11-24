@@ -42,7 +42,6 @@ struct ParsedLevel
     BoundedVector<FilePath> MaskSheetPaths;
     BoundedVector<SpriteFrameSequenceDef> SpriteSeqDefs;
     BoundedVector<SpriteDef> SpriteDefs;
-    BoundedVector<Layer> Layers;
     BoundedVector<PropDef> PropDefs;
     LevelDef LevelDef //
         {
@@ -58,7 +57,7 @@ struct ParsedLevel
 };
 
 Result<SpriteFrameSequenceDef>
-ParseSequence(const JsonObject& sequence)
+ParseSpriteSequence(const JsonObject& sequence)
 {
     std::optional<std::string_view> optTexPath;
     std::optional<std::string_view> optName;
@@ -237,7 +236,7 @@ ParseSequence(const JsonObject& sequence)
 }
 
 Result<BoundedVector<SpriteFrameSequenceDef>>
-ParseSequences(const JsonArray& sequences)
+ParseSpriteSequences(const JsonArray& sequences)
 {
     BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(sequences.size());
 
@@ -248,7 +247,7 @@ ParseSequences(const JsonArray& sequences)
             "Failed to get sprite sequence object (line:{})",
             value.GetLine());
 
-        auto result = ParseSequence(sequence);
+        auto result = ParseSpriteSequence(sequence);
         GG_CHECKB(result, "Failed to parse sprite sequence (line:{})", value.GetLine());
 
         for(const SpriteFrameSequenceDef& spriteSeqDef : spriteSeqDefs)
@@ -471,12 +470,14 @@ Parse(std::vector<std::byte>&& data)
     std::optional<BoundedVector<Layer>> optLayers;
     std::optional<BoundedVector<PropDef>> optPropDefs;
 
+    // Grid size
     if(uint32_t gridSize{}; jobj.TryGetUint32("gridSize", gridSize))
     {
         optGridSize = gridSize;
     }
     GG_CHECKB(optGridSize.has_value(), "Missing grid size (line:{})", jobj.GetLine());
 
+    // Tile sheets
     if(JsonArray tileSheetsArray; jobj.TryGetArray("tileSheets", tileSheetsArray))
     {
         optTileSheetPaths.emplace(tileSheetsArray.size());
@@ -492,6 +493,7 @@ Parse(std::vector<std::byte>&& data)
     }
     GG_CHECKB(optTileSheetPaths.has_value(), "Missing tile sheet paths (line:{})", jobj.GetLine());
 
+    // Mask sheets
     if(JsonArray maskSheetsArray; jobj.TryGetArray("maskSheets", maskSheetsArray))
     {
         optMaskSheetPaths.emplace(maskSheetsArray.size());
@@ -507,9 +509,10 @@ Parse(std::vector<std::byte>&& data)
     }
     GG_CHECKB(optMaskSheetPaths.has_value(), "Missing mask sheet paths (line:{})", jobj.GetLine());
 
+    // Sprite sequences
     if(JsonArray sequencesArray; jobj.TryGetArray("sequences", sequencesArray))
     {
-        auto sequencesResult = ParseSequences(sequencesArray);
+        auto sequencesResult = ParseSpriteSequences(sequencesArray);
         GG_CHECK(sequencesResult,
             "Failed to parse sprite sequences (line:{})",
             sequencesArray.GetLine());
@@ -521,6 +524,7 @@ Parse(std::vector<std::byte>&& data)
     BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs =
         optSpriteSeqDefs ? std::move(*optSpriteSeqDefs) : BoundedVector<SpriteFrameSequenceDef>(0);
 
+    // Sprites
     if(JsonArray spritesArray; jobj.TryGetArray("sprites", spritesArray))
     {
         auto spritesResult = ParseSprites(spritesArray);
@@ -533,6 +537,7 @@ Parse(std::vector<std::byte>&& data)
     BoundedVector<SpriteDef> spriteDefs =
         optSpriteDefs ? std::move(*optSpriteDefs) : BoundedVector<SpriteDef>(0);
 
+    // Props
     if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
     {
         auto propResult = ParseProps(propsArray, spriteDefs);
@@ -545,6 +550,7 @@ Parse(std::vector<std::byte>&& data)
     BoundedVector<PropDef> propDefs =
         optPropDefs ? std::move(*optPropDefs) : BoundedVector<PropDef>(0);
 
+    // Layers
     if(JsonArray layersArray; jobj.TryGetArray("layers", layersArray))
     {
         auto layerResult = ParseLayers(layersArray);
@@ -554,14 +560,24 @@ Parse(std::vector<std::byte>&& data)
     }
     GG_CHECKB(optLayers.has_value(), "Missing layers (line:{})", jobj.GetLine());
 
+    // Build tile sheet paths from the tile sheets actually used in the layers.
+    BoundedVector<FilePath> tileSheetPaths(optLayers->size());
+    for(const Layer& layer : *optLayers)
+    {
+        const uint32_t sheetIndex = layer.GetSheetIndex();
+        GG_CHECKB(sheetIndex < optTileSheetPaths->size(), "Invalid sheet index: {}", sheetIndex);
+
+        const FilePath& tileSheetPath = (*optTileSheetPaths)[sheetIndex];
+        tileSheetPaths.push_back(tileSheetPath);
+    }
+
     return ParsedLevel //
         {
             .CellsPerSide = *optGridSize,
-            .TileSheetPaths = std::move(*optTileSheetPaths),
+            .TileSheetPaths = std::move(tileSheetPaths),
             .MaskSheetPaths = std::move(*optMaskSheetPaths),
             .SpriteSeqDefs = std::move(spriteSeqDefs),
             .SpriteDefs = std::move(spriteDefs),
-            .Layers = std::move(*optLayers),
             .PropDefs = std::move(propDefs),
         };
 }

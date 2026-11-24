@@ -266,7 +266,7 @@
       "scale": 0.25,
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0.9,"w":1,"h":0.1}
+        {"x":0,"y":0.75,"w":1,"h":0.25}
       ]
     },
     {
@@ -782,13 +782,13 @@
       "cells": []
     },
     {
-      "sheet": 1,
+      "sheet": 2,
       "cells": [
         1703
       ]
     },
     {
-      "sheet": 3,
+      "sheet": 1,
       "cells": [
         1566,
         1567,
@@ -841,7 +841,7 @@
     }
   ],
   "editor": {
-    "activeLayer": 2,
+    "activeLayer": 1,
     "view": {"zoom":0.3930943424174467,"scrollLeft":293,"scrollTop":468.5,"showGrid":false}
   }
 }

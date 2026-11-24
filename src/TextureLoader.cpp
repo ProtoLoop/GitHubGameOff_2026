@@ -80,6 +80,20 @@ TextureLoader::Load(const std::span<const FilePath> paths,
 {
     GG_CHECKB(!paths.empty(), "No paths provided");
     GG_CHECKB(paths.size() <= TextureLoader::kMaxArrayLayers, "Too many paths provided");
+
+    // Detect duplicates.
+    std::span<const FilePath> paths2 = paths;
+
+    for(const FilePath& path : paths)
+    {
+        paths2 = paths2.subspan(1);
+
+        for(const FilePath& otherPath : paths2)
+        {
+            GG_CHECKB(path != otherPath, "Duplicate paths detected: {}", path);
+        }
+    }
+
     InlineVector<FetchRequestPtr, TextureLoader::kMaxArrayLayers> fetchRequests;
     for(const FilePath& path : paths)
     {
