@@ -65,7 +65,7 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     root = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--projects-root", type=Path, default=root / "projects")
+    parser.add_argument("--projects-root", type=Path, default=root.parent / "projects")
     parser.add_argument("--port", type=int, default=8001)
     args = parser.parse_args()
     handler = partial(Handler, directory=str(root / "build/dist"), projects_root=args.projects_root)

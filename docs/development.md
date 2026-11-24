@@ -8,9 +8,12 @@ includes `ThirdPartyLicenses.txt`.
 
 Run `cmake --build Mosaic/build --target check` for the application and HTTP
 server tests. Start the app with
-`python3 Mosaic/server.py --projects-root Mosaic/projects` and visit
+`python3 Mosaic/server.py --projects-root projects` from the repository root and visit
 `http://localhost:8000/`. The server serves the built app at `/` and ordinary
-project directories at `/projects/`. It accepts PUT only for a project's
+project directories at the HTTP route `/projects/`. The default filesystem location
+is `projects/` at the repository root, alongside `Mosaic/`, resolved relative to
+the server script regardless of the working directory. `--projects-root` overrides
+that location. It accepts PUT only for a project's
 `level.json`. Asset changes need Reload Project, with no build required.
 See the [file formats](../Mosaic/docs/FILE_FORMATS.md) for the saved level format
 and rendering rules.

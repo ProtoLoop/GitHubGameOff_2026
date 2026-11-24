@@ -1,6 +1,6 @@
 # Mosaic
 
-Create a project folder under `Mosaic/projects/`:
+Create a project folder under `projects/` at the repository root, alongside `Mosaic/`:
 
 ```text
 my-project/
@@ -40,7 +40,7 @@ Build from the workspace root with CMake 3.27+, Ninja, and Python 3.9+:
 ```sh
 cmake -S Mosaic -B Mosaic/build -G Ninja
 cmake --build Mosaic/build
-python3 Mosaic/server.py --projects-root Mosaic/projects
+python3 Mosaic/server.py --projects-root projects
 ```
 
 CMake provisions Deno automatically.
