@@ -16,10 +16,8 @@ CheckForDuplicateSequenceNames(const std::span<const SpriteFrameSequenceDef>& sp
     {
         span2 = span2.subspan(1);
 
-        for(const SpriteFrameSequenceDef& def2 : span2)
-        {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite sequence name: {}", def.Name);
-        }
+        const auto it = std::ranges::find(span2, def.Name, &SpriteFrameSequenceDef::Name);
+        GG_CHECKB(it == span2.end(), "Duplicate sprite sequence name: {}", def.Name);
     }
     return Result<>::Ok;
 }
@@ -33,10 +31,8 @@ CheckForDuplicateSpriteNames(const std::span<const SpriteDef>& spriteDefs)
     {
         span2 = span2.subspan(1);
 
-        for(const SpriteDef& def2 : span2)
-        {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite name: {}", def.Name);
-        }
+        const auto it = std::ranges::find(span2, def.Name, &SpriteDef::Name);
+        GG_CHECKB(it == span2.end(), "Duplicate sprite name: {}", def.Name);
     }
     return Result<>::Ok;
 }
@@ -50,11 +46,11 @@ CheckForDuplicateAudioClipNames(const std::span<const AudioClipDef>& audioClipDe
     {
         span2 = span2.subspan(1);
 
-        for(const AudioClipDef& def2 : span2)
-        {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate audio clip name: {}", def.Name);
-            GG_CHECKB(def2.FilePath != def.FilePath, "Duplicate audio clip path: {}", def.FilePath);
-        }
+        const auto itName = std::ranges::find(span2, def.Name, &AudioClipDef::Name);
+        GG_CHECKB(itName == span2.end(), "Duplicate audio clip name: {}", def.Name);
+
+        const auto itPath = std::ranges::find(span2, def.FilePath, &AudioClipDef::FilePath);
+        GG_CHECKB(itPath == span2.end(), "Duplicate audio clip path: {}", def.FilePath);
     }
     return Result<>::Ok;
 }
@@ -74,31 +70,17 @@ PruneSpriteSequences(const std::span<const SpriteFrameSequenceDef> seqDefs,
         // For each sequence referenced by the sprite find it in the list of sprite sequences.
         for(const ResourceName& seqName : spriteDef.SequenceNames)
         {
-            const SpriteFrameSequenceDef* foundSeq = nullptr;
-            for(const SpriteFrameSequenceDef& seqDef : seqDefs)
-            {
-                if(seqDef.Name == seqName)
-                {
-                    foundSeq = &seqDef;
-                    break;
-                }
-            }
-            GG_CHECKB(foundSeq, "Missing sprite sequence: {}", seqName.c_str());
+            auto itSeqDef = std::ranges::find(seqDefs, seqName, &SpriteFrameSequenceDef::Name);
+            GG_CHECKB(itSeqDef != seqDefs.end(), "Missing sprite sequence: {}", seqName.c_str());
 
             // Now add the found sequence to the list of used sequences if it's not already there.
-            bool foundInList = false;
-            for(const SpriteFrameSequenceDef& seqDef : spriteSeqDefs)
-            {
-                if(seqDef.Name == foundSeq->Name)
-                {
-                    foundInList = true;
-                    break;
-                }
-            }
 
-            if(!foundInList)
+            const bool alreadyInList =
+                std::ranges::contains(spriteSeqDefs, seqName, &SpriteFrameSequenceDef::Name);
+
+            if(!alreadyInList)
             {
-                spriteSeqDefs.push_back(*foundSeq);
+                spriteSeqDefs.push_back(*itSeqDef);
             }
         }
     }
