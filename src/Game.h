@@ -48,6 +48,10 @@ public:
 
     Random& GetEntityRng() { return m_EntityRng; }
 
+    Result<const LostSoul&> SpawnLostSoul(const Transform2D& transform);
+
+    Result<> QueueDespawn(const LostSoul& lostSoul);
+
     Result<> Tick(const float deltaTime);
 
     bool IsRunning() const { return m_Stage == Stage::Running; }
@@ -69,7 +73,11 @@ private:
 
     void QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
-    void CheckCollisions();
+    void CheckPropCollisions();
+
+    void CheckLostSoulCollisions();
+
+    void CommitDespawnQueues();
 
     Stage m_Stage{Stage::None};
 
@@ -81,6 +89,8 @@ private:
     std::optional<Caretaker> m_Caretaker;
 
     InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
+
+    InlineVector<EntityId, kMaxLostSouls> m_DespawnQueue;
 
     float m_TimeAccum{ 0.0f };
 

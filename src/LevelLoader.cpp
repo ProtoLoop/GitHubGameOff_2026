@@ -59,9 +59,6 @@ LevelLoader::Load(const LevelDef& levelDef,
     auto cellResult = CellMapLoader::Load(levelDef.CellMapDef, renderer, fileFetcher, webGpu);
     GG_CHECK(cellResult, "Failed to load cell map");
 
-    // Load the audio clips.
-    BoundedVector<AudioClipLoader> audioClipLoaders(levelDef.AudioClipDefs.size());
-
     // Check for duplicate audio clip names and paths.
     std::span audioClipDefSubspan = levelDef.AudioClipDefs;
     for(const AudioClipDef& def : levelDef.AudioClipDefs)
@@ -74,6 +71,9 @@ LevelLoader::Load(const LevelDef& levelDef,
             GG_CHECKB(def2.FilePath != def.FilePath, "Duplicate audio clip path: {}", def.FilePath);
         }
     }
+
+    // Load the audio clips.
+    BoundedVector<AudioClipLoader> audioClipLoaders(levelDef.AudioClipDefs.size());
 
     for(const AudioClipDef& audioClipDef : levelDef.AudioClipDefs)
     {

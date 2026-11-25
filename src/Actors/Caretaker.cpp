@@ -47,8 +47,6 @@ Caretaker::Create(Game& game)
 
     GG_TRY(clipDing, level.GetAudioClip(kAudioClipName_Ding), "Failed to load audio clip for Ding");
 
-    GG_CHECK(game.GetAudioPlayer().Play(clipDing), "Failed to play audio clip for Ding");
-
     return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite },
         AudioClips{ .Ding = &clipDing });
 }
@@ -125,4 +123,25 @@ Caretaker::Render(Renderer& renderer) const
     GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
+}
+
+void
+Caretaker::OnPropHit(Game& /*game*/, const Prop& /*prop*/) const
+{
+}
+
+void
+Caretaker::OnLostSoulHit(Game& game, const LostSoul& lostSoul)
+{
+    if(!game.GetAudioPlayer().Play(*m_AudioClips.Ding))
+    {
+        GG_ERROR("Failed to play audio clip: {} - {}", m_AudioClips.Ding->GetName(), SDL_GetError());
+    }
+
+    if(!game.QueueDespawn(lostSoul))
+    {
+        GG_ERROR("Failed to despawn lost soul");
+    }
+    
+    ++m_LostSoulsCollected;
 }

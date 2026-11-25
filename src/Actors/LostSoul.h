@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EntityId.h"
 #include "Sprite.h"
 #include "Timer.h"
 #include "Transform2D.h"
@@ -18,6 +19,8 @@ public:
     LostSoul& operator=(LostSoul&&) = default;
 
     static Result<LostSoul> Create(Game& game);
+
+    EntityId GetEntityId() const { return m_Id; }
 
     SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
@@ -52,6 +55,8 @@ private:
     };
 
     explicit LostSoul(const Sprites& sprites);
+
+    EntityId m_Id{ EntityId::NextId() };
 
     CountdownTimer m_Timer;
 

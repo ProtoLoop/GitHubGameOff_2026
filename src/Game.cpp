@@ -25,14 +25,67 @@ Game::Begin()
 
     for(size_t i = 0; i < kMaxLostSouls; ++i)
     {
-        GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
-        const float x = m_EntityRng.NextInRange(-14.0f, 14.0f);
-        const float y = m_EntityRng.NextInRange(-14.0f, 14.0f);
-        lostSoul.MoveTo(x, y);
-        m_LostSouls.push_back(std::move(lostSoul));
+        Transform2D transform;
+        //NOLINTNEXTLINE(readability-magic-numbers)
+        transform.Pos.x = m_EntityRng.NextInRange(-14.0f, 14.0f);
+        //NOLINTNEXTLINE(readability-magic-numbers)
+        transform.Pos.y = m_EntityRng.NextInRange(-14.0f, 14.0f);
+        GG_CHECK(SpawnLostSoul(transform), "Failed to spawn lost soul");
     }
 
     m_Stage = Stage::Running;
+    return Result<>::Ok;
+}
+
+Result<const LostSoul&>
+Game::SpawnLostSoul(const Transform2D& transform)
+{
+    GG_CHECKB(m_LostSouls.size() < m_LostSouls.capacity(), "Maximum number of lost souls reached");
+
+    GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
+    lostSoul.MoveTo(transform.Pos.x, transform.Pos.y);
+    lostSoul.RotateTo(transform.Rot);
+    return m_LostSouls.emplace_back(std::move(lostSoul));
+}
+
+Result<>
+Game::QueueDespawn(const LostSoul& lostSoul)
+{
+    bool inQueue = false;
+
+    for(const EntityId& id : m_DespawnQueue)
+    {
+        if(id == lostSoul.GetEntityId())
+        {
+            inQueue = true;
+            break;
+        }
+    }
+
+    if(inQueue)
+    {
+        return Result<>::Ok;
+    }
+
+    bool isValid = false;
+
+    // Not in the queue - make sure it's valid before adding to the despawn queue
+    for(const LostSoul& ls : m_LostSouls)
+    {
+        if(ls.GetEntityId() == lostSoul.GetEntityId())
+        {
+            isValid = true;
+            break;
+        }
+    }
+
+    GG_CHECKB(isValid, "Lost soul not found");
+    
+    if(isValid)
+    {
+        m_DespawnQueue.push_back(lostSoul.GetEntityId());
+    }
+
     return Result<>::Ok;
 }
 
@@ -56,13 +109,16 @@ Game::Tick(const float deltaTime)
         GG_CHECK(TickEntities(kFrameDuration));
     }
 
-    CheckCollisions();
+    CheckPropCollisions();
+    CheckLostSoulCollisions();
 
     m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
 
     GG_CHECK(RenderSprites());
 
     GG_CHECK(m_AudioPlayer.Tick(deltaTime));
+
+    CommitDespawnQueues();
 
     return Result<>::Ok;
 }
@@ -153,7 +209,7 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
 }
 
 void
-Game::CheckCollisions()
+Game::CheckPropCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
     const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
@@ -164,7 +220,8 @@ Game::CheckCollisions()
 
     float collisionDist = std::numeric_limits<float>::max();
     glm::vec2 collisionNormal;
-    bool hasCollision = false;
+    // Prop that was hit
+    const Prop* propHit = nullptr;
 
     const glm::vec2& ctPos = m_Caretaker->GetPos();
 
@@ -210,14 +267,11 @@ Game::CheckCollisions()
                     const float distB = propBounds.Bottom() - ctBounds.Top();
 
                     const float minDist = std::min({ distR, distL, distT, distB });
-                    if(minDist >= collisionDist)
+                    if(minDist <= 0 || minDist >= collisionDist)
                     {
-                        continue; // Skip if this is not the closest collision
-                    }
-
-                    if(minDist <= 0)
-                    {
-                        continue; // Skip if the collision distance is zero
+                        // Skip if this is not the closest collision
+                        // or if the collision distance is zero
+                        continue;
                     }
 
                     collisionDist = minDist;
@@ -245,14 +299,111 @@ Game::CheckCollisions()
                     // Unproject the collision normal.
                     collisionNormal = glm::inverse(proj) * collisionNormal;
 
-                    hasCollision = true;
+                    propHit = &prop;
                 }
             }
         }
     }
 
-    if(hasCollision)
+    if(propHit)
     {
         m_Caretaker->MoveBy(collisionNormal * collisionDist / pixelScale);
+        m_Caretaker->OnPropHit(*this, *propHit);
     }
+}
+
+void
+Game::CheckLostSoulCollisions()
+{
+    const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
+
+    const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
+
+    const SpriteFrame& ctSpriteFrame = m_Caretaker->GetSpriteFrame();
+
+    float collisionDist = std::numeric_limits<float>::max();
+    // Prop that was hit
+    const LostSoul* lostSoulHit = nullptr;
+
+    const glm::vec2& ctPos = m_Caretaker->GetPos();
+
+    const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
+        ctPos,
+        proj,
+        cellPixPerSide);
+
+    const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
+
+    for(const LostSoul& lostSoul : m_LostSouls)
+    {
+        const glm::vec2& lostSoulPos = lostSoul.GetPos();
+        const SpriteFrame& lostSoulSpriteFrame = lostSoul.GetSpriteFrame();
+        const Rectf lostSoulRect = lostSoulSpriteFrame.GetScreenRect(lostSoulSpriteFrame.GetCollisionBounds(),
+            lostSoulPos,
+            proj,
+            cellPixPerSide);
+
+        // FIXME(KB) - not needed if bot colliders only have one collision rect
+        if(!ctRect.Intersects(lostSoulRect))
+        {
+            continue;
+        }
+
+        for(const Rectf& ctColRect : ctCollisionRects)
+        {
+            const Rectf ctBounds =
+                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
+
+            const std::span<const Rectf> lostSoulCollisionRects = lostSoulSpriteFrame.GetCollisionRects();
+
+            for(const Rectf& lostSoulColRect : lostSoulCollisionRects)
+            {
+                const Rectf lostSoulBounds =
+                    lostSoulSpriteFrame.GetScreenRect(lostSoulColRect, lostSoulPos, proj, cellPixPerSide);
+
+                if(ctBounds.Intersects(lostSoulBounds))
+                {
+                    const float distR = lostSoulBounds.Right() - ctBounds.Left();
+                    const float distL = ctBounds.Right() - lostSoulBounds.Left();
+                    const float distT = ctBounds.Bottom() - lostSoulBounds.Top();
+                    const float distB = lostSoulBounds.Bottom() - ctBounds.Top();
+
+                    const float minDist = std::min({ distR, distL, distT, distB });
+                    if(minDist <= 0 || minDist >= collisionDist)
+                    {
+                        // Skip if this is not the closest collision
+                        // or if the collision distance is zero
+                        continue;
+                    }
+
+                    collisionDist = minDist;
+
+                    lostSoulHit = &lostSoul;
+                }
+            }
+        }
+    }
+
+    if(lostSoulHit)
+    {
+        m_Caretaker->OnLostSoulHit(*this, *lostSoulHit);
+    }
+}
+
+void
+Game::CommitDespawnQueues()
+{
+    for(const EntityId idToDespawn : m_DespawnQueue)
+    {
+        for(LostSoul& lostSoul : m_LostSouls)
+        {
+            if(lostSoul.GetEntityId() == idToDespawn)
+            {
+                lostSoul = std::move(m_LostSouls.back());
+                m_LostSouls.pop_back();
+                break;
+            }
+        }
+    }
+    m_DespawnQueue.clear();
 }

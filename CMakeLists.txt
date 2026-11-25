@@ -138,6 +138,7 @@ set(GAMEOFF_SOURCES
     src/Defer.h
     src/Diag.h
     src/Diag.cpp
+    src/EntityId.h
     src/FileFetcher.h
     src/FileFetcher.cpp
     src/Game.h

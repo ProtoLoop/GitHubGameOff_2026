@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EntityId.h"
 #include "Sprite.h"
 #include "Transform2D.h"
 
@@ -10,6 +11,8 @@ class Prop : public Transform2DLike<Prop>
 public:
     Prop(Sprite::Instance spriteInstance, const Transform2D& transform);
 
+    EntityId GetEntityId() const { return m_Id; }
+
     SpriteFrame GetSpriteFrame() const { return m_SpriteInstance.GetFrame(); }
 
     Transform2D& GetTransform() { return m_Transform; }
@@ -18,6 +21,7 @@ public:
     Result<> Render(Renderer& renderer) const;
 
 private:
+    EntityId m_Id{ EntityId::NextId() };    //DO NOT SUBMIT
     Sprite::Instance m_SpriteInstance;
     Transform2D m_Transform;
 };

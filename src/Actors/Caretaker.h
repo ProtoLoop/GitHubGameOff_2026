@@ -1,10 +1,14 @@
 #pragma once
 
+#include "EntityId.h"
 #include "Sprite.h"
 #include "Transform2D.h"
+
 #include <glm/vec2.hpp>
 
 class Game;
+class Prop;
+class LostSoul;
 class Renderer;
 class AudioClip;
 
@@ -20,6 +24,8 @@ public:
 
     static Result<Caretaker> Create(Game& game);
 
+    EntityId GetEntityId() const { return m_Id; }
+
     SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
     Result<> Tick(const float deltaTime, Game& game);
@@ -29,8 +35,11 @@ public:
     Transform2D& GetTransform() { return m_Transform; }
     const Transform2D& GetTransform() const { return m_Transform; }
 
-private:
+    void OnPropHit(Game& game, const Prop& prop) const;
 
+    void OnLostSoulHit(Game& game, const LostSoul& lostSoul);
+
+private:
     struct Sprites
     {
         Sprite::Instance Idle;
@@ -44,11 +53,15 @@ private:
 
     Caretaker(const Sprites& sprites, const AudioClips& audioClips);
 
+    EntityId m_Id{ EntityId::NextId() };
+
     Transform2D m_Transform;
     glm::vec2 m_Velocity{};
 
     Sprites m_Sprites;
-    [[maybe_unused]]AudioClips m_AudioClips;
+    AudioClips m_AudioClips;
     Sprite::Instance m_CurSprite;
     float m_CurSpritePeriod;
+
+    uint32_t m_LostSoulsCollected{ 0 };
 };
