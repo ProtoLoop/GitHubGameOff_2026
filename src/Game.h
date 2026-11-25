@@ -12,6 +12,7 @@
 class Input;
 class Renderer;
 class AudioPlayer;
+struct LevelDef;
 
 class Game
 {
@@ -24,10 +25,11 @@ public:
     ~Game() = default;
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
-    Game(Game&&) = delete;
-    Game& operator=(Game&&) = delete;
+    Game(Game&&) = default;
+    Game& operator=(Game&&) = default;
 
-    Game(Input& input,
+    static Result<Game> Create(Input& input,
+        const LevelDef& levelDef,
         std::unique_ptr<Level>&& level,
         std::unique_ptr<Renderer>&& renderer,
         AudioPlayer&& audioPlayer);
@@ -65,6 +67,11 @@ private:
         Running,
     };
 
+    Game(Input& input,
+        std::unique_ptr<Level>&& level,
+        std::unique_ptr<Renderer>&& renderer,
+        AudioPlayer&& audioPlayer);
+
     Result<> TickEntities(float deltaTime);
 
     Result<> RenderSprites();
@@ -79,13 +86,13 @@ private:
 
     void CommitDespawnQueues();
 
-    Stage m_Stage{Stage::None};
+    Stage m_Stage{ Stage::None };
 
     Input* m_Input;
     std::unique_ptr<Level> m_Level;
     std::unique_ptr<Renderer> m_Renderer;
     AudioPlayer m_AudioPlayer;
-    
+
     std::optional<Caretaker> m_Caretaker;
 
     InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
@@ -96,5 +103,5 @@ private:
 
     static constexpr uint64_t EntityRngSeed = 42;
     static constexpr uint64_t EntityRngStream = 54;
-    Random m_EntityRng{EntityRngSeed, EntityRngStream};
+    Random m_EntityRng{ EntityRngSeed, EntityRngStream };
 };

@@ -37,20 +37,16 @@ private:
     LevelLoader(CellMapLoader&& cellMapLoader,
         SpriteSequenceLoader&& spriteSeqLoader,
         BoundedVector<AudioClipLoader>&& audioClipLoaders,
-        BoundedVector<SpriteDef>&& spriteDefs,
-        BoundedVector<PropDef>&& propDefs)
+        BoundedVector<SpriteDef>&& spriteDefs)
         : m_CellMapLoader(std::move(cellMapLoader)),
           m_SpriteSeqLoader(std::move(spriteSeqLoader)),
           m_AudioClipLoaders(std::move(audioClipLoaders)),
-          m_SpriteDefs(std::move(spriteDefs)),
-          m_PropDefs(std::move(propDefs))
+          m_SpriteDefs(std::move(spriteDefs))
     {
     }
 
     Result<BoundedVector<Sprite>> BuildSprites(
         const std::span<const SpriteFrameSequence> spriteFrameSeqs) const;
-
-    Result<BoundedVector<Prop>> BuildProps(const std::span<const Sprite> sprites) const;
 
     Result<BoundedVector<AudioClip>> BuildAudioClips();
 
@@ -58,7 +54,6 @@ private:
     SpriteSequenceLoader m_SpriteSeqLoader;
     BoundedVector<AudioClipLoader> m_AudioClipLoaders;
     BoundedVector<SpriteDef> m_SpriteDefs;
-    BoundedVector<PropDef> m_PropDefs;
 
     bool m_Taken{ false };
 };

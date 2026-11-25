@@ -281,10 +281,14 @@ App::Update()
             std::unique_ptr<Renderer> renderer = std::move(oldState.Renderer);
             AudioPlayer audioPlayer = std::move(oldState.AudioPlayer);
 
-            m_State.emplace<Game>(Input,
+            auto gameResult = Game::Create(Input,
+                oldState.ParsedLevel->GetLevelDef(),
                 std::move(*levelResult),
                 std::move(renderer),
                 std::move(audioPlayer));
+            GG_CHECKB(gameResult, "Failed to create game");
+
+            m_State.emplace<Game>(std::move(*gameResult));
 
             auto& game = std::get<Game>(m_State);
 

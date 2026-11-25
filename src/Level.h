@@ -29,20 +29,23 @@ public:
 
     Result<const AudioClip&> GetAudioClip(const std::string_view name) const;
 
+    Result<> SpawnProp(const std::string_view spriteName, const Transform2D& transform);
+
     std::span<const Prop> GetProps() const;
 
 private:
     friend class LevelLoader;
 
+    static constexpr size_t kMaxProps = 1024;
+
     Level(CellMap&& cellMap,
         BoundedVector<SpriteFrameSequence>&& spriteSeqs,
         BoundedVector<Sprite>&& sprites,
-        BoundedVector<Prop>&& props,
         BoundedVector<AudioClip>&& audioClips);
 
     CellMap m_CellMap;
     BoundedVector<SpriteFrameSequence> m_SpriteSeqs;
     BoundedVector<Sprite> m_Sprites;
-    BoundedVector<Prop> m_Props;
     BoundedVector<AudioClip> m_AudioClips;
+    InlineVector<Prop, kMaxProps> m_Props;
 };

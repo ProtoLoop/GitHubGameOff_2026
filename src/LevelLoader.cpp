@@ -136,19 +136,10 @@ LevelLoader::Load(const LevelDef& levelDef,
         audioClipLoaders.push_back(std::move(*audioClipLoadResult));
     }
 
-    // Copy the prop defs so it can be passed to the level loader.
-    BoundedVector<PropDef> propDefs(levelDef.PropDefs.size());
-
-    for(const PropDef& propDef : levelDef.PropDefs)
-    {
-        propDefs.push_back(propDef);
-    }
-
     return LevelLoader(std::move(*cellResult),
         std::move(*spriteSeqLoadResult),
         std::move(audioClipLoaders),
-        std::move(spriteDefs),
-        std::move(propDefs));
+        std::move(spriteDefs));
 }
 
 bool
@@ -209,16 +200,12 @@ LevelLoader::Take()
     auto cellMapResult = m_CellMapLoader.Take();
     GG_CHECK(cellMapResult, "Failed to load cell map");
 
-    auto propsResult = BuildProps(*spritesResult);
-    GG_CHECK(propsResult, "Failed to build props");
-
     auto audioClipsResult = BuildAudioClips();
     GG_CHECK(audioClipsResult, "Failed to build audio clips");
 
     return std::unique_ptr<Level>(new Level(std::move(*cellMapResult),
         std::move(*spriteSeqsResult),
         std::move(*spritesResult),
-        std::move(*propsResult),
         std::move(*audioClipsResult)));
 }
 
@@ -256,36 +243,6 @@ LevelLoader::BuildSprites(const std::span<const SpriteFrameSequence> spriteFrame
         sprites.push_back(std::move(sprite));
     }
     return sprites;
-}
-
-Result<BoundedVector<Prop>>
-LevelLoader::BuildProps(const std::span<const Sprite> sprites) const
-{
-    BoundedVector<Prop> props(m_PropDefs.size());
-
-    for(const PropDef& propDef : m_PropDefs)
-    {
-        const Sprite* foundSprite = nullptr;
-        for(const Sprite& sprite : sprites)
-        {
-            if(sprite.GetName() == propDef.SpriteName)
-            {
-                foundSprite = &sprite;
-                break;
-            }
-        }
-
-        GG_CHECKB(foundSprite, "Sprite not found for prop: {}", propDef.SpriteName);
-
-        auto spriteInstanceResult = foundSprite->CreateInstance();
-        GG_CHECK(spriteInstanceResult,
-            "Failed to create sprite instance: {}",
-            foundSprite->GetName());
-
-        props.emplace_back(*spriteInstanceResult, propDef.Transform);
-    }
-
-    return props;
 }
 
 Result<BoundedVector<AudioClip>>

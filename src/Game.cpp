@@ -1,7 +1,8 @@
 #include "Game.h"
 
-#include "Renderer.h"
 #include "AudioPlayer.h"
+#include "Renderer.h"
+#include "ResourceDefs.h"
 
 Game::Game(Input& input,
     std::unique_ptr<Level>&& level,
@@ -12,6 +13,24 @@ Game::Game(Input& input,
       m_Renderer(std::move(renderer)),
       m_AudioPlayer(std::move(audioPlayer))
 {
+}
+
+Result<Game>
+Game::Create(Input& input,
+    const LevelDef& levelDef,
+    std::unique_ptr<Level>&& level,
+    std::unique_ptr<Renderer>&& renderer,
+    AudioPlayer&& audioPlayer)
+{
+    Game game(input, std::move(level), std::move(renderer), std::move(audioPlayer));
+
+    for(const PropDef& propDef : levelDef.PropDefs)
+    {
+        GG_CHECK(game.GetLevel().SpawnProp(propDef.SpriteName, propDef.Transform),
+            "Failed to spawn prop: {}",
+            propDef.SpriteName);
+    }
+    return std::move(game);
 }
 
 Result<>
@@ -26,9 +45,9 @@ Game::Begin()
     for(size_t i = 0; i < kMaxLostSouls; ++i)
     {
         Transform2D transform;
-        //NOLINTNEXTLINE(readability-magic-numbers)
+        // NOLINTNEXTLINE(readability-magic-numbers)
         transform.Pos.x = m_EntityRng.NextInRange(-14.0f, 14.0f);
-        //NOLINTNEXTLINE(readability-magic-numbers)
+        // NOLINTNEXTLINE(readability-magic-numbers)
         transform.Pos.y = m_EntityRng.NextInRange(-14.0f, 14.0f);
         GG_CHECK(SpawnLostSoul(transform), "Failed to spawn lost soul");
     }
@@ -80,7 +99,7 @@ Game::QueueDespawn(const LostSoul& lostSoul)
     }
 
     GG_CHECKB(isValid, "Lost soul not found");
-    
+
     if(isValid)
     {
         m_DespawnQueue.push_back(lostSoul.GetEntityId());
@@ -338,10 +357,11 @@ Game::CheckLostSoulCollisions()
     {
         const glm::vec2& lostSoulPos = lostSoul.GetPos();
         const SpriteFrame& lostSoulSpriteFrame = lostSoul.GetSpriteFrame();
-        const Rectf lostSoulRect = lostSoulSpriteFrame.GetScreenRect(lostSoulSpriteFrame.GetCollisionBounds(),
-            lostSoulPos,
-            proj,
-            cellPixPerSide);
+        const Rectf lostSoulRect =
+            lostSoulSpriteFrame.GetScreenRect(lostSoulSpriteFrame.GetCollisionBounds(),
+                lostSoulPos,
+                proj,
+                cellPixPerSide);
 
         // FIXME(KB) - not needed if bot colliders only have one collision rect
         if(!ctRect.Intersects(lostSoulRect))
@@ -354,12 +374,15 @@ Game::CheckLostSoulCollisions()
             const Rectf ctBounds =
                 ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
 
-            const std::span<const Rectf> lostSoulCollisionRects = lostSoulSpriteFrame.GetCollisionRects();
+            const std::span<const Rectf> lostSoulCollisionRects =
+                lostSoulSpriteFrame.GetCollisionRects();
 
             for(const Rectf& lostSoulColRect : lostSoulCollisionRects)
             {
-                const Rectf lostSoulBounds =
-                    lostSoulSpriteFrame.GetScreenRect(lostSoulColRect, lostSoulPos, proj, cellPixPerSide);
+                const Rectf lostSoulBounds = lostSoulSpriteFrame.GetScreenRect(lostSoulColRect,
+                    lostSoulPos,
+                    proj,
+                    cellPixPerSide);
 
                 if(ctBounds.Intersects(lostSoulBounds))
                 {
