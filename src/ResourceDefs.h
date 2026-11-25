@@ -53,10 +53,16 @@ struct SpriteDef
 /// Defines a prop within the level.
 struct PropDef
 {
-    /// The ID of the sprite associated with this prop.
-    uint32_t SpriteId{ 0 };
+    /// The name of the sprite associated with this prop.
+    ResourceName SpriteName;
     /// The transform (location/rotation) of the prop within the level.
     Transform2D Transform;
+};
+
+struct CellMapLayerDef
+{
+    /// The index of the tile sheet used by this layer.
+    uint32_t SheetIndex;
 };
 
 /// Defines the layout of cells within the level.
@@ -64,8 +70,10 @@ struct CellMapDef
 {
     /// The number of cells along one side of the square grid.
     uint32_t CellsPerSide{ 0 };
-    /// The file paths to the tile sets used in the cell map.
-    std::span<const FilePath> TileSets;
+    /// The file paths to the tile sheets used in the cell map.
+    std::span<const FilePath> TileSheets;
+    /// The layers of the cell map.
+    std::span<const CellMapLayerDef> Layers;
 };
 
 /// Defines an audio clip resource.

@@ -4,7 +4,8 @@
 #include "Defer.h"
 #include "Game.h"
 #include "Input.h"
-#include "LevelFetcher.h"
+#include "LevelLoader.h"
+#include "LevelParser.h"
 #include "Renderer.h"
 #include "WebGpu.h"
 
@@ -86,28 +87,92 @@ struct App
             : FileFetcher(std::move(fileFetcher)),
               Renderer(std::move(renderer)),
               AudioPlayer(std::move(audioPlayer)),
-              LevelFetcher(LevelFetcher::Fetch(levelPath, *FileFetcher, *Renderer, webGpu, AudioPlayer))
+              WebGpu(&webGpu),
+              LevelParser(LevelParser::Fetch(levelPath, *FileFetcher))
         {
-            GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
+            GG_ASSERT(LevelParser, "Failed to initialize level parser");
         }
+
+        enum class Stage
+        {
+            FetchingLevel,
+            LoadingLevel,
+            Succeeded,
+            Failed
+        };
 
         // Had to allocate FileFetcher and Renderer on the heap
         // because they are too large to be allocated inline when running web assembly.
         std::unique_ptr<FileFetcher> FileFetcher;
         std::unique_ptr<Renderer> Renderer;
         AudioPlayer AudioPlayer;
-        Result<LevelFetcher> LevelFetcher;
+        class WebGpu* WebGpu;
+        Result<LevelParser> LevelParser;
+        Result<ParsedLevel> ParsedLevel;
+        Result<LevelLoader> LevelLoader;
+
+        Stage m_Stage{ Stage::FetchingLevel };
 
         Result<> Update()
         {
-            GG_CHECKB(LevelFetcher, "Level fetcher not initialized");
+            switch(m_Stage)
+            {
+                case Stage::FetchingLevel:
+                    // If we early exit due to error then we'll be in the failure stage.
+                    m_Stage = Stage::Failed;
 
-            GG_CHECK(LevelFetcher->Update(), "Failed to update level fetcher");
+                    GG_CHECK(LevelParser, "Level parser is not initialized");
+
+                    GG_CHECK(LevelParser->Update(), "Failed to update level parser");
+
+                    if(LevelParser->IsPending())
+                    {
+                        m_Stage = Stage::FetchingLevel;
+                    }
+                    else
+                    {
+                        ParsedLevel = LevelParser->Take();
+                        GG_CHECK(ParsedLevel, "Failed to take parsed level");
+
+                        LevelLoader = LevelLoader::Load(ParsedLevel->GetLevelDef(),
+                            *FileFetcher,
+                            *Renderer,
+                            *WebGpu,
+                            AudioPlayer);
+
+                        GG_CHECK(LevelLoader, "Failed to create level loader");
+
+                        // Release the level fetcher once it's no longer needed.
+                        LevelParser.Reset();
+
+                        m_Stage = Stage::LoadingLevel;
+                    }
+                    break;
+                case Stage::LoadingLevel:
+                    m_Stage = Stage::Failed;
+                    GG_CHECK(LevelLoader->Update(), "Failed to update level loader");
+                    if(LevelLoader->IsPending())
+                    {
+                        m_Stage = Stage::LoadingLevel;
+                    }
+                    else
+                    {
+                        m_Stage = Stage::Succeeded;
+                    }
+                    break;
+
+                case Stage::Succeeded:
+                case Stage::Failed:
+                    break;
+            }
 
             return Result<>::Ok;
         }
 
-        bool IsPending() const { return LevelFetcher->IsPending(); }
+        bool IsPending() const
+        {
+            return Stage::FetchingLevel == m_Stage || Stage::LoadingLevel == m_Stage;
+        }
     };
 
     struct FailedState
@@ -209,14 +274,17 @@ App::Update()
         {
             auto& oldState = std::get<LoadingState>(m_State);
 
-            auto levelResult = oldState.LevelFetcher->Take();
+            auto levelResult = oldState.LevelLoader->Take();
             GG_CHECKB(levelResult, "Failed to load level");
 
             // Save the references to systems prior to destroying the old state
             std::unique_ptr<Renderer> renderer = std::move(oldState.Renderer);
             AudioPlayer audioPlayer = std::move(oldState.AudioPlayer);
 
-            m_State.emplace<Game>(Input, std::move(*levelResult), std::move(renderer), std::move(audioPlayer));
+            m_State.emplace<Game>(Input,
+                std::move(*levelResult),
+                std::move(renderer),
+                std::move(audioPlayer));
 
             auto& game = std::get<Game>(m_State);
 

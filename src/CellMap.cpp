@@ -1,7 +1,30 @@
 #include "CellMap.h"
 
-#include "ResourceDefs.h"
 #include "Renderer.h"
+#include "ResourceDefs.h"
+
+namespace
+{
+
+/// Prunes the list of tile sheet paths to only include those that are actually used by the
+/// layers.
+Result<BoundedVector<FilePath>>
+PruneTileSheets(const std::span<const FilePath> paths,
+    const std::span<const CellMapLayerDef> layers)
+{
+    BoundedVector<FilePath> tileSheetPaths(layers.size());
+
+    for(const CellMapLayerDef& layer : layers)
+    {
+        const uint32_t sheetIndex = layer.SheetIndex;
+        GG_CHECKB(sheetIndex < paths.size(), "Invalid sheet index: {}", sheetIndex);
+
+        const FilePath& tileSheetPath = paths[sheetIndex];
+        tileSheetPaths.push_back(tileSheetPath);
+    }
+    return tileSheetPaths;
+}
+} // namespace
 
 /// CellMapLoader
 
@@ -9,7 +32,12 @@ Result<CellMapLoader>
 CellMapLoader::Load(
     const CellMapDef& cellMapDef, Renderer& renderer, FileFetcher& fileFetcher, WebGpu& webGpu)
 {
-    auto loaderResult = TextureLoader::Load(cellMapDef.TileSets, fileFetcher, webGpu, "Test");
+    auto prunedTileSheetsResult = PruneTileSheets(cellMapDef.TileSheets, cellMapDef.Layers);
+    GG_CHECKB(prunedTileSheetsResult, "Failed to prune tile sheets");
+
+    // FIXME(KB) - deal with duplicate texture paths in the tile sheets.
+
+    auto loaderResult = TextureLoader::Load(*prunedTileSheetsResult, fileFetcher, webGpu, "Test");
     GG_CHECKB(loaderResult, "Failed to start texture load");
 
     return CellMapLoader(std::move(*loaderResult), renderer, cellMapDef.CellsPerSide);

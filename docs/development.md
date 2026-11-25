@@ -449,6 +449,12 @@ WebGPU asynchronously, and creates the audio player before loading the level.
 When loading completes, it transfers the level, renderer, and audio player to
 `Game`.
 
+Level startup separates parsing from resource loading. `LevelParser` fetches the
+level file and returns a `ParsedLevel` that owns the parsed definitions. Its
+`LevelDef` view borrows that storage. `LoadingState` retains the parsed data while
+`LevelLoader` validates resource references and builds the level. The parsed
+definitions are currently released when loading transitions to `Game`.
+
 `Game` owns the level, renderer, audio player, and gameplay entities. Entities
 own their transforms and animation playback state. `Level` owns the cell map,
 shared sequence catalog, sprites, decorative props, and audio clips. Sprites

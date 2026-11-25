@@ -153,10 +153,10 @@ set(GAMEOFF_SOURCES
     src/JsonDocument.cpp
     src/Level.h
     src/Level.cpp
-    src/LevelFetcher.h
-    src/LevelFetcher.cpp
     src/LevelLoader.h
     src/LevelLoader.cpp
+    src/LevelParser.h
+    src/LevelParser.cpp
     src/main.cpp
     src/NameTypes.h
     src/Prop.h

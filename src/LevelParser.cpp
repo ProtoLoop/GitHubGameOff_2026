@@ -1,8 +1,7 @@
-#include "LevelFetcher.h"
+#include "LevelParser.h"
 
 #include "BoundedVector.h"
 #include "JsonDocument.h"
-#include "Level.h"
 #include "Result.h"
 
 #include <glm/vec2.hpp>
@@ -11,53 +10,6 @@
 
 namespace
 {
-
-class Layer
-{
-public:
-    Layer() = delete;
-    ~Layer() = default;
-    Layer(const Layer&) = delete;
-    Layer& operator=(const Layer&) = delete;
-    Layer(Layer&&) = default;
-    Layer& operator=(Layer&&) = default;
-
-    Layer(uint32_t sheetIndex, BoundedVector<uint32_t>&& cells)
-        : m_SheetIndex(sheetIndex),
-          m_Cells(std::move(cells))
-    {
-    }
-
-    uint32_t GetSheetIndex() const { return m_SheetIndex; }
-    std::span<const uint32_t> GetCells() const { return m_Cells; }
-
-private:
-    uint32_t m_SheetIndex;
-    BoundedVector<uint32_t> m_Cells;
-};
-
-struct ParsedLevel
-{
-    uint32_t CellsPerSide;
-    BoundedVector<FilePath> TileSheetPaths;
-    BoundedVector<FilePath> MaskSheetPaths;
-    BoundedVector<SpriteFrameSequenceDef> SpriteSeqDefs;
-    BoundedVector<SpriteDef> SpriteDefs;
-    BoundedVector<PropDef> PropDefs;
-    BoundedVector<AudioClipDef> AudioClipDefs;
-    LevelDef LevelDef //
-        {
-            .CellMapDef //
-            {
-                .CellsPerSide = CellsPerSide,
-                .TileSets{ TileSheetPaths },
-            },
-            .SpriteSeqDefs{ SpriteSeqDefs },
-            .SpriteDefs{ SpriteDefs },
-            .PropDefs{ PropDefs },
-            .AudioClipDefs{ AudioClipDefs },
-        };
-};
 
 Result<SpriteFrameSequenceDef>
 ParseSpriteSequence(const JsonObject& sequence)
@@ -107,10 +59,10 @@ ParseSpriteSequence(const JsonObject& sequence)
     if(JsonObject jsonObj; sequence.TryGetObject("srcRect", jsonObj))
     {
         Rect srcRect{ 0, 0, 0, 0 };
-        const bool haveX = jsonObj.TryGetUint32("x", srcRect.x).HasValue();
-        const bool haveY = jsonObj.TryGetUint32("y", srcRect.y).HasValue();
-        const bool haveW = jsonObj.TryGetUint32("w", srcRect.w).HasValue();
-        const bool haveH = jsonObj.TryGetUint32("h", srcRect.h).HasValue();
+        const bool haveX = jsonObj.TryGetUint32("x", srcRect.x);
+        const bool haveY = jsonObj.TryGetUint32("y", srcRect.y);
+        const bool haveW = jsonObj.TryGetUint32("w", srcRect.w);
+        const bool haveH = jsonObj.TryGetUint32("h", srcRect.h);
 
         // If any of the srcRect values are specified, all must be specified.
         // An empty srcRect {} is permitted.
@@ -132,10 +84,10 @@ ParseSpriteSequence(const JsonObject& sequence)
     if(JsonObject jsonObj; sequence.TryGetObject("tint", jsonObj))
     {
         float r{}, g{}, b{}, a{};
-        const bool haveR = jsonObj.TryGetFloat("r", r).HasValue();
-        const bool haveG = jsonObj.TryGetFloat("g", g).HasValue();
-        const bool haveB = jsonObj.TryGetFloat("b", b).HasValue();
-        const bool haveA = jsonObj.TryGetFloat("a", a).HasValue();
+        const bool haveR = jsonObj.TryGetFloat("r", r);
+        const bool haveG = jsonObj.TryGetFloat("g", g);
+        const bool haveB = jsonObj.TryGetFloat("b", b);
+        const bool haveA = jsonObj.TryGetFloat("a", a);
 
         // If any of the tint values are specified, all must be specified.
         if(haveR && haveG && haveB && haveA)
@@ -155,8 +107,8 @@ ParseSpriteSequence(const JsonObject& sequence)
     {
         uint32_t w{}, h{};
 
-        const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
-        const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
+        const bool haveW = jsonObj.TryGetUint32("w", w);
+        const bool haveH = jsonObj.TryGetUint32("h", h);
 
         // If any of the size values are specified, all must be specified.
         if(haveW && haveH)
@@ -176,12 +128,12 @@ ParseSpriteSequence(const JsonObject& sequence)
             JsonObject jsonObj;
             GG_CHECKB(value.TryGetObject(jsonObj), "Failed to get collision rect object: {}", name);
 
-            Rectf colRect{0,0,0,0};
+            Rectf colRect{ 0, 0, 0, 0 };
 
-            const bool haveX = jsonObj.TryGetFloat("x", colRect.x).HasValue();
-            const bool haveY = jsonObj.TryGetFloat("y", colRect.y).HasValue();
-            const bool haveW = jsonObj.TryGetFloat("w", colRect.w).HasValue();
-            const bool haveH = jsonObj.TryGetFloat("h", colRect.h).HasValue();
+            const bool haveX = jsonObj.TryGetFloat("x", colRect.x);
+            const bool haveY = jsonObj.TryGetFloat("y", colRect.y);
+            const bool haveW = jsonObj.TryGetFloat("w", colRect.w);
+            const bool haveH = jsonObj.TryGetFloat("h", colRect.h);
 
             // If any of the collision rect values are specified, all must be specified.
             if(!haveX || !haveY || !haveW || !haveH)
@@ -229,18 +181,6 @@ ParseSpriteSequences(const JsonArray& sequences)
 
         auto result = ParseSpriteSequence(sequence);
         GG_CHECKB(result, "Failed to parse sprite sequence (line:{})", value.GetLine());
-
-        // Check for duplicate sprite sequence names
-        for(const SpriteFrameSequenceDef& spriteSeqDef : spriteSeqDefs)
-        {
-            if(spriteSeqDef.Name == result->Name)
-            {
-                GG_CHECKB(false,
-                    "Duplicate sprite sequence name: {} (line:{})",
-                    result->Name,
-                    value.GetLine());
-            }
-        }
 
         spriteSeqDefs.push_back(*result);
     }
@@ -303,18 +243,6 @@ ParseSprites(const JsonArray& sprites)
         auto result = ParseSprite(sprite);
         GG_CHECKB(result, "Failed to parse sprite (line:{})", value.GetLine());
 
-        // Check for duplicate sprite names
-        for(const SpriteDef& spriteDef : spriteDefs)
-        {
-            if(spriteDef.Name == result->Name)
-            {
-                GG_CHECKB(false,
-                    "Duplicate sprite name: {} (line:{})",
-                    result->Name,
-                    value.GetLine());
-            }
-        }
-
         spriteDefs.push_back(std::move(*result));
     }
 
@@ -322,7 +250,7 @@ ParseSprites(const JsonArray& sprites)
 }
 
 Result<PropDef>
-ParseProp(const JsonObject& prop, const std::span<const SpriteDef> spriteDefs)
+ParseProp(const JsonObject& prop)
 {
     std::optional<std::string_view> optSpriteName;
     std::optional<glm::vec2> optPos;
@@ -334,20 +262,6 @@ ParseProp(const JsonObject& prop, const std::span<const SpriteDef> spriteDefs)
     }
     GG_CHECKB(optSpriteName.has_value(), "Missing sprite name (line:{})", prop.GetLine());
     GG_CHECKB(!optSpriteName->empty(), "Empty sprite name (line:{})", prop.GetLine());
-
-    bool spriteFound = false;
-    uint32_t spriteId = 0;
-    for(uint32_t i = 0; i < spriteDefs.size(); ++i)
-    {
-        const SpriteDef& spriteDef = spriteDefs[i];
-        if(spriteDef.Name == *optSpriteName)
-        {
-            spriteFound = true;
-            spriteId = i;
-            break;
-        }
-    }
-    GG_CHECKB(spriteFound, "Sprite not found (line:{}): {}", prop.GetLine(), *optSpriteName);
 
     if(JsonObject jsonObj; prop.TryGetObject("pos", jsonObj))
     {
@@ -366,7 +280,7 @@ ParseProp(const JsonObject& prop, const std::span<const SpriteDef> spriteDefs)
 
     return PropDef //
         {
-            .SpriteId = spriteId,
+            .SpriteName = *optSpriteName,
             .Transform //
             {
                 .Pos = *optPos,
@@ -376,7 +290,7 @@ ParseProp(const JsonObject& prop, const std::span<const SpriteDef> spriteDefs)
 }
 
 Result<BoundedVector<PropDef>>
-ParseProps(const JsonArray& jsonProps, const std::span<const SpriteDef> spriteDefs)
+ParseProps(const JsonArray& jsonProps   )
 {
     BoundedVector<PropDef> props(jsonProps.size());
 
@@ -385,7 +299,7 @@ ParseProps(const JsonArray& jsonProps, const std::span<const SpriteDef> spriteDe
         JsonObject prop;
         GG_CHECKB(value.TryGetObject(prop), "Failed to get prop object (line:{})", value.GetLine());
 
-        auto result = ParseProp(prop, spriteDefs);
+        auto result = ParseProp(prop);
         GG_CHECKB(result, "Failed to parse prop (line:{})", value.GetLine());
 
         props.push_back(*result);
@@ -394,7 +308,7 @@ ParseProps(const JsonArray& jsonProps, const std::span<const SpriteDef> spriteDe
     return props;
 }
 
-Result<Layer>
+Result<CellMapLayerDef>
 ParseLayer(const JsonObject& layer)
 {
     std::optional<uint32_t> optSheetIndex;
@@ -424,15 +338,15 @@ ParseLayer(const JsonObject& layer)
         cells.push_back(cellValue);
     }
 
-    return Layer{ *optSheetIndex, std::move(cells) };
+    return CellMapLayerDef{ .SheetIndex =*optSheetIndex };
 }
 
-Result<BoundedVector<Layer>>
+Result<BoundedVector<CellMapLayerDef>>
 ParseLayers(const JsonArray& jsonLayers)
 {
     const size_t count = jsonLayers.size();
 
-    BoundedVector<Layer> layers(count);
+    BoundedVector<CellMapLayerDef> layers(count);
 
     for(const JsonValue& value : jsonLayers)
     {
@@ -443,7 +357,7 @@ ParseLayers(const JsonArray& jsonLayers)
 
         auto layerResult = ParseLayer(layer);
         GG_CHECKB(layerResult, "Failed to parse layer (line:{})", value.GetLine());
-        layers.push_back(std::move(*layerResult));
+        layers.push_back(*layerResult);
     }
 
     return layers;
@@ -478,73 +392,78 @@ ParseAudioClips(const JsonArray& audioClipsArray)
 
     return audioClips;
 }
+} // namespace
 
-/// Prunes the list of sprite frame sequences to only include those that are actually used by the
-/// given sprite definitions.
-Result<BoundedVector<SpriteFrameSequenceDef>>
-PruneSpriteSequences(const std::span<const SpriteFrameSequenceDef> seqDefs,
-    const std::span<const SpriteDef> spriteDefs)
+LevelParser::LevelParser(FetchRequestPtr&& fetchRequest)
+    : m_FetchRequest(std::move(fetchRequest))
 {
-    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(seqDefs.size());
-
-    // Build the sprite sequence list from sprite sequences that are actually used, instead of
-    // all the sequences listed in the file.
-    for(const SpriteDef& spriteDef : spriteDefs)
-    {
-        // For each sequence referenced by the sprite find it in the list of sprite sequences.
-        for(const ResourceName& seqName : spriteDef.SequenceNames)
-        {
-            const SpriteFrameSequenceDef* foundSeq = nullptr;
-            for(const SpriteFrameSequenceDef& seqDef : seqDefs)
-            {
-                if(seqDef.Name == seqName)
-                {
-                    foundSeq = &seqDef;
-                    break;
-                }
-            }
-            GG_CHECKB(foundSeq, "Missing sprite sequence: {}", seqName.c_str());
-
-            // Now add the found sequence to the list of used sequences if it's not already there.
-            bool foundInList = false;
-            for(const SpriteFrameSequenceDef& seqDef : spriteSeqDefs)
-            {
-                if(seqDef.Name == foundSeq->Name)
-                {
-                    foundInList = true;
-                    break;
-                }
-            }
-
-            if(!foundInList)
-            {
-                spriteSeqDefs.push_back(*foundSeq);
-            }
-        }
-    }
-    return spriteSeqDefs;
 }
 
-/// Prunes the list of tile sheet paths to only include those that are actually used by the
-/// layers.
-Result<BoundedVector<FilePath>>
-PruneTileSheets(const std::span<const FilePath> paths, const std::span<const Layer> layers)
+Result<LevelParser>
+LevelParser::Fetch(const FilePath& path, FileFetcher& fetcher)
 {
-    BoundedVector<FilePath> tileSheetPaths(layers.size());
+    auto fetchResult = fetcher.Fetch(path);
+    GG_CHECKB(fetchResult, "Failed to fetch file: {}", path.c_str());
 
-    for(const Layer& layer : layers)
+    return LevelParser(std::move(*fetchResult));
+}
+
+Result<>
+LevelParser::Update()
+{
+    switch(m_Status)
     {
-        const uint32_t sheetIndex = layer.GetSheetIndex();
-        GG_CHECKB(sheetIndex < paths.size(), "Invalid sheet index: {}", sheetIndex);
+        case Status::FetchingFile:
+            if(!m_FetchRequest->IsPending())
+            {
+                m_Status = Status::ParsingLevel;
+            }
 
-        const FilePath& tileSheetPath = paths[sheetIndex];
-        tileSheetPaths.push_back(tileSheetPath);
+            break;
+        case Status::ParsingLevel:
+        {
+            m_Status = Status::Failed;
+
+            auto dataResult = m_FetchRequest->TakeData();
+            GG_CHECK(dataResult, "Failed to get data from fetch request");
+
+            GG_CHECK(Parse(std::move(*dataResult)), "Failed to parse level data");
+
+            // Free up the fetch request.
+            m_FetchRequest.reset();
+
+            m_Status = Status::Fetched;
+        }
+        break;
+        case Status::Fetched:
+        case Status::Failed:
+        case Status::Taken:
+            break;
     }
-    return tileSheetPaths;
+    return Result<>::Ok;
+}
+
+bool
+LevelParser::IsPending() const
+{
+    return m_Status == Status::FetchingFile || m_Status == Status::ParsingLevel;
 }
 
 Result<ParsedLevel>
-Parse(std::vector<std::byte>&& data)
+LevelParser::Take()
+{
+    GG_CHECKB(m_Status != Status::Taken, "Level data already taken");
+    GG_CHECKB(m_Status == Status::Fetched, "Level data not fetched");
+
+    m_Status = Status::Taken;
+
+    return std::move(*m_ParsedLevel);
+}
+
+// private:
+
+Result<>
+LevelParser::Parse(std::vector<std::byte>&& data)
 {
     auto docResult = JsonDocument::Create(std::move(data));
     GG_CHECK(docResult, "Failed to create JSON parser");
@@ -557,7 +476,7 @@ Parse(std::vector<std::byte>&& data)
     std::optional<BoundedVector<FilePath>> optMaskSheetPaths;
     std::optional<BoundedVector<SpriteFrameSequenceDef>> optSpriteSeqDefs;
     std::optional<BoundedVector<SpriteDef>> optSpriteDefs;
-    std::optional<BoundedVector<Layer>> optLayers;
+    std::optional<BoundedVector<CellMapLayerDef>> optLayers;
     std::optional<BoundedVector<PropDef>> optPropDefs;
     std::optional<BoundedVector<AudioClipDef>> optAudioClipDefs;
 
@@ -639,7 +558,7 @@ Parse(std::vector<std::byte>&& data)
     // Props
     if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
     {
-        auto propResult = ParseProps(propsArray, *optSpriteDefs);
+        auto propResult = ParseProps(propsArray);
         GG_CHECK(propResult, "Failed to parse props (line:{})", propsArray.GetLine());
 
         optPropDefs.emplace(std::move(*propResult));
@@ -686,120 +605,16 @@ Parse(std::vector<std::byte>&& data)
         optAudioClipDefs.emplace(BoundedVector<AudioClipDef>(0));
     }
 
-    // Prune the sprite sequences to only include those actually used by the sprite definitions.
-    auto prunedSpriteSeqDefs = PruneSpriteSequences(*optSpriteSeqDefs, *optSpriteDefs);
-    GG_CHECK(prunedSpriteSeqDefs, "Failed to prune sprite sequences");
+    ParsedLevel parsedLevel(*optGridSize,
+        std::move(*optTileSheetPaths),
+        std::move(*optMaskSheetPaths),
+        std::move(*optLayers),
+        std::move(*optSpriteSeqDefs),
+        std::move(*optSpriteDefs),
+        std::move(*optPropDefs),
+        std::move(*optAudioClipDefs));
 
-    // Prune the tile sheet paths to only include those actually used by the layers.
-    auto prunedTileSheetPaths = PruneTileSheets(*optTileSheetPaths, *optLayers);
-    GG_CHECK(prunedTileSheetPaths, "Failed to prune tile sheets");
+    m_ParsedLevel = std::move(parsedLevel);
 
-    return ParsedLevel //
-        {
-            .CellsPerSide = *optGridSize,
-            .TileSheetPaths = std::move(*prunedTileSheetPaths),
-            .MaskSheetPaths = std::move(*optMaskSheetPaths),
-            .SpriteSeqDefs = std::move(*prunedSpriteSeqDefs),
-            .SpriteDefs = std::move(*optSpriteDefs),
-            .PropDefs = std::move(*optPropDefs),
-            .AudioClipDefs = std::move(*optAudioClipDefs),
-        };
-}
-} // namespace
-
-LevelFetcher::LevelFetcher(FetchRequestPtr&& fetchRequest,
-    FileFetcher& fetcher,
-    Renderer& renderer,
-    WebGpu& webGpu,
-    AudioPlayer& player)
-    : m_FetchRequest(std::move(fetchRequest)),
-      m_Fetcher(&fetcher),
-      m_Renderer(&renderer),
-      m_WebGpu(&webGpu),
-      m_Player(&player)
-{
-}
-
-Result<LevelFetcher>
-LevelFetcher::Fetch(const FilePath& path,
-    FileFetcher& fetcher,
-    Renderer& renderer,
-    WebGpu& webGpu,
-    AudioPlayer& player)
-{
-    auto fetchResult = fetcher.Fetch(path);
-    GG_CHECKB(fetchResult, "Failed to fetch file: {}", path.c_str());
-
-    return LevelFetcher(std::move(*fetchResult), fetcher, renderer, webGpu, player);
-}
-
-Result<>
-LevelFetcher::Update()
-{
-    switch(m_Status)
-    {
-        case Status::FetchingFile:
-            if(!m_FetchRequest->IsPending())
-            {
-                m_Status = Status::ParsingLevel;
-            }
-
-            break;
-        case Status::ParsingLevel:
-        {
-            m_Status = Status::Failed;
-
-            auto dataResult = m_FetchRequest->TakeData();
-            GG_CHECK(dataResult, "Failed to get data from fetch request");
-
-            const auto parseResult = Parse(std::move(*dataResult));
-            GG_CHECK(parseResult, "Failed to parse level data");
-
-            auto levelLoaderResult = LevelLoader::Load(parseResult->LevelDef,
-                *m_Fetcher,
-                *m_Renderer,
-                *m_WebGpu,
-                *m_Player);
-            GG_CHECK(levelLoaderResult, "Failed to load level");
-
-            m_LevelLoader = std::move(*levelLoaderResult);
-
-            m_Status = Status::LoadingLevel;
-        }
-        break;
-        case Status::LoadingLevel:
-            if(!m_LevelLoader->IsPending())
-            {
-                m_Status = Status::Loaded;
-            }
-            break;
-        case Status::Loaded:
-        case Status::Failed:
-        case Status::Taken:
-            break;
-    }
     return Result<>::Ok;
-}
-
-bool
-LevelFetcher::IsPending() const
-{
-    return m_Status == Status::FetchingFile
-        || m_Status == Status::ParsingLevel
-        || m_Status == Status::LoadingLevel;
-}
-
-Result<std::unique_ptr<Level>>
-LevelFetcher::Take()
-{
-    GG_CHECKB(m_Status == Status::Loaded, "Level not loaded");
-    GG_CHECKB(m_LevelLoader.has_value(), "Level not loaded");
-
-    m_Status = Status::Taken;
-
-    auto result = m_LevelLoader->Take();
-
-    m_LevelLoader.reset();
-
-    return result;
 }

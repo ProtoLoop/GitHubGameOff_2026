@@ -5,7 +5,106 @@
 #include "Renderer.h"
 #include "Sprite.h"
 
-/// LevelLoader
+namespace
+{
+Result<>
+CheckForDuplicateSequenceNames(const std::span<const SpriteFrameSequenceDef>& spriteSeqDefs)
+{
+    std::span span2 = spriteSeqDefs;
+
+    for(const SpriteFrameSequenceDef& def : spriteSeqDefs)
+    {
+        span2 = span2.subspan(1);
+
+        for(const SpriteFrameSequenceDef& def2 : span2)
+        {
+            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite sequence name: {}", def.Name);
+        }
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+CheckForDuplicateSpriteNames(const std::span<const SpriteDef>& spriteDefs)
+{
+    std::span span2 = spriteDefs;
+
+    for(const SpriteDef& def : spriteDefs)
+    {
+        span2 = span2.subspan(1);
+
+        for(const SpriteDef& def2 : span2)
+        {
+            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite name: {}", def.Name);
+        }
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+CheckForDuplicateAudioClipNames(const std::span<const AudioClipDef>& audioClipDefs)
+{
+    std::span span2 = audioClipDefs;
+
+    for(const AudioClipDef& def : audioClipDefs)
+    {
+        span2 = span2.subspan(1);
+
+        for(const AudioClipDef& def2 : span2)
+        {
+            GG_CHECKB(def2.Name != def.Name, "Duplicate audio clip name: {}", def.Name);
+            GG_CHECKB(def2.FilePath != def.FilePath, "Duplicate audio clip path: {}", def.FilePath);
+        }
+    }
+    return Result<>::Ok;
+}
+
+/// Prunes the list of sprite frame sequences to only include those that are actually used by the
+/// sprite definitions.
+Result<BoundedVector<SpriteFrameSequenceDef>>
+PruneSpriteSequences(const std::span<const SpriteFrameSequenceDef> seqDefs,
+    const std::span<const SpriteDef> spriteDefs)
+{
+    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(seqDefs.size());
+
+    // Build the sprite sequence list from sprite sequences that are actually used, instead of
+    // all the sequences listed in the file.
+    for(const SpriteDef& spriteDef : spriteDefs)
+    {
+        // For each sequence referenced by the sprite find it in the list of sprite sequences.
+        for(const ResourceName& seqName : spriteDef.SequenceNames)
+        {
+            const SpriteFrameSequenceDef* foundSeq = nullptr;
+            for(const SpriteFrameSequenceDef& seqDef : seqDefs)
+            {
+                if(seqDef.Name == seqName)
+                {
+                    foundSeq = &seqDef;
+                    break;
+                }
+            }
+            GG_CHECKB(foundSeq, "Missing sprite sequence: {}", seqName.c_str());
+
+            // Now add the found sequence to the list of used sequences if it's not already there.
+            bool foundInList = false;
+            for(const SpriteFrameSequenceDef& seqDef : spriteSeqDefs)
+            {
+                if(seqDef.Name == foundSeq->Name)
+                {
+                    foundInList = true;
+                    break;
+                }
+            }
+
+            if(!foundInList)
+            {
+                spriteSeqDefs.push_back(*foundSeq);
+            }
+        }
+    }
+    return spriteSeqDefs;
+}
+} // namespace
 
 Result<LevelLoader>
 LevelLoader::Load(const LevelDef& levelDef,
@@ -16,42 +115,26 @@ LevelLoader::Load(const LevelDef& levelDef,
 {
     // Check for duplicate sprite frame sequence names.
 
-    std::span spriteSeqDefSubspan = levelDef.SpriteSeqDefs;
+    GG_CHECK(CheckForDuplicateSequenceNames(levelDef.SpriteSeqDefs));
 
-    for(const SpriteFrameSequenceDef& def : levelDef.SpriteSeqDefs)
-    {
-        spriteSeqDefSubspan = spriteSeqDefSubspan.subspan(1);
-
-        for(const SpriteFrameSequenceDef& def2 : spriteSeqDefSubspan)
-        {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate sprite sequence name: {}", def.Name);
-        }
-    }
+    GG_CHECK(CheckForDuplicateSpriteNames(levelDef.SpriteDefs));
 
     BoundedVector<SpriteDef> spriteDefs(levelDef.SpriteDefs.size());
 
-    // Check for duplicate sprite names, and copy the sprite def array that
-    // will be passed to the sprite loader.
-
-    std::span spriteDefSubspan = levelDef.SpriteDefs;
+    // Make a copy of the sprite defs that will be passed to the sprite loader.
 
     for(const SpriteDef& spriteDef : levelDef.SpriteDefs)
     {
-        spriteDefSubspan = spriteDefSubspan.subspan(1);
-
-        // Check for duplicate names.
-        for(const SpriteDef& def2 : spriteDefSubspan)
-        {
-            GG_CHECKB(def2.Name != spriteDef.Name, "Duplicate sprite name: {}", spriteDef.Name);
-        }
-
         spriteDefs.push_back(spriteDef);
     }
 
-    // Load the sprite sequences.
+    // Prune then load the sprite sequences.
+
+    auto prunedSeqDefsResult = PruneSpriteSequences(levelDef.SpriteSeqDefs, spriteDefs);
+    GG_CHECK(prunedSeqDefsResult, "Failed to prune sprite sequences");
 
     auto spriteSeqLoadResult =
-        SpriteSequenceLoader::Load(levelDef.SpriteSeqDefs, fileFetcher, renderer, webGpu);
+        SpriteSequenceLoader::Load(*prunedSeqDefsResult, fileFetcher, renderer, webGpu);
     GG_CHECK(spriteSeqLoadResult, "Failed to load sprites");
 
     // Load the cell map
@@ -59,18 +142,7 @@ LevelLoader::Load(const LevelDef& levelDef,
     auto cellResult = CellMapLoader::Load(levelDef.CellMapDef, renderer, fileFetcher, webGpu);
     GG_CHECK(cellResult, "Failed to load cell map");
 
-    // Check for duplicate audio clip names and paths.
-    std::span audioClipDefSubspan = levelDef.AudioClipDefs;
-    for(const AudioClipDef& def : levelDef.AudioClipDefs)
-    {
-        audioClipDefSubspan = audioClipDefSubspan.subspan(1);
-
-        for(const AudioClipDef& def2 : audioClipDefSubspan)
-        {
-            GG_CHECKB(def2.Name != def.Name, "Duplicate audio clip name: {}", def.Name);
-            GG_CHECKB(def2.FilePath != def.FilePath, "Duplicate audio clip path: {}", def.FilePath);
-        }
-    }
+    GG_CHECK(CheckForDuplicateAudioClipNames(levelDef.AudioClipDefs));
 
     // Load the audio clips.
     BoundedVector<AudioClipLoader> audioClipLoaders(levelDef.AudioClipDefs.size());
@@ -104,7 +176,7 @@ LevelLoader::IsPending() const
     {
         return true;
     }
-    
+
     for(const AudioClipLoader& audioClipLoader : m_AudioClipLoaders)
     {
         if(audioClipLoader.IsPending())
@@ -168,7 +240,7 @@ LevelLoader::Take()
         std::move(*audioClipsResult)));
 }
 
-//private:
+// private:
 
 Result<BoundedVector<Sprite>>
 LevelLoader::BuildSprites(const std::span<const SpriteFrameSequence> spriteFrameSeqs) const
@@ -211,12 +283,22 @@ LevelLoader::BuildProps(const std::span<const Sprite> sprites) const
 
     for(const PropDef& propDef : m_PropDefs)
     {
-        GG_CHECKB(propDef.SpriteId < sprites.size(), "Invalid sprite ID for prop");
+        const Sprite* foundSprite = nullptr;
+        for(const Sprite& sprite : sprites)
+        {
+            if(sprite.GetName() == propDef.SpriteName)
+            {
+                foundSprite = &sprite;
+                break;
+            }
+        }
 
-        const Sprite& sprite = sprites[propDef.SpriteId];
+        GG_CHECKB(foundSprite, "Sprite not found for prop: {}", propDef.SpriteName);
 
-        auto spriteInstanceResult = sprite.CreateInstance();
-        GG_CHECK(spriteInstanceResult, "Failed to create sprite instance: {}", sprite.GetName());
+        auto spriteInstanceResult = foundSprite->CreateInstance();
+        GG_CHECK(spriteInstanceResult,
+            "Failed to create sprite instance: {}",
+            foundSprite->GetName());
 
         props.emplace_back(*spriteInstanceResult, propDef.Transform);
     }
