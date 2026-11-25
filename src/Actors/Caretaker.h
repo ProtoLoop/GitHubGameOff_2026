@@ -6,6 +6,7 @@
 
 class Game;
 class Renderer;
+class AudioClip;
 
 class Caretaker : public Transform2DLike<Caretaker>
 {
@@ -36,12 +37,18 @@ private:
         Sprite::Instance Run;
     };
 
-    explicit Caretaker(const Sprites& sprites);
+    struct AudioClips
+    {
+        const AudioClip* Ding;
+    };
+
+    Caretaker(const Sprites& sprites, const AudioClips& audioClips);
 
     Transform2D m_Transform;
     glm::vec2 m_Velocity{};
 
     Sprites m_Sprites;
+    [[maybe_unused]]AudioClips m_AudioClips;
     Sprite::Instance m_CurSprite;
     float m_CurSpritePeriod;
 };

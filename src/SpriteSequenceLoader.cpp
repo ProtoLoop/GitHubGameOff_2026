@@ -2,6 +2,7 @@
 
 #include "Geometry2D.h"
 #include "Renderer.h"
+#include "ResourceDefs.h"
 #include "WebGpu.h"
 
 #include <cstdint>
@@ -82,6 +83,11 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
         InlineVector<Rectf, 1> colRects;
         if(def.ColRect)
         {
+            GG_CHECKB(def.ColRect->w > 0 && def.ColRect->h > 0,
+                "Collision rect must have positive width and height: {} : {}",
+                def.Name,
+                def.TexturePath);
+
             colRects.push_back(*def.ColRect);
         }
 
@@ -90,6 +96,18 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
 
         GG_CHECKB(size.w> 0 && size.h > 0,
             "Sprite size must be greater than zero: {} : {}",
+            def.Name,
+            def.TexturePath);
+
+        GG_CHECKB(def.Tint.r >= 0.0f
+                && def.Tint.r <= 1.0f
+                && def.Tint.g >= 0.0f
+                && def.Tint.g <= 1.0f
+                && def.Tint.b >= 0.0f
+                && def.Tint.b <= 1.0f
+                && def.Tint.a >= 0.0f
+                && def.Tint.a <= 1.0f,
+            "Tint values must be between 0 and 1: {} : {}",
             def.Name,
             def.TexturePath);
 

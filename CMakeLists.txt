@@ -8,6 +8,10 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/SDL/CMakeLists.txt")
     message(FATAL_ERROR "SDL is missing. Run: git submodule update --init --recursive")
 endif()
 
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/SDL_mixer/CMakeLists.txt")
+    message(FATAL_ERROR "SDL_mixer is missing. Run: git submodule update --init --recursive")
+endif()
+
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/stb/stb_image.h")
     message(FATAL_ERROR "stb is missing. Run: git submodule update --init --recursive")
 endif()
@@ -31,6 +35,33 @@ endif()
 add_subdirectory(thirdparty/SDL EXCLUDE_FROM_ALL SYSTEM)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+
+# Use the same bundled audio decoders on native and browser builds.
+set(SDLMIXER_DEPS_SHARED OFF CACHE BOOL "Load codec dependencies dynamically" FORCE)
+set(SDLMIXER_VENDORED ON CACHE BOOL "Use vendored codec dependencies" FORCE)
+set(SDLMIXER_STRICT ON CACHE BOOL "Require enabled codec dependencies" FORCE)
+set(SDLMIXER_WAVE ON CACHE BOOL "Enable WAVE audio" FORCE)
+set(SDLMIXER_MP3 ON CACHE BOOL "Enable MP3 audio" FORCE)
+set(SDLMIXER_MP3_DRMP3 ON CACHE BOOL "Decode MP3 with bundled dr_mp3" FORCE)
+set(SDLMIXER_VORBIS_STB ON CACHE BOOL "Decode Vorbis with bundled stb_vorbis" FORCE)
+set(SDLMIXER_MP3_MPG123 OFF CACHE BOOL "Disable mpg123" FORCE)
+set(SDLMIXER_VORBIS_VORBISFILE OFF CACHE BOOL "Disable libvorbisfile" FORCE)
+set(SDLMIXER_VORBIS_TREMOR OFF CACHE BOOL "Disable Tremor" FORCE)
+set(SDLMIXER_FLAC OFF CACHE BOOL "Disable FLAC audio" FORCE)
+set(SDLMIXER_OPUS OFF CACHE BOOL "Disable Opus audio" FORCE)
+set(SDLMIXER_WAVPACK OFF CACHE BOOL "Disable WavPack audio" FORCE)
+set(SDLMIXER_MOD OFF CACHE BOOL "Disable tracker audio" FORCE)
+set(SDLMIXER_MIDI OFF CACHE BOOL "Disable MIDI audio" FORCE)
+set(SDLMIXER_GME OFF CACHE BOOL "Disable game-music-emu" FORCE)
+set(SDLMIXER_AIFF OFF CACHE BOOL "Disable AIFF audio" FORCE)
+set(SDLMIXER_AU OFF CACHE BOOL "Disable AU audio" FORCE)
+set(SDLMIXER_VOC OFF CACHE BOOL "Disable VOC audio" FORCE)
+set(SDLMIXER_TESTS OFF CACHE BOOL "Disable SDL_mixer tests" FORCE)
+set(SDLMIXER_EXAMPLES OFF CACHE BOOL "Disable SDL_mixer examples" FORCE)
+set(SDLMIXER_INSTALL OFF CACHE BOOL "Disable SDL_mixer installation" FORCE)
+set(SDLMIXER_WERROR OFF CACHE BOOL "Disable SDL_mixer warnings as errors" FORCE)
+add_subdirectory(thirdparty/SDL_mixer EXCLUDE_FROM_ALL SYSTEM)
+
 set(DAWN_BUILD_MONOLITHIC_LIBRARY STATIC CACHE STRING "Build static Dawn" FORCE)
 set(DAWN_BUILD_SAMPLES OFF CACHE BOOL "Disable Dawn samples" FORCE)
 set(DAWN_BUILD_TESTS OFF CACHE BOOL "Disable Dawn tests" FORCE)
@@ -95,6 +126,12 @@ set(GAMEOFF_SOURCES
     src/Actors/LostSoul.h
     src/Actors/LostSoul.cpp
     src/Angle.h
+    src/AudioClip.h
+    src/AudioClip.cpp
+    src/AudioClipLoader.h
+    src/AudioClipLoader.cpp
+    src/AudioPlayer.h
+    src/AudioPlayer.cpp
     src/BoundedVector.h
     src/CellMap.h
     src/CellMap.cpp
@@ -117,7 +154,10 @@ set(GAMEOFF_SOURCES
     src/Level.cpp
     src/LevelFetcher.h
     src/LevelFetcher.cpp
+    src/LevelLoader.h
+    src/LevelLoader.cpp
     src/main.cpp
+    src/NameTypes.h
     src/Prop.h
     src/Prop.cpp
     src/Renderer.h
@@ -125,6 +165,7 @@ set(GAMEOFF_SOURCES
     src/Result.h
     src/Random.h
     src/Random.cpp
+    src/ResourceDefs.h
     src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp
@@ -145,6 +186,7 @@ target_include_directories(gameoff2026 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 target_link_libraries(gameoff2026 PRIVATE SDL3::SDL3-static)
+target_link_libraries(gameoff2026 PRIVATE SDL3_mixer::SDL3_mixer-static)
 target_link_libraries(gameoff2026 PRIVATE glm::glm-header-only)
 if(EMSCRIPTEN)
     target_link_libraries(gameoff2026 PRIVATE emdawnwebgpu_cpp)

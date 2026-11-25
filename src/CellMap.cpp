@@ -1,5 +1,6 @@
 #include "CellMap.h"
 
+#include "ResourceDefs.h"
 #include "Renderer.h"
 
 /// CellMapLoader

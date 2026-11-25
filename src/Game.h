@@ -2,6 +2,7 @@
 
 #include "Actors/Caretaker.h"
 #include "Actors/LostSoul.h"
+#include "AudioPlayer.h"
 #include "Level.h"
 #include "Prop.h"
 #include "Random.h"
@@ -9,12 +10,15 @@
 #include <memory>
 
 class Input;
+class Renderer;
+class AudioPlayer;
 
 class Game
 {
 public:
-    static constexpr float kSecondsPerTick = 1.0f / 60.0f;
-    static constexpr float kMaxDeltaSec = 0.25f;
+    static constexpr float kFrameDuration = 1.0f / 60.0f;
+    /// The maximum allowed delta time for a single tick to prevent large time steps.
+    static constexpr float kMaxDeltaTime = 0.25f;
 
     Game() = delete;
     ~Game() = default;
@@ -22,8 +26,11 @@ public:
     Game& operator=(const Game&) = delete;
     Game(Game&&) = delete;
     Game& operator=(Game&&) = delete;
-    
-    Game(Input& input, std::unique_ptr<Level>&& level, std::unique_ptr<Renderer>&& renderer);
+
+    Game(Input& input,
+        std::unique_ptr<Level>&& level,
+        std::unique_ptr<Renderer>&& renderer,
+        AudioPlayer&& audioPlayer);
 
     Result<> Begin();
 
@@ -36,9 +43,12 @@ public:
     Level& GetLevel() { return *m_Level; }
     const Level& GetLevel() const { return *m_Level; }
 
+    AudioPlayer& GetAudioPlayer() { return m_AudioPlayer; }
+    const AudioPlayer& GetAudioPlayer() const { return m_AudioPlayer; }
+
     Random& GetEntityRng() { return m_EntityRng; }
 
-    Result<> Tick(const float deltaSec);
+    Result<> Tick(const float deltaTime);
 
     bool IsRunning() const { return m_Stage == Stage::Running; }
 
@@ -51,7 +61,7 @@ private:
         Running,
     };
 
-    Result<> TickEntities(float deltaSec);
+    Result<> TickEntities(float deltaTime);
 
     Result<> RenderSprites();
 
@@ -66,7 +76,8 @@ private:
     Input* m_Input;
     std::unique_ptr<Level> m_Level;
     std::unique_ptr<Renderer> m_Renderer;
-
+    AudioPlayer m_AudioPlayer;
+    
     std::optional<Caretaker> m_Caretaker;
 
     InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;

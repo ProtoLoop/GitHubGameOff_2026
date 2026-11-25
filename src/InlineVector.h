@@ -138,6 +138,18 @@ public:
         return *ptr;
     }
 
+    reference operator[](const size_t index)
+    {
+        GG_ASSERT(index < m_Size, "Index out of bounds");
+        return *AsPointer(index);
+    }
+
+    const_reference operator[](const size_t index) const
+    {
+        GG_ASSERT(index < m_Size, "Index out of bounds");
+        return *AsPointer(index);
+    }
+
     constexpr size_t capacity() const { return N; }
     constexpr size_t max_size() const { return N; }
     size_t size() const { return m_Size; }
@@ -159,16 +171,35 @@ public:
     const_iterator cbegin() const { return AsPointer(0); }
     const_iterator cend() const { return AsPointer(m_Size); }
 
-    T* data() { return AsPointer(0); }
-    const T* data() const { return AsPointer(0); }
+    pointer data() { return AsPointer(0); }
+    const_pointer data() const { return AsPointer(0); }
+
+    reference back()
+    {
+        GG_ASSERT(m_Size > 0, "InlineVector is empty");
+        return *AsPointer(m_Size - 1);
+    }
+
+    const_reference back() const
+    {
+        GG_ASSERT(m_Size > 0, "InlineVector is empty");
+        return *AsPointer(m_Size - 1);
+    }
+
+    void pop_back()
+    {
+        GG_ASSERT(m_Size > 0, "InlineVector is empty");
+        std::destroy_at(AsPointer(--m_Size));
+    }
 
 private:
-    T* AsPointer(const size_t index)
+    pointer AsPointer(const size_t index)
     {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<T*>(&m_Storage[(sizeof(T) * index)]);
     }
-    const T* AsPointer(const size_t index) const
+
+    const_pointer AsPointer(const size_t index) const
     {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         return reinterpret_cast<const T*>(&m_Storage[(sizeof(T) * index)]);

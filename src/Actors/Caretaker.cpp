@@ -1,5 +1,6 @@
 #include "Caretaker.h"
 
+#include "AudioPlayer.h"
 #include "Game.h"
 #include "Input.h"
 #include "Renderer.h"
@@ -17,10 +18,13 @@ const Angle kIsoAngleOffset(0.125f);
 constexpr ResourceName kSpriteName_Idle{ "Warrior_Idle" };
 constexpr ResourceName kSpriteName_Run{ "Warrior_Run" };
 
+constexpr ResourceName kAudioClipName_Ding{ "Ding" };
+
 } // namespace
 
-Caretaker::Caretaker(const Sprites& sprites)
+Caretaker::Caretaker(const Sprites& sprites, const AudioClips& audioClips)
     : m_Sprites(sprites),
+      m_AudioClips(audioClips),
       m_CurSprite(m_Sprites.Idle),
       m_CurSpritePeriod(kAnimPeriod_Idle)
 {
@@ -41,7 +45,12 @@ Caretaker::Create(Game& game)
         "Failed to create sprite anim instance for {}",
         kSpriteName_Run);
 
-    return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite });
+    GG_TRY(clipDing, level.GetAudioClip(kAudioClipName_Ding), "Failed to load audio clip for Ding");
+
+    GG_CHECK(game.GetAudioPlayer().Play(clipDing), "Failed to play audio clip for Ding");
+
+    return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite },
+        AudioClips{ .Ding = &clipDing });
 }
 
 Result<>
@@ -110,7 +119,7 @@ Caretaker::Render(Renderer& renderer) const
     const Angle angleOffset = renderer.GetProjectionType() == Renderer::ProjectionType::Isometric
         ? kIsoAngleOffset
         : Angle(0.0f);
-        
+
     const SpriteFrame spriteFrame =
         m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle() + angleOffset);
     GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");

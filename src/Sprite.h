@@ -2,60 +2,16 @@
 
 #include "Angle.h"
 #include "BoundedVector.h"
-#include "FileFetcher.h"
+#include "InlineVector.h"
 #include "Geometry2D.h"
-#include "InlineString.h"
+#include "NameTypes.h"
+#include "Result.h"
 
 #include <glm/mat2x2.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <span>
 #include <webgpu/webgpu_cpp.h>
-
-namespace detail
-{
-constexpr size_t kResourceNameSize = 64;
-}
-
-using ResourceName = InlineString<detail::kResourceNameSize>;
-
-/// Defines frames within a rectangular region of a texture.
-/// Size specifies each frame's pixel dimensions. Frames advance left to right,
-/// then top to bottom. Incomplete columns or rows at the edges are ignored.
-struct SpriteFrameSequenceDef
-{
-    ResourceName Name;
-    FilePath TexturePath;
-    // If not present then use the entire texture.
-    std::optional<Rect> SrcRect = std::nullopt;
-    std::optional<Dimension2D> Size = std::nullopt;
-    /// Collision rectangles are normalized within the sprite's frame.
-    /// 0,0 represents the top-left corner of the frame.
-    /// 1,1 represents the bottom-right corner of the frame.
-    /// If not present then there is no collision.
-    /// Collision rectangles CAN be outside the [0,1] range.
-    /// When loaded normalized collision rectangles are converted to the sprite's coordinate space.
-    std::optional<Rectf> ColRect = std::nullopt;
-    /// Normalized pivot point within the sprite's frame.
-    /// 0,0 represents the top-left corner of the frame.
-    /// 1,1 represents the bottom-right corner of the frame.
-    glm::vec2 Pivot{ 0, 0 };
-    glm::vec4 Tint = glm::vec4(1.0f);
-    float Scale = 1.0f;
-};
-
-/// Defines a sprite.
-/// A sprite is a collection of sprite frame sequences, each representing a different facing direction.
-/// The sequence at index 0 corresponds to the sprite facing zero turns (North),
-/// and subsequent indices advance by 1 / (sequence count) turns.
-/// Playback selects the nearest direction based on the angle. Each sequence's frame count
-/// spans one complete animation cycle.
-struct SpriteDef
-{
-    ResourceName Name;
-    // FIXME(KB) - use a borrwed span from TBD SpriteCatalog
-    std::vector<ResourceName> SequenceNames;
-};
 
 /// A lightweight representation of a sprite frame within a texture atlas.
 /// Intended to be constructed on the fly and returned by value.

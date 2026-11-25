@@ -1,11 +1,16 @@
 #include "Game.h"
 
 #include "Renderer.h"
+#include "AudioPlayer.h"
 
-Game::Game(Input& input, std::unique_ptr<Level>&& level, std::unique_ptr<Renderer>&& renderer)
+Game::Game(Input& input,
+    std::unique_ptr<Level>&& level,
+    std::unique_ptr<Renderer>&& renderer,
+    AudioPlayer&& audioPlayer)
     : m_Input(&input),
       m_Level(std::move(level)),
-      m_Renderer(std::move(renderer))
+      m_Renderer(std::move(renderer)),
+      m_AudioPlayer(std::move(audioPlayer))
 {
 }
 
@@ -32,23 +37,23 @@ Game::Begin()
 }
 
 Result<>
-Game::Tick(const float deltaSec)
+Game::Tick(const float deltaTime)
 {
     GG_CHECKB(m_Stage == Stage::Running, "Game is not running");
 
-    if(deltaSec > kMaxDeltaSec)
+    if(deltaTime > kMaxDeltaTime)
     {
-        m_TimeAccum += kMaxDeltaSec;
+        m_TimeAccum += kMaxDeltaTime;
     }
     else
     {
-        m_TimeAccum += deltaSec;
+        m_TimeAccum += deltaTime;
     }
 
-    while(m_TimeAccum >= kSecondsPerTick)
+    while(m_TimeAccum >= kFrameDuration)
     {
-        m_TimeAccum -= kSecondsPerTick;
-        GG_CHECK(TickEntities(kSecondsPerTick));
+        m_TimeAccum -= kFrameDuration;
+        GG_CHECK(TickEntities(kFrameDuration));
     }
 
     CheckCollisions();
@@ -57,18 +62,20 @@ Game::Tick(const float deltaSec)
 
     GG_CHECK(RenderSprites());
 
+    GG_CHECK(m_AudioPlayer.Tick(deltaTime));
+
     return Result<>::Ok;
 }
 
 // private:
 
 Result<>
-Game::TickEntities(float deltaSec)
+Game::TickEntities(float deltaTime)
 {
-    GG_CHECK(m_Caretaker->Tick(deltaSec, *this));
+    GG_CHECK(m_Caretaker->Tick(deltaTime, *this));
     for(auto& lostSoul : m_LostSouls)
     {
-        GG_CHECK(lostSoul.Tick(deltaSec, *this));
+        GG_CHECK(lostSoul.Tick(deltaTime, *this));
     }
     return Result<>::Ok;
 }
@@ -166,6 +173,8 @@ Game::CheckCollisions()
         proj,
         cellPixPerSide);
 
+    const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
+
     for(const Prop& prop : m_Level->GetProps())
     {
         const glm::vec2& propPos = prop.GetPos();
@@ -175,25 +184,21 @@ Game::CheckCollisions()
             proj,
             cellPixPerSide);
 
+        // FIXME(KB) - not needed if bot colliders only have one collision rect
         if(!ctRect.Intersects(propRect))
         {
             continue;
         }
 
-        GG_INFO("****");
-
-        const glm::vec2 ctSrcSize = ctSpriteFrame.GetSize();
-        const glm::vec2 propSrcSize = propSpriteFrame.GetSize();
-
-        for(uint32_t i = 0; i < ctSpriteFrame.GetCollisionRects().size(); ++i)
+        for(const Rectf& ctColRect : ctCollisionRects)
         {
-            const Rectf& ctColRect = ctSpriteFrame.GetCollisionRects()[i];
             const Rectf ctBounds =
                 ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
 
-            for(uint32_t j = 0; j < propSpriteFrame.GetCollisionRects().size(); ++j)
+            const std::span<const Rectf> propCollisionRects = propSpriteFrame.GetCollisionRects();
+
+            for(const Rectf& propColRect : propCollisionRects)
             {
-                const Rectf& propColRect = propSpriteFrame.GetCollisionRects()[j];
                 const Rectf propBounds =
                     propSpriteFrame.GetScreenRect(propColRect, propPos, proj, cellPixPerSide);
 

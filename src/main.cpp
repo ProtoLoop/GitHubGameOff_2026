@@ -1,5 +1,6 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 
+#include "AudioPlayer.h"
 #include "Defer.h"
 #include "Game.h"
 #include "Input.h"
@@ -80,10 +81,12 @@ struct App
         LoadingState(const std::string_view levelPath,
             std::unique_ptr<FileFetcher> fileFetcher,
             std::unique_ptr<Renderer> renderer,
+            AudioPlayer&& audioPlayer,
             class WebGpu& webGpu)
             : FileFetcher(std::move(fileFetcher)),
               Renderer(std::move(renderer)),
-              LevelFetcher(LevelFetcher::Fetch(levelPath, *FileFetcher, *Renderer, webGpu))
+              AudioPlayer(std::move(audioPlayer)),
+              LevelFetcher(LevelFetcher::Fetch(levelPath, *FileFetcher, *Renderer, webGpu, AudioPlayer))
         {
             GG_ASSERT(LevelFetcher, "Failed to initialize level fetcher");
         }
@@ -92,6 +95,7 @@ struct App
         // because they are too large to be allocated inline when running web assembly.
         std::unique_ptr<FileFetcher> FileFetcher;
         std::unique_ptr<Renderer> Renderer;
+        AudioPlayer AudioPlayer;
         Result<LevelFetcher> LevelFetcher;
 
         Result<> Update()
@@ -177,9 +181,14 @@ App::Update()
             auto rendererResult = Renderer::Create(rendererParams, WebGpu);
             GG_CHECKB(rendererResult, "Failed to create renderer");
 
-            std::unique_ptr<Renderer> renderer = std::move(*rendererResult);
+            auto audioPlayerResult = AudioPlayer::Create();
+            GG_CHECKB(audioPlayerResult, "Failed to create audio player");
 
-            m_State.emplace<LoadingState>(kLevelFilePath, std::make_unique<FileFetcher>(), std::move(renderer), WebGpu);
+            m_State.emplace<LoadingState>(kLevelFilePath,
+                std::make_unique<FileFetcher>(),
+                std::move(*rendererResult),
+                std::move(*audioPlayerResult),
+                WebGpu);
 
             m_Stage = Stage::Loading;
         }
@@ -203,10 +212,11 @@ App::Update()
             auto levelResult = oldState.LevelFetcher->Take();
             GG_CHECKB(levelResult, "Failed to load level");
 
-            // Save the renderer prior to destroying the old state
+            // Save the references to systems prior to destroying the old state
             std::unique_ptr<Renderer> renderer = std::move(oldState.Renderer);
+            AudioPlayer audioPlayer = std::move(oldState.AudioPlayer);
 
-            m_State.emplace<Game>(Input, std::move(*levelResult), std::move(renderer));
+            m_State.emplace<Game>(Input, std::move(*levelResult), std::move(renderer), std::move(audioPlayer));
 
             auto& game = std::get<Game>(m_State);
 
@@ -259,9 +269,9 @@ SDL_AppInit(void** appstate, int, char**)
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_TRACE);
 
     *appstate = nullptr;
-    if(!SDL_Init(SDL_INIT_VIDEO))
+    if(!GG_VERIFYB(SDL_Init(SDL_INIT_VIDEO)))
     {
-        GG_ERROR("SDL initialization failed: {}", SDL_GetError());
+        GG_ERROR("SDL_Init failed: {}", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 

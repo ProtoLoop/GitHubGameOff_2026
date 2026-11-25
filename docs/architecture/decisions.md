@@ -989,3 +989,36 @@ The C++ loader and runtime are unchanged. No dependencies, licenses, or build
 requirements change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Level-owned audio resources and game-owned playback
+
+Date: 2026-11-25. Status: Accepted.
+
+Gameplay needs audio playback on native and browser targets, with shared clips
+whose lifetime follows the loaded level. Playback state has a different lifetime:
+a track can finish and be reused while its source clip remains available.
+
+SDL_mixer provides the common playback backend. `Level` owns audio clips, and
+`Game` owns an `AudioPlayer` that manages the mixer and reusable playback tracks.
+The loading state creates the player before loading clips and transfers it to
+`Game` when loading completes. Gameplay requests playback through the player,
+and `Game` advances its bookkeeping each frame to reclaim finished tracks.
+
+Entity-owned playback would distribute mixer and track management across actors.
+A global audio service would make access independent of `Game`, but would place
+its lifetime outside the existing application states. Keeping playback with
+`Game` gives those states responsibility for creation, advancement, and teardown,
+while keeping shared clip resources with the level.
+
+This separation lets multiple playback requests share a clip and keeps track
+reuse in one place. It also requires coordinated lifetimes: actors borrow
+level-owned clips, and tracks must be released before their mixer is destroyed.
+The player balances mixer initialization after releasing its tracks and mixer.
+
+This extends [entity-owned state and sprite submission](#entity-owned-state-and-sprite-submission)
+with audio resource and playback ownership. It follows
+[clear responsibility](principles.md#make-it-clear-who-is-responsible) and
+[thin abstractions and strong boundaries](principles.md#keep-abstractions-thin-and-boundaries-strong).
+See the [runtime boundary](../development.md#runtime-boundary),
+[AudioPlayer](../../src/AudioPlayer.h), and [Level](../../src/Level.h).

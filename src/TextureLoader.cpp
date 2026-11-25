@@ -1,7 +1,6 @@
 #include "TextureLoader.h"
 
 #include "Defer.h"
-#include "FileFetcher.h"
 #include "Shortcuts.h"
 #include "WebGpu.h"
 

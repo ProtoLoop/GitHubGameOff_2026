@@ -47,7 +47,7 @@ on `PATH`, including in VS Code's environment.
 
 | Tool | Used for |
 | --- | --- |
-| Git | Cloning the project and initializing the pinned SDL, stb, jsmn, Dawn, and GLM submodules |
+| Git | Cloning the project and initializing the pinned SDL, SDL_mixer, stb, jsmn, Dawn, and GLM submodules |
 | CMake 3.27 or newer | Configuring native and web builds |
 | Ninja | Building with Ninja Multi-Config |
 | Python 3 | Running the web compiler and serving browser builds locally |
@@ -77,8 +77,8 @@ git submodule update --init --recursive
 ## Build structure
 
 The root [CMakeLists.txt](../CMakeLists.txt) builds one C++ executable,
-`gameoff2026`, with static SDL and native Dawn dependencies. CMake also enables C
-because SDL contains C sources. The reasons for this structure are recorded in
+`gameoff2026`, with static SDL, SDL_mixer, and native Dawn dependencies. CMake
+also enables C because SDL contains C sources. The reasons for this structure are recorded in
 [architecture decisions](architecture/decisions.md#bootstrap-platform-and-build-foundation).
 
 Use Ninja Multi-Config. Each platform has its own configure step, CMake cache,
@@ -105,6 +105,22 @@ SDL is added as a system subdirectory and linked through `SDL3::SDL3-static`.
 Its tests, test library, examples, and shared library are disabled. SDL owns
 selection of platform libraries and renderer backends. Bundled dependency
 notices belong in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
+
+`thirdparty/SDL_mixer` is a Git submodule of the official SDL_mixer repository at
+`https://github.com/libsdl-org/SDL_mixer.git`, pinned to release `3.2.4` at
+`72a81869b45e249e8e67102db4e98dd2441f05a1`. Initialize it with the other submodules.
+A missing checkout produces a configure error with recovery instructions.
+SDL_mixer requires SDL 3.4.0 or newer, satisfied by the pinned SDL version.
+
+Native and browser builds link `SDL3_mixer::SDL3_mixer-static`. Enabled formats
+are WAV, MP3 through bundled `dr_mp3`, and Ogg Vorbis through bundled
+`stb_vorbis`. Other optional formats and alternate decoder libraries are disabled.
+These decoders require no external codec downloads or system codec packages.
+Vendored dependency selection and strict dependency checks are enabled, and
+codec dynamic loading is disabled. Tests, examples, installation rules, and
+upstream warnings-as-errors are disabled. SDL_mixer is added before project
+clang-tidy setup. Its bundled-code notices, including minimp3 within `dr_mp3`,
+are included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
 
 `thirdparty/stb` is a Git submodule of the official stb repository at
 `https://github.com/nothings/stb.git`, pinned to
@@ -419,22 +435,30 @@ in VS Code while the game runs in Chrome. See
 ## Runtime boundary
 
 SDL handles windows, input, and application callbacks on native and browser
-targets. WebGPU handles rendering and presentation. `App` manages the SDL
-lifecycle, initializes WebGPU asynchronously, and advances loading before
-starting `Game`.
+targets. WebGPU handles rendering and presentation, and SDL_mixer provides
+audio playback on both targets. `App` manages the SDL lifecycle, initializes
+WebGPU asynchronously, and creates the audio player before loading the level.
+When loading completes, it transfers the level, renderer, and audio player to
+`Game`.
 
-`Game` owns the level, renderer, and gameplay entities. Entities own their
-transforms and animation playback state. `Level` owns the cell map, shared
-sequence catalog, sprites, and decorative props. Sprites borrow sequences from
-the catalog. Gameplay actors and decorative props hold `Sprite::Instance`
-values that borrow level-owned sprites.
+`Game` owns the level, renderer, audio player, and gameplay entities. Entities
+own their transforms and animation playback state. `Level` owns the cell map,
+shared sequence catalog, sprites, decorative props, and audio clips. Sprites
+borrow sequences from the catalog. Gameplay actors and decorative props hold
+`Sprite::Instance` values that borrow level-owned sprites.
 
 Props are destroyed before sprites, and sprites before sequences. Gameplay
 entities are destroyed before the level.
 
 Gameplay actors use the same level-defined sprite catalog as decorative props.
-`Caretaker` requires sprites named `Warrior_Idle` and `Warrior_Run`. `LostSoul`
-requires `SH_Hover`. Game startup fails if a required sprite is missing.
+They resolve required resources from the level and request audio playback
+through `AudioPlayer`. Startup fails when a required resource cannot be resolved.
+
+`AudioPlayer` owns the mixer and a reusable pool of playback tracks. Its teardown
+releases tracks before destroying the mixer, then balances mixer initialization
+with `MIX_Quit()`. Final SDL_mixer shutdown also releases any audio resources
+still registered with the library. In the current `Game` member order, that
+happens before the level's clip wrappers are destroyed.
 
 Each frame, `Game` accumulates elapsed time and advances entities in fixed
 1/60-second simulation steps. A frame can run zero or more steps. Elapsed time
@@ -442,11 +466,13 @@ contributed by one frame is capped at 0.25 seconds, discarding excess time
 after long pauses to bound catch-up work. Any remainder smaller than one step
 carries into the next frame.
 
-After simulation, `Game` updates the camera and queues entity sprites once
-per frame. `App` then calls the renderer and presents the frame.
+After simulation, `Game` updates the camera, queues entity sprites, and advances
+audio playback bookkeeping once per frame to return finished tracks to the pool.
+`App` then calls the renderer and presents the frame.
 
-The ownership choice is recorded in
-[Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission).
+The ownership choices are recorded in
+[Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission)
+and [Level-owned audio resources and game-owned playback](architecture/decisions.md#level-owned-audio-resources-and-game-owned-playback).
 
 Rendering uses an 800×600 logical canvas, scaled to fit the window while
 preserving its aspect ratio. Unused space forms black borders.

@@ -1,0 +1,87 @@
+#pragma once
+
+#include "Geometry2D.h"
+#include "NameTypes.h"
+#include "Transform2D.h"
+
+#include <glm/vec2.hpp>
+#include <glm/vec4.hpp>
+#include <span>
+
+/// Defines frames within a rectangular region of a texture.
+/// Size specifies each frame's pixel dimensions. Frames advance left to right,
+/// then top to bottom. Incomplete columns or rows at the edges are ignored.
+struct SpriteFrameSequenceDef
+{
+    /// The unique name of the sprite frame sequence.
+    ResourceName Name;
+    /// The file path to the texture containing the sprite frames.
+    FilePath TexturePath;
+    // If not present then use the entire texture.
+    std::optional<Rect> SrcRect = std::nullopt;
+    std::optional<Dimension2D> Size = std::nullopt;
+    /// Collision rectangles are normalized within the sprite's frame.
+    /// 0,0 represents the top-left corner of the frame.
+    /// 1,1 represents the bottom-right corner of the frame.
+    /// If not present then there is no collision.
+    /// Collision rectangles CAN be outside the [0,1] range.
+    /// When loaded normalized collision rectangles are converted to the sprite's coordinate space.
+    std::optional<Rectf> ColRect = std::nullopt;
+    /// Normalized pivot point within the sprite's frame.
+    /// 0,0 represents the top-left corner of the frame.
+    /// 1,1 represents the bottom-right corner of the frame.
+    glm::vec2 Pivot{ 0, 0 };
+    glm::vec4 Tint = glm::vec4(1.0f);
+    float Scale = 1.0f;
+};
+
+/// Defines a sprite.
+/// A sprite is a collection of sprite frame sequences, each representing a different facing direction.
+/// The sequence at index 0 corresponds to the sprite facing zero turns (North),
+/// and subsequent indices advance by 1 / (sequence count) turns.
+/// Playback selects the nearest direction based on the angle. Each sequence's frame count
+/// spans one complete animation cycle.
+struct SpriteDef
+{
+    /// The unique name of the sprite.
+    ResourceName Name;
+    // FIXME(KB) - use a borrwed span from TBD SpriteCatalog
+    /// The names of the sprite frame sequences associated with this sprite.
+    std::vector<ResourceName> SequenceNames;
+};
+
+/// Defines a prop within the level.
+struct PropDef
+{
+    /// The ID of the sprite associated with this prop.
+    uint32_t SpriteId{ 0 };
+    /// The transform (location/rotation) of the prop within the level.
+    Transform2D Transform;
+};
+
+/// Defines the layout of cells within the level.
+struct CellMapDef
+{
+    /// The number of cells along one side of the square grid.
+    uint32_t CellsPerSide{ 0 };
+    /// The file paths to the tile sets used in the cell map.
+    std::span<const FilePath> TileSets;
+};
+
+/// Defines an audio clip resource.
+struct AudioClipDef
+{
+    /// The unique name of the audio clip resource.
+    ResourceName Name;
+    /// The file path to the audio clip.
+    FilePath FilePath;
+};
+
+struct LevelDef
+{
+    CellMapDef CellMapDef;
+    std::span<const SpriteFrameSequenceDef> SpriteSeqDefs;
+    std::span<const SpriteDef> SpriteDefs;
+    std::span<const PropDef> PropDefs;
+    std::span<const AudioClipDef> AudioClipDefs;
+};

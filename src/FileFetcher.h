@@ -1,7 +1,7 @@
 #pragma once
 
-#include "InlineString.h"
 #include "InlineVector.h"
+#include "NameTypes.h"
 #include "Result.h"
 
 #include <memory>
@@ -11,9 +11,6 @@
 #ifdef __EMSCRIPTEN__
 struct emscripten_fetch_t;
 #endif
-
-static constexpr size_t kMaxFilePathLength = 256 - 1;
-using FilePath = InlineString<kMaxFilePathLength + 1>;
 
 class FileFetcher;
 

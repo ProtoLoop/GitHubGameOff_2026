@@ -5,15 +5,10 @@
 #include <webgpu/webgpu_cpp.h>
 
 class CellMap;
+struct CellMapDef;
 class FileFetcher;
 class Renderer;
 class WebGpu;
-
-struct CellMapDef
-{
-    uint32_t CellsPerSide{ 0 };
-    std::span<const FilePath> TileSets;
-};
 
 class CellMapLoader
 {

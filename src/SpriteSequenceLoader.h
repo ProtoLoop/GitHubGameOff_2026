@@ -8,6 +8,7 @@
 
 class Renderer;
 class WebGpu;
+struct SpriteFrameSequenceDef;
 
 class SpriteSequenceLoader
 {

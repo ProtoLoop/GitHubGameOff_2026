@@ -2,6 +2,7 @@
 
 #include "BoundedVector.h"
 #include "JsonDocument.h"
+#include "Level.h"
 #include "Result.h"
 
 #include <glm/vec2.hpp>
@@ -43,6 +44,7 @@ struct ParsedLevel
     BoundedVector<SpriteFrameSequenceDef> SpriteSeqDefs;
     BoundedVector<SpriteDef> SpriteDefs;
     BoundedVector<PropDef> PropDefs;
+    BoundedVector<AudioClipDef> AudioClipDefs;
     LevelDef LevelDef //
         {
             .CellMapDef //
@@ -53,36 +55,32 @@ struct ParsedLevel
             .SpriteSeqDefs{ SpriteSeqDefs },
             .SpriteDefs{ SpriteDefs },
             .PropDefs{ PropDefs },
+            .AudioClipDefs{ AudioClipDefs },
         };
 };
 
 Result<SpriteFrameSequenceDef>
 ParseSpriteSequence(const JsonObject& sequence)
 {
-    std::optional<std::string_view> optTexPath;
-    std::optional<std::string_view> optName;
+    std::string_view texPath;
+    std::string_view name;
     std::optional<Rect> optSrcRect;
     std::optional<Dimension2D> optSize;
     std::optional<Rectf> optColRect;
-    std::optional<glm::vec2> optPivot;
-    std::optional<float> optScale;
-    std::optional<glm::vec4> optTint;
+    glm::vec2 pivot;
+    float scale = 1;
+    glm::vec4 tint;
 
-    if(std::string_view path; sequence.TryGetString("texPath", path))
-    {
-        optTexPath = path;
-    }
-    GG_CHECKB(optTexPath.has_value() && !optTexPath->empty(),
+    GG_CHECKB(sequence.TryGetString("texPath", texPath) && !texPath.empty(),
         "Missing texture path (line:{})",
         sequence.GetLine());
+    GG_CHECKB(!texPath.empty(), "Texture path is empty (line:{})", sequence.GetLine());
 
-    if(std::string_view name; sequence.TryGetString("name", name))
+    if(!sequence.TryGetString("name", name) || name.empty())
     {
-        optName = name;
-    }
-    else
-    {
-        name = *optTexPath;
+        // If the name is not specified, derive it from the texture path.
+
+        name = texPath;
         // Remove the directory and extension to get the stem of the file path.
         name.remove_prefix(name.find_last_of('/') + 1);
         const size_t extension = name.find_last_of('.');
@@ -90,72 +88,65 @@ ParseSpriteSequence(const JsonObject& sequence)
         {
             name = name.substr(0, extension);
         }
-        optName = name;
     }
-    GG_CHECKB(optName.has_value() && !optName->empty(),
-        "Missing name (line:{})",
-        sequence.GetLine());
+    GG_CHECKB(!name.empty(), "Name is empty (line:{})", sequence.GetLine());
 
     if(JsonObject jsonObj; sequence.TryGetObject("pivot", jsonObj))
     {
-        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
-        {
-            optPivot = glm::vec2{ x, y };
-        }
+        GG_CHECKB(jsonObj.TryGetFloat("x", pivot.x) && jsonObj.TryGetFloat("y", pivot.y),
+            "Invalid pivot coordinates (line:{})",
+            jsonObj.GetLine());
+    }
+    else
+    {
+        // Pivot is optional - default to the center of the sprite.
+        pivot = glm::vec2{ 0.5f, 0.5f };
     }
 
+    // srcRect is optional - if not present then the entire texture will be used.
     if(JsonObject jsonObj; sequence.TryGetObject("srcRect", jsonObj))
     {
-        uint32_t x{}, y{}, w{}, h{};
+        Rect srcRect{ 0, 0, 0, 0 };
+        const bool haveX = jsonObj.TryGetUint32("x", srcRect.x).HasValue();
+        const bool haveY = jsonObj.TryGetUint32("y", srcRect.y).HasValue();
+        const bool haveW = jsonObj.TryGetUint32("w", srcRect.w).HasValue();
+        const bool haveH = jsonObj.TryGetUint32("h", srcRect.h).HasValue();
 
-        const bool haveX = jsonObj.TryGetUint32("x", x).HasValue();
-        const bool haveY = jsonObj.TryGetUint32("y", y).HasValue();
-        const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
-        const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
-
+        // If any of the srcRect values are specified, all must be specified.
+        // An empty srcRect {} is permitted.
         if(haveX && haveY && haveW && haveH)
         {
-            optSrcRect = Rect{ x, y, w, h };
+            optSrcRect = srcRect;
         }
         else
         {
             GG_CHECKB(!haveX && !haveY && !haveW && !haveH,
                 "Incomplete srcRect: {} (line:{})",
-                *optName,
+                name,
                 jsonObj.GetLine());
         }
     }
 
+    // Tint is optional - default to white.
+    tint = glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
     if(JsonObject jsonObj; sequence.TryGetObject("tint", jsonObj))
     {
         float r{}, g{}, b{}, a{};
-
         const bool haveR = jsonObj.TryGetFloat("r", r).HasValue();
         const bool haveG = jsonObj.TryGetFloat("g", g).HasValue();
         const bool haveB = jsonObj.TryGetFloat("b", b).HasValue();
         const bool haveA = jsonObj.TryGetFloat("a", a).HasValue();
 
+        // If any of the tint values are specified, all must be specified.
         if(haveR && haveG && haveB && haveA)
         {
-            GG_CHECKB(r >= 0.0f
-                    && r <= 1.0f
-                    && g >= 0.0f
-                    && g <= 1.0f
-                    && b >= 0.0f
-                    && b <= 1.0f
-                    && a >= 0.0f
-                    && a <= 1.0f,
-                "Tint values must be between 0 and 1: {} (line:{})",
-                *optName,
-                jsonObj.GetLine());
-
-            optTint = glm::vec4{ r, g, b, a };
+            tint = glm::vec4{ r, g, b, a };
         }
         else
         {
             GG_CHECKB(!haveR && !haveG && !haveB && !haveA,
                 "Incomplete tint: {} (line:{})",
-                *optName,
+                name,
                 jsonObj.GetLine());
         }
     }
@@ -167,16 +158,14 @@ ParseSpriteSequence(const JsonObject& sequence)
         const bool haveW = jsonObj.TryGetUint32("w", w).HasValue();
         const bool haveH = jsonObj.TryGetUint32("h", h).HasValue();
 
+        // If any of the size values are specified, all must be specified.
         if(haveW && haveH)
         {
             optSize = Dimension2D{ .w = w, .h = h };
         }
         else
         {
-            GG_CHECKB(!haveW && !haveH,
-                "Incomplete size: {} (line:{})",
-                *optName,
-                jsonObj.GetLine());
+            GG_CHECKB(!haveW && !haveH, "Incomplete size: {} (line:{})", name, jsonObj.GetLine());
         }
     }
 
@@ -185,53 +174,44 @@ ParseSpriteSequence(const JsonObject& sequence)
         for(const JsonValue& value : jsonArray)
         {
             JsonObject jsonObj;
-            GG_CHECKB(value.TryGetObject(jsonObj),
-                "Failed to get collision rect object: {}",
-                *optName);
-            float x{}, y{}, w{}, h{};
+            GG_CHECKB(value.TryGetObject(jsonObj), "Failed to get collision rect object: {}", name);
 
-            GG_CHECKB(jsonObj.TryGetFloat("x", x),
-                "Missing x in collision rect: {} (line:{})",
-                *optName,
-                value.GetLine());
-            GG_CHECKB(jsonObj.TryGetFloat("y", y),
-                "Missing y in collision rect: {} (line:{})",
-                *optName,
-                value.GetLine());
-            GG_CHECKB(jsonObj.TryGetFloat("w", w),
-                "Missing w in collision rect: {} (line:{})",
-                *optName,
-                value.GetLine());
-            GG_CHECKB(jsonObj.TryGetFloat("h", h),
-                "Missing h in collision rect: {} (line:{})",
-                *optName,
-                value.GetLine());
+            Rectf colRect{0,0,0,0};
 
-            optColRect = Rectf{ x, y, w, h };
+            const bool haveX = jsonObj.TryGetFloat("x", colRect.x).HasValue();
+            const bool haveY = jsonObj.TryGetFloat("y", colRect.y).HasValue();
+            const bool haveW = jsonObj.TryGetFloat("w", colRect.w).HasValue();
+            const bool haveH = jsonObj.TryGetFloat("h", colRect.h).HasValue();
+
+            // If any of the collision rect values are specified, all must be specified.
+            if(!haveX || !haveY || !haveW || !haveH)
+            {
+                GG_CHECKB(!haveX && !haveY && !haveW && !haveH,
+                    "Incomplete collision rect: {} (line:{})",
+                    name,
+                    jsonObj.GetLine());
+            }
+
+            optColRect = colRect;
         }
     }
 
-    if(float scale{}; sequence.TryGetFloat("scale", scale))
+    if(!sequence.TryGetFloat("scale", scale))
     {
-        optScale = scale;
+        /// Scale is optional - default to 1.0f.
+        scale = 1.0f;
     }
-
-    const glm::vec2 pivot = optPivot ? *optPivot : glm::vec2{ 0.5f, 0.5f };
-
-    const glm::vec4 tint = optTint ? *optTint : glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
-
-    const float scaleValue = optScale ? *optScale : 1.0f;
 
     return SpriteFrameSequenceDef //
         {
-            .Name = *optName,
-            .TexturePath = *optTexPath,
+            .Name = name,
+            .TexturePath = texPath,
             .SrcRect = optSrcRect,
             .Size = optSize,
             .ColRect = optColRect,
             .Pivot = pivot,
             .Tint = tint,
-            .Scale = scaleValue,
+            .Scale = scale,
         };
 }
 
@@ -469,6 +449,36 @@ ParseLayers(const JsonArray& jsonLayers)
     return layers;
 }
 
+Result<BoundedVector<AudioClipDef>>
+ParseAudioClips(const JsonArray& audioClipsArray)
+{
+    const size_t count = audioClipsArray.size();
+
+    BoundedVector<AudioClipDef> audioClips(count);
+
+    for(const JsonValue& value : audioClipsArray)
+    {
+        JsonObject audioClip;
+        GG_CHECKB(value.TryGetObject(audioClip),
+            "Failed to get audio clip object (line:{})",
+            value.GetLine());
+
+        std::string_view name;
+        GG_CHECKB(audioClip.TryGetString("name", name),
+            "Missing audio clip name (line:{})",
+            audioClip.GetLine());
+
+        std::string_view filePath;
+        GG_CHECKB(audioClip.TryGetString("filePath", filePath),
+            "Missing audio clip file path (line:{})",
+            audioClip.GetLine());
+
+        audioClips.push_back(AudioClipDef{ .Name = name, .FilePath = filePath });
+    }
+
+    return audioClips;
+}
+
 /// Prunes the list of sprite frame sequences to only include those that are actually used by the
 /// given sprite definitions.
 Result<BoundedVector<SpriteFrameSequenceDef>>
@@ -549,6 +559,7 @@ Parse(std::vector<std::byte>&& data)
     std::optional<BoundedVector<SpriteDef>> optSpriteDefs;
     std::optional<BoundedVector<Layer>> optLayers;
     std::optional<BoundedVector<PropDef>> optPropDefs;
+    std::optional<BoundedVector<AudioClipDef>> optAudioClipDefs;
 
     // Grid size
     if(uint32_t gridSize{}; jobj.TryGetUint32("gridSize", gridSize))
@@ -652,6 +663,29 @@ Parse(std::vector<std::byte>&& data)
     }
     GG_CHECKB(optLayers.has_value(), "Missing layers (line:{})", jobj.GetLine());
 
+    // Extensions
+    if(JsonObject extensionsObj; jobj.TryGetObject("extensions", extensionsObj))
+    {
+        // Currently, we only handle audio clips within extensions.
+        if(JsonArray audioClipsArray; extensionsObj.TryGetArray("audioClips", audioClipsArray))
+        {
+            auto audioClipResult = ParseAudioClips(audioClipsArray);
+            GG_CHECK(audioClipResult,
+                "Failed to parse audio clips (line:{})",
+                audioClipsArray.GetLine());
+
+            optAudioClipDefs.emplace(std::move(*audioClipResult));
+        }
+    }
+    // audioClips is optional - it can be absent in the JSON
+
+    // Ensure we have a valid audio clip definition list, even if it's empty.
+    // Audio clip defs are optional in the JSON, but we need a valid list to work with.
+    if(!optAudioClipDefs.has_value())
+    {
+        optAudioClipDefs.emplace(BoundedVector<AudioClipDef>(0));
+    }
+
     // Prune the sprite sequences to only include those actually used by the sprite definitions.
     auto prunedSpriteSeqDefs = PruneSpriteSequences(*optSpriteSeqDefs, *optSpriteDefs);
     GG_CHECK(prunedSpriteSeqDefs, "Failed to prune sprite sequences");
@@ -668,26 +702,35 @@ Parse(std::vector<std::byte>&& data)
             .SpriteSeqDefs = std::move(*prunedSpriteSeqDefs),
             .SpriteDefs = std::move(*optSpriteDefs),
             .PropDefs = std::move(*optPropDefs),
+            .AudioClipDefs = std::move(*optAudioClipDefs),
         };
 }
 } // namespace
 
-LevelFetcher::LevelFetcher(
-    FetchRequestPtr&& fetchRequest, FileFetcher& fetcher, Renderer& renderer, WebGpu& webGpu)
+LevelFetcher::LevelFetcher(FetchRequestPtr&& fetchRequest,
+    FileFetcher& fetcher,
+    Renderer& renderer,
+    WebGpu& webGpu,
+    AudioPlayer& player)
     : m_FetchRequest(std::move(fetchRequest)),
       m_Fetcher(&fetcher),
       m_Renderer(&renderer),
-      m_WebGpu(&webGpu)
+      m_WebGpu(&webGpu),
+      m_Player(&player)
 {
 }
 
 Result<LevelFetcher>
-LevelFetcher::Fetch(const FilePath& path, FileFetcher& fetcher, Renderer& renderer, WebGpu& webGpu)
+LevelFetcher::Fetch(const FilePath& path,
+    FileFetcher& fetcher,
+    Renderer& renderer,
+    WebGpu& webGpu,
+    AudioPlayer& player)
 {
     auto fetchResult = fetcher.Fetch(path);
     GG_CHECKB(fetchResult, "Failed to fetch file: {}", path.c_str());
 
-    return LevelFetcher(std::move(*fetchResult), fetcher, renderer, webGpu);
+    return LevelFetcher(std::move(*fetchResult), fetcher, renderer, webGpu, player);
 }
 
 Result<>
@@ -712,8 +755,11 @@ LevelFetcher::Update()
             const auto parseResult = Parse(std::move(*dataResult));
             GG_CHECK(parseResult, "Failed to parse level data");
 
-            auto levelLoaderResult =
-                LevelLoader::Load(parseResult->LevelDef, *m_Fetcher, *m_Renderer, *m_WebGpu);
+            auto levelLoaderResult = LevelLoader::Load(parseResult->LevelDef,
+                *m_Fetcher,
+                *m_Renderer,
+                *m_WebGpu,
+                *m_Player);
             GG_CHECK(levelLoaderResult, "Failed to load level");
 
             m_LevelLoader = std::move(*levelLoaderResult);

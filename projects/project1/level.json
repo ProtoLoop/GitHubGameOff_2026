@@ -843,5 +843,13 @@
   "editor": {
     "activeLayer": 1,
     "view": {"zoom":0.3930943424174467,"scrollLeft":293,"scrollTop":468.5,"showGrid":false}
+  },
+  "extensions": {
+    "audioClips": [
+      {
+        "name": "Ding",
+        "filePath": "/audio/dragon-studio-ding-sfx-472366.mp3"
+      }      
+    ]
   }
 }
