@@ -57,22 +57,6 @@ Level::GetAudioClip(const std::string_view name) const
     return *foundAudioClip;
 }
 
-Result<> Level::SpawnProp(const std::string_view spriteName, const Transform2D& transform)
-{
-    GG_CHECKB(m_Props.size() < m_Props.capacity(), "Maximum number of props reached");
-
-    auto spriteResult = GetSprite(spriteName);
-    GG_CHECKB(spriteResult, "Failed to get sprite: {}", spriteName);
-
-    auto spriteInstanceResult = spriteResult->CreateInstance();
-    GG_CHECKB(spriteInstanceResult, "Failed to create sprite instance for {}", spriteName);
-
-    m_Props.emplace_back(*spriteInstanceResult, transform);
-
-    return Result<>::Ok;
-}
-
-
 Result<Sprite::Instance>
 Level::CreateSpriteInstance(const std::string_view name) const
 {
@@ -81,10 +65,4 @@ Level::CreateSpriteInstance(const std::string_view name) const
     const auto& sprite = *spriteResult;
 
     return sprite.CreateInstance();
-}
-
-std::span<const Prop>
-Level::GetProps() const
-{
-    return m_Props;
 }

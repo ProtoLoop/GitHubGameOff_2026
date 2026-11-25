@@ -452,17 +452,18 @@ When loading completes, it transfers the level, renderer, and audio player to
 Level startup separates parsing from resource loading. `LevelParser` fetches the
 level file and returns a `ParsedLevel` that owns the parsed definitions. Its
 `LevelDef` view borrows that storage. `LoadingState` retains the parsed data while
-`LevelLoader` validates resource references and builds the level. The parsed
-definitions are currently released when loading transitions to `Game`.
+`LevelLoader` validates resource references and builds the level. `Game::Create`
+then uses the retained placement definitions to spawn initial props. The parsed
+definitions are released when the loading state is replaced by the created game.
 
-`Game` owns the level, renderer, audio player, and gameplay entities. Entities
+`Game` owns the level, renderer, audio player, actors, and props. Entities
 own their transforms and animation playback state. `Level` owns the cell map,
-shared sequence catalog, sprites, decorative props, and audio clips. Sprites
+shared sequence catalog, sprites, and audio clips. Sprites
 borrow sequences from the catalog. Gameplay actors and decorative props hold
 `Sprite::Instance` values that borrow level-owned sprites.
 
-Props are destroyed before sprites, and sprites before sequences. Gameplay
-entities are destroyed before the level.
+Actors and props are destroyed before the level resources they borrow. Within
+the level, sprites are destroyed before sequences.
 
 Gameplay actors use the same level-defined sprite catalog as decorative props.
 They resolve required resources from the level and request audio playback
@@ -485,7 +486,8 @@ audio playback bookkeeping once per frame to return finished tracks to the pool.
 `App` then calls the renderer and presents the frame.
 
 The ownership choices are recorded in
-[Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission)
+[Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission),
+[Game-owned props and initial population](architecture/decisions.md#game-owned-props-and-initial-population),
 and [Level-owned audio resources and game-owned playback](architecture/decisions.md#level-owned-audio-resources-and-game-owned-playback).
 
 Rendering uses an 800×600 logical canvas, scaled to fit the window while

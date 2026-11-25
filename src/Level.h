@@ -2,13 +2,9 @@
 
 #include "AudioClip.h"
 #include "CellMap.h"
-#include "Prop.h"
 #include "Sprite.h"
 
-#include <span>
 #include <string_view>
-
-class Level;
 
 /// Owns resources for the level.
 class Level
@@ -29,14 +25,8 @@ public:
 
     Result<const AudioClip&> GetAudioClip(const std::string_view name) const;
 
-    Result<> SpawnProp(const std::string_view spriteName, const Transform2D& transform);
-
-    std::span<const Prop> GetProps() const;
-
 private:
     friend class LevelLoader;
-
-    static constexpr size_t kMaxProps = 1024;
 
     Level(CellMap&& cellMap,
         BoundedVector<SpriteFrameSequence>&& spriteSeqs,
@@ -47,5 +37,4 @@ private:
     BoundedVector<SpriteFrameSequence> m_SpriteSeqs;
     BoundedVector<Sprite> m_Sprites;
     BoundedVector<AudioClip> m_AudioClips;
-    InlineVector<Prop, kMaxProps> m_Props;
 };

@@ -50,6 +50,8 @@ public:
 
     Random& GetEntityRng() { return m_EntityRng; }
 
+    Result<> SpawnProp(const std::string_view spriteName, const Transform2D& transform);
+
     Result<const LostSoul&> SpawnLostSoul(const Transform2D& transform);
 
     Result<> QueueDespawn(const LostSoul& lostSoul);
@@ -60,6 +62,7 @@ public:
 
 private:
     static constexpr size_t kMaxLostSouls = 10;
+    static constexpr size_t kMaxProps = 1024;
 
     enum class Stage
     {
@@ -95,9 +98,11 @@ private:
 
     std::optional<Caretaker> m_Caretaker;
 
-    InlineVector<LostSoul, kMaxLostSouls> m_LostSouls;
+    BoundedVector<Prop> m_Props{ kMaxProps };
 
-    InlineVector<EntityId, kMaxLostSouls> m_DespawnQueue;
+    BoundedVector<LostSoul> m_LostSouls{ kMaxLostSouls };
+
+    BoundedVector<EntityId> m_DespawnQueue{ kMaxLostSouls };
 
     float m_TimeAccum{ 0.0f };
 

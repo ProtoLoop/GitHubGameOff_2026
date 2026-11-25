@@ -1,7 +1,7 @@
 #pragma once
 
 #include "AudioClip.h"
-#include "InlineVector.h"
+#include "BoundedVector.h"
 #include "Result.h"
 
 #include <memory>
@@ -15,7 +15,6 @@ public:
 
     static constexpr size_t kMaxTracks = 256;
 
-    AudioPlayer() = delete;
     ~AudioPlayer() = default;
     AudioPlayer(const AudioPlayer&) = delete;
     AudioPlayer& operator=(const AudioPlayer&) = delete;
@@ -57,14 +56,9 @@ private:
         size_t m_Index;
     };
 
-    struct Impl
-    {
-        MixerPtr m_Mixer;
-        InlineVector<TrackInfo, kMaxTracks> m_TrackPool;
-        InlineVector<TrackInfo, kMaxTracks> m_Playing;
-    };
+    AudioPlayer(MixerPtr&& mixer, BoundedVector<TrackInfo>&& trackPool);
 
-    explicit AudioPlayer(std::unique_ptr<Impl>&& impl);
-
-    std::unique_ptr<Impl> m_Impl;
+    MixerPtr m_Mixer;
+    BoundedVector<TrackInfo> m_TrackPool;
+    BoundedVector<TrackInfo> m_Playing;
 };

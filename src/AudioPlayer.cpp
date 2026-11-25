@@ -41,7 +41,7 @@ AudioPlayer::Create()
     // Any failure from here will trigger mixer destruction and MIX_Quit
     mixQuit.cancel();
 
-    InlineVector<TrackInfo, kMaxTracks> tracks;
+    BoundedVector<TrackInfo> tracks{ kMaxTracks };
 
     for(size_t i = 0; i < kMaxTracks; ++i)
     {
@@ -51,30 +51,28 @@ AudioPlayer::Create()
         tracks.emplace_back(TrackPtr(track), i);
     }
 
-    auto impl = std::make_unique<AudioPlayer::Impl>();
-    impl->m_Mixer = std::move(mixerPtr);
-    impl->m_TrackPool = std::move(tracks);
-
-    return AudioPlayer(std::move(impl));
+    return AudioPlayer(std::move(mixerPtr), std::move(tracks));
 }
 
-AudioPlayer::AudioPlayer(std::unique_ptr<Impl>&& impl)
-    : m_Impl(std::move(impl))
+AudioPlayer::AudioPlayer(MixerPtr&& mixer, BoundedVector<TrackInfo>&& trackPool)
+    : m_Mixer(std::move(mixer)),
+      m_TrackPool(std::move(trackPool)),
+      m_Playing(m_TrackPool.size())
 {
 }
 
 MIX_Mixer&
 AudioPlayer::GetMixer() const
 {
-    return *m_Impl->m_Mixer;
+    return *m_Mixer;
 }
 
 Result<>
 AudioPlayer::Play(const AudioClip& clip)
 {
-    GG_CHECK(!m_Impl->m_TrackPool.empty(), "No available tracks to play");
+    GG_CHECK(!m_TrackPool.empty(), "No available tracks to play");
 
-    TrackInfo& trackInfo = m_Impl->m_TrackPool.back();
+    TrackInfo& trackInfo = m_TrackPool.back();
 
     GG_CHECKB(MIX_SetTrackAudio(trackInfo.m_TrackPtr.get(), clip.GetAudio()),
         "Error setting track audio: {}",
@@ -84,9 +82,9 @@ AudioPlayer::Play(const AudioClip& clip)
         "Error playing track: {}",
         SDL_GetError());
 
-    m_Impl->m_Playing.emplace_back(std::move(trackInfo));
+    m_Playing.emplace_back(std::move(trackInfo));
 
-    m_Impl->m_TrackPool.pop_back();
+    m_TrackPool.pop_back();
 
     return Result<>::Ok;
 }
@@ -94,16 +92,16 @@ AudioPlayer::Play(const AudioClip& clip)
 Result<>
 AudioPlayer::Tick(const float /*deltaTime*/)
 {
-    for(size_t i = 0; i < m_Impl->m_Playing.size();)
+    for(size_t i = 0; i < m_Playing.size();)
     {
-        TrackInfo& trackInfo = m_Impl->m_Playing[i];
+        TrackInfo& trackInfo = m_Playing[i];
 
         if(!MIX_TrackPlaying(trackInfo.m_TrackPtr.get())
             && !MIX_TrackPaused(trackInfo.m_TrackPtr.get()))
         {
-            m_Impl->m_TrackPool.emplace_back(std::move(trackInfo));
-            m_Impl->m_Playing[i] = std::move(m_Impl->m_Playing.back());
-            m_Impl->m_Playing.pop_back();
+            m_TrackPool.emplace_back(std::move(trackInfo));
+            m_Playing[i] = std::move(m_Playing.back());
+            m_Playing.pop_back();
         }
         else
         {

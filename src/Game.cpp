@@ -26,7 +26,7 @@ Game::Create(Input& input,
 
     for(const PropDef& propDef : levelDef.PropDefs)
     {
-        GG_CHECK(game.GetLevel().SpawnProp(propDef.SpriteName, propDef.Transform),
+        GG_CHECK(game.SpawnProp(propDef.SpriteName, propDef.Transform),
             "Failed to spawn prop: {}",
             propDef.SpriteName);
     }
@@ -53,6 +53,22 @@ Game::Begin()
     }
 
     m_Stage = Stage::Running;
+    return Result<>::Ok;
+}
+
+Result<>
+Game::SpawnProp(const std::string_view spriteName, const Transform2D& transform)
+{
+    GG_CHECKB(m_Props.size() < m_Props.capacity(), "Maximum number of props reached");
+
+    auto spriteResult = m_Level->GetSprite(spriteName);
+    GG_CHECKB(spriteResult, "Failed to get sprite: {}", spriteName);
+
+    auto spriteInstanceResult = spriteResult->CreateInstance();
+    GG_CHECKB(spriteInstanceResult, "Failed to create sprite instance for {}", spriteName);
+
+    m_Props.emplace_back(*spriteInstanceResult, transform);
+
     return Result<>::Ok;
 }
 
@@ -175,7 +191,7 @@ Game::RenderSprites()
         QueueCollisionRects(spriteFrame, lostSoul.GetTransform());
     }
 
-    for(const Prop& prop : m_Level->GetProps())
+    for(const Prop& prop : m_Props)
     {
         GG_CHECK(prop.Render(renderer));
         const SpriteFrame& spriteFrame = prop.GetSpriteFrame();
@@ -251,7 +267,7 @@ Game::CheckPropCollisions()
 
     const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
 
-    for(const Prop& prop : m_Level->GetProps())
+    for(const Prop& prop : m_Props)
     {
         const glm::vec2& propPos = prop.GetPos();
         const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();

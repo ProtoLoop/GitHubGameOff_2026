@@ -675,7 +675,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#assets-and-limits).
 
 ## Level-owned decorative props
 
-Date: 2026-11-19. Status: Accepted.
+Date: 2026-11-19. Status: Superseded by
+[Game-owned props and initial population](#game-owned-props-and-initial-population).
 
 `Level` owns decorative props because their placement and lifetime belong to the
 loaded level. `Game` retains gameplay entities and coordinates sprite submission
@@ -1022,3 +1023,40 @@ with audio resource and playback ownership. It follows
 [thin abstractions and strong boundaries](principles.md#keep-abstractions-thin-and-boundaries-strong).
 See the [runtime boundary](../development.md#runtime-boundary),
 [AudioPlayer](../../src/AudioPlayer.h), and [Level](../../src/Level.h).
+
+
+## Game-owned props and initial population
+
+Date: 2026-11-25. Status: Accepted.
+
+Props are moving beyond decoration toward gameplay behavior and independent
+spawn/despawn lifetimes. Headstones, for example, will spawn lost souls and react
+to their collection, while trees need no brain. Keeping live props in `Level`
+would split management of gameplay objects across two owners.
+
+`Game` owns live props and actors and interprets initial placement data. `Level`
+owns the cell map and shared sprite and audio resources, remaining independent
+of game-specific object types. Actors and props borrow those resources and are
+destroyed before the level.
+
+`LevelParser` returns a `ParsedLevel` that owns the definitions exposed through
+its borrowed `LevelDef` view. Startup retains that data while `LevelLoader`
+builds the level resources, then passes it to `Game::Create` to spawn initial
+props through the same operation available for later spawning. The definitions
+are released when the loading state is replaced by the created game.
+
+We considered keeping props in `Level` and having `Game` request their creation.
+That would preserve level-scoped storage, but leave prop and actor management
+split as their gameplay responsibilities converge. Game ownership keeps those
+responsibilities together, at the cost of retaining and handing off placement
+definitions through startup.
+
+Shared ownership rules do not require shared containers or a common base class.
+Props and actors currently retain separate storage and implementations. Prop
+despawning and brains remain future work.
+
+This supersedes [Level-owned decorative props](#level-owned-decorative-props)
+and follows [clear responsibility](principles.md#make-it-clear-who-is-responsible)
+and [sharing concepts without requiring shared code](principles.md#share-the-concept-not-necessarily-the-code).
+See the [runtime boundary](../development.md#runtime-boundary),
+[Game](../../src/Game.h), and [Level](../../src/Level.h).
