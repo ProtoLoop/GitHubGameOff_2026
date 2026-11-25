@@ -171,14 +171,20 @@ notice is included in [ThirdPartyLicenses.txt](../ThirdPartyLicenses.txt).
 ## Asset locations
 
 Native builds read assets from disk relative to the working directory, stripping
-leading slashes from asset paths. Run from the repository root so paths resolve
-to the `assets/` directory.
+leading slashes from asset paths. Run from `projects/project1` so level and
+asset paths resolve within that project. The native debugger uses this working
+directory automatically.
 
-Browser builds load assets over HTTP. The development server exposes the
-repository's `assets/` directory under `/assets/`, relative to the server root.
-When deploying, publish the required assets under `/assets/` on the same origin
-as the game, even if the HTML is hosted in a subdirectory. The build does not
-copy assets or package them into the WebAssembly filesystem.
+Browser builds load assets over HTTP. The development server serves `/build/`
+from the repository root and all other paths from `projects/project1`.
+Requests for `/level.json`, `/assets/`, and `/audio/` therefore resolve within
+the project directory. Both filesystem roots are relative to the server script,
+independent of the working directory used to start it.
+
+When deploying, publish the project's level and assets at their root-relative
+URLs on the same origin as the game, even if the HTML is hosted in a
+subdirectory. The build does not copy assets or package them into the
+WebAssembly filesystem.
 
 Sprite sequence names must be unique within a level’s catalog. The C++ loader
 uses explicit `name` values, falling back to the texture filename without its
@@ -372,7 +378,8 @@ VS Code supplies the Chrome JavaScript debugger. The DWARF extension adds C++
 WebAssembly support. The workspace disables Microsoft's C/C++ IntelliSense so
 clangd supplies editor analysis. Live Server and Live Preview are not required:
 The project's [HttpServer.py](../HttpServer.py) uses Python 3's standard library
-to serve the repository root on `http://localhost:8000`. It sends
+to serve build output and project content on `http://localhost:8000`, using the
+routing described in [Asset locations](#asset-locations). It sends
 `Cache-Control: no-cache` on every response, requiring browsers to revalidate
 cached HTML, JavaScript, WebAssembly, and assets before reusing them.
 
@@ -419,8 +426,9 @@ Chrome with debugging attached, using CMake's currently selected Debug or Releas
 configuration at `http://localhost:8000/build/web/Debug/index.html` or
 `http://localhost:8000/build/web/Release/index.html`.
 F5 does not build the game or start the server. Build again after code changes.
-The launch expects port 8000 and the repository root as the server root, matching the
-command above, with `webRoot` set to the repository root. The browser URL uses
+The launch expects port 8000 and build output under `/build/`, matching the
+server routing above. `webRoot` remains set to the repository root for debugger
+source mapping. The browser URL uses
 `cmake.buildType` for the configuration. There are no pre-launch tasks or
 `tasks.json`. Native LLDB launch does not debug WebAssembly.
 
