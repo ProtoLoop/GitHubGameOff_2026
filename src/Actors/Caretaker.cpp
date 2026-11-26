@@ -20,7 +20,7 @@ const Angle kIsoAngleOffset(0.125f);
 constexpr const std::string_view kSpriteName_Idle{ "Warrior_Idle" };
 constexpr const std::string_view kSpriteName_Run{ "Warrior_Run" };
 
-constexpr const std::string_view kAudioClipName_Ding{ "Ding" };
+constexpr const std::string_view kAudioClipName_LostSoulCollect{ "LostSoulCollect" };
 
 } // namespace
 
@@ -47,10 +47,16 @@ Caretaker::Create(Game& game)
         "Failed to create sprite anim instance for {}",
         kSpriteName_Run);
 
-    GG_TRY(clipDing, level.GetAudioClip(kAudioClipName_Ding), "Failed to load audio clip for Ding");
+    GG_TRY(clipLostSoulCollect,
+        level.GetAudioClip(kAudioClipName_LostSoulCollect),
+        "Failed to load audio clip: {}", kAudioClipName_LostSoulCollect);
 
-    return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite },
-        AudioClips{ .Ding = &clipDing });
+    const AudioClips audioClips //
+        {
+            .LostSoulCollect = &clipLostSoulCollect,
+        };
+
+    return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite }, audioClips);
 }
 
 Result<>
@@ -135,9 +141,9 @@ Caretaker::OnPropHit(Game& /*game*/, const Prop& /*prop*/) const
 void
 Caretaker::OnLostSoulHit(Game& game, const LostSoul& lostSoul)
 {
-    if(!game.GetAudioPlayer().Play(*m_AudioClips.Ding))
+    if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect))
     {
-        GG_ERROR("Failed to play audio clip: {} - {}", m_AudioClips.Ding->GetName(), SDL_GetError());
+        GG_ERROR("Failed to play audio clip: {} - {}", m_AudioClips.LostSoulCollect->GetName(), SDL_GetError());
     }
 
     if(!game.QueueDespawn(lostSoul))

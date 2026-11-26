@@ -356,7 +356,7 @@ ParseActorType(const JsonObject& actorType)
     return ActorTypeDef //
         {
             .Name = resName,
-            .ActorClassName = className,
+            .ClassName = className,
             .SpriteName = spriteName,
         };
 }
@@ -389,7 +389,7 @@ ParseActorTypes(const JsonObject& jobj)
     return actorTypes;
 }
 
-Result<PropDef>
+Result<PropInstanceDef>
 ParseProp(const JsonObject& prop)
 {
     std::optional<glm::vec2> optPos;
@@ -413,7 +413,7 @@ ParseProp(const JsonObject& prop)
     }
     GG_CHECKB(optRot.has_value(), "Missing rotation (line:{})", prop.GetLine());
 
-    return PropDef //
+    return PropInstanceDef //
         {
             .TypeName = typeName,
             .Transform //
@@ -424,17 +424,17 @@ ParseProp(const JsonObject& prop)
         };
 }
 
-Result<BoundedVector<PropDef>>
+Result<BoundedVector<PropInstanceDef>>
 ParseProps(const JsonObject& jobj)
 {
     JsonArray jsonProps;
     if(!jobj.TryGetArray("props", jsonProps))
     {
         // Props array is optional - return an empty vector if not present.
-        return BoundedVector<PropDef>(0);
+        return BoundedVector<PropInstanceDef>(0);
     }
 
-    BoundedVector<PropDef> props(jsonProps.size());
+    BoundedVector<PropInstanceDef> props(jsonProps.size());
 
     for(const JsonValue& value : jsonProps)
     {
@@ -448,6 +448,69 @@ ParseProps(const JsonObject& jobj)
     }
 
     return props;
+}
+
+Result<ActorInstanceDef>
+ParseActor(const JsonObject& actor)
+{
+    std::optional<glm::vec2> optPos;
+    std::optional<float> optRot;
+
+    GG_TRY(typeName, TryParseResourceName(actor, "type"));
+    GG_CHECKB(!typeName.empty(), "Missing type name (line:{})", actor.GetLine());
+
+    if(JsonObject jsonObj; actor.TryGetObject("pos", jsonObj))
+    {
+        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
+        {
+            optPos = glm::vec2{ x, y };
+        }
+    }
+    GG_CHECKB(optPos.has_value(), "Missing position (line:{})", actor.GetLine());
+
+    if(float rot{}; actor.TryGetFloat("rot", rot))
+    {
+        optRot = rot;
+    }
+    GG_CHECKB(optRot.has_value(), "Missing rotation (line:{})", actor.GetLine());
+
+    return ActorInstanceDef //
+        {
+            .TypeName = typeName,
+            .Transform //
+            {
+                .Pos = *optPos,
+                .Rot = Angle::FromDegrees(*optRot),
+            },
+        };
+}
+
+Result<BoundedVector<ActorInstanceDef>>
+ParseActors(const JsonObject& jobj)
+{
+    JsonArray jsonActors;
+    if(!jobj.TryGetArray("actors", jsonActors))
+    {
+        // Actors array is optional - return an empty vector if not present.
+        return BoundedVector<ActorInstanceDef>(0);
+    }
+
+    BoundedVector<ActorInstanceDef> actors(jsonActors.size());
+
+    for(const JsonValue& value : jsonActors)
+    {
+        JsonObject actor;
+        GG_CHECKB(value.TryGetObject(actor),
+            "Failed to get actor object (line:{})",
+            value.GetLine());
+
+        auto result = ParseActor(actor);
+        GG_CHECKB(result, "Failed to parse actor (line:{})", value.GetLine());
+
+        actors.push_back(*result);
+    }
+
+    return actors;
 }
 
 Result<CellMapLayerDef>
@@ -717,6 +780,11 @@ LevelParser::Parse(std::vector<std::byte>&& data)
     auto propDefsResult = ParseProps(jobj);
     GG_CHECK(propDefsResult, "Failed to parse props (line:{})", jobj.GetLine());
 
+    // Actors
+    // actors is optional - it can be absent in the JSON
+    auto actorDefsResult = ParseActors(jobj);
+    GG_CHECK(actorDefsResult, "Failed to parse actors (line:{})", jobj.GetLine());
+
     // Layers
     auto layersResult = ParseLayers(jobj);
     GG_CHECK(layersResult, "Failed to parse layers (line:{})", jobj.GetLine());
@@ -735,6 +803,7 @@ LevelParser::Parse(std::vector<std::byte>&& data)
         std::move(*propTypeDefsResult),
         std::move(*actorTypeDefsResult),
         std::move(*propDefsResult),
+        std::move(*actorDefsResult),
         std::move(*audioClipDefsResult));
 
     m_ParsedLevel = std::move(parsedLevel);

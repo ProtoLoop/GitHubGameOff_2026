@@ -35,6 +35,12 @@ public:
         uint32_t SheetTilesPerSide;    // Number of tiles along each axis in of a tile sheet.
     };
 
+    struct QueueSpriteParams
+    {
+        /// Overrides the tint color of the sprite if set.
+        std::optional<glm::vec4> TintOverride;
+    };
+
     static Result<std::unique_ptr<Renderer>> Create(const Params& params, const WebGpu& webGpu);
 
     Renderer() = delete;
@@ -58,6 +64,9 @@ public:
     /// Transform rotation does not rotate the sprite.
     /// Returns an error if the queue is full.
     Result<> QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transform);
+    Result<> QueueSprite(const SpriteFrame& spriteFrame,
+        const Transform2D& transform,
+        const QueueSpriteParams& params);
 
     /// Queues a rectangle for the next Render() call.
     /// Transform rotation does not rotate the rectangle.
@@ -113,6 +122,7 @@ private:
     {
         Transform2D Transform;
         SpriteFrame SpriteFrame;
+        QueueSpriteParams Params;
         size_t SortTieBreaker{};
     };
 

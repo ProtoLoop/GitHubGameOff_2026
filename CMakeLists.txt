@@ -123,6 +123,7 @@ endif()
 set(GAMEOFF_SOURCES
     src/Actors/Caretaker.h
     src/Actors/Caretaker.cpp
+    src/Actors/Colors.h
     src/Actors/LostSoul.h
     src/Actors/LostSoul.cpp
     src/Actors/Tombstone.h

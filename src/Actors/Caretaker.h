@@ -48,7 +48,7 @@ private:
 
     struct AudioClips
     {
-        const AudioClip* Ding;
+        const AudioClip* LostSoulCollect;
     };
 
     Caretaker(const Sprites& sprites, const AudioClips& audioClips);

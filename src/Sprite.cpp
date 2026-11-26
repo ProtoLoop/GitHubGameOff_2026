@@ -160,8 +160,8 @@ Sprite::GetFrame(const float phase, const Angle& angle) const
 
 /// Sprite::Instance
 
-Sprite::Instance::Instance(const Sprite& anim)
-    : m_Sprite(&anim)
+Sprite::Instance::Instance(const Sprite& sprite)
+    : m_Sprite(&sprite)
 {
 }
 

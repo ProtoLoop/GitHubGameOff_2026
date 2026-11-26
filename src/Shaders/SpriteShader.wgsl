@@ -4,7 +4,7 @@ struct VSOut
     @builtin(position) pos : vec4<f32>,
     @location(0)       uv  : vec2<f32>,
     @location(1)       brectUV : vec2f, // Used to draw bounding rectangle
-    @location(2)       color : vec4<f32>,
+    @location(2)       tint : vec4<f32>,
     @location(3)       pivot : vec2<f32>,
 };
 
@@ -82,7 +82,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
         vec4f(ndc, 1.0, 1.0), // pos
         uv,             // uv
         spriteVerts[vid],  // brectUV
-        sprite.tint,   // color
+        sprite.tint,   // tint
         sprite.pivot    // pivot
     );
 }
@@ -120,7 +120,7 @@ fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    var p = textureSample(texture, smp, i.uv, 0) * i.color;
+    var p = textureSample(texture, smp, i.uv, 0) * i.tint;
     //p = drawBoundingRect(i.brectUV, p);
     p = drawPivot(i, p);
     return p;
@@ -130,7 +130,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    var p = textureSample(texture, smp, i.uv, 0) * i.color;
+    var p = textureSample(texture, smp, i.uv, 0) * i.tint;
     //p = drawBoundingRect(i.brectUV, p);
     p = drawPivot(i, p);
     return linear_to_srgb(p);

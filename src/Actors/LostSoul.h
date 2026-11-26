@@ -36,15 +36,21 @@ private:
     enum class State
     {
         Init,
+        FlashSpawn,
+        FadingIn,
         Idle,
         Moving,
         Turning,
     };
 
+    void EnterFlashSpawn(Game& game);
+    void EnterFadingIn(Game& game);
     void EnterIdle(Game& game);
     void EnterMoving(Game& game);
     void EnterTurning(Game& game);
 
+    void TickFlashSpawn(const float deltaTime, Game& game);
+    void TickFadingIn(const float deltaTime, Game& game);
     void TickIdle(const float deltaTime, Game& game);
     void TickMoving(const float deltaTime, Game& game);
     void TickTurning(const float deltaTime, Game& game);

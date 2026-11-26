@@ -68,7 +68,7 @@ struct ActorTypeDef
     /// The unique name of the actor type.
     ResourceName Name;
     /// Actor class identifier.
-    ResourceName ActorClassName;
+    ResourceName ClassName;
     /// Identifies the sprite associated with this actor type - i.e. the appearance of
     /// actors of this type.
     /// Sometimes this sprite is only used as a place holder in the level editor and may not
@@ -77,11 +77,19 @@ struct ActorTypeDef
 };
 
 /// Defines a prop within the level.
-struct PropDef
+struct PropInstanceDef
 {
     /// The type of the prop.
     ResourceName TypeName;
     /// The transform (location/rotation) of the prop within the level.
+    Transform2D Transform;
+};
+
+struct ActorInstanceDef
+{
+    /// The type of the actor.
+    ResourceName TypeName;
+    /// The transform (location/rotation) of the actor within the level.
     Transform2D Transform;
 };
 
@@ -118,7 +126,8 @@ struct LevelDef
     std::span<const SpriteDef> SpriteDefs;
     std::span<const PropTypeDef> PropTypeDefs;
     std::span<const ActorTypeDef> ActorTypeDefs;
-    std::span<const PropDef> PropDefs;
+    std::span<const PropInstanceDef> PropInstDefs;
+    std::span<const ActorInstanceDef> ActorInstDefs;
     std::span<const AudioClipDef> AudioClipDefs;
 
     Result<const SpriteFrameSequenceDef&> GetSpriteFrameSequenceDef(const ResourceName& name) const;

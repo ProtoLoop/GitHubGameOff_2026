@@ -9,8 +9,14 @@ public:
     /// Starts the countdown timer.
     void Start(const float duration);
 
+    /// Returns the initial duration of the timer.
+    float GetDuration() const;
+
     /// Returns true if the countdown has finished.
     bool IsExpired() const;
+    
+    /// Returns the remaining time until the timer expires.
+    float GetRemaining() const;
 
     /// Updates the timer by delta time.
     void Tick(float deltaTime);

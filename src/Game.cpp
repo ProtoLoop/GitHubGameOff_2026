@@ -4,6 +4,11 @@
 #include "Renderer.h"
 #include "ResourceDefs.h"
 
+namespace
+{
+constexpr bool kDrawRectangles = false;
+} // namespace
+
 Game::Game(Input& input,
     std::unique_ptr<Level>&& level,
     std::unique_ptr<Renderer>&& renderer,
@@ -24,7 +29,7 @@ Game::Create(Input& input,
 {
     Game game(input, std::move(level), std::move(renderer), std::move(audioPlayer));
 
-    for(const PropDef& propDef : levelDef.PropDefs)
+    for(const PropInstanceDef& propDef : levelDef.PropInstDefs)
     {
         const auto propTypeDefResult = levelDef.GetPropTypeDef(propDef.TypeName);
         GG_CHECK(propTypeDefResult, "Failed to get prop type definition for {}", propDef.TypeName);
@@ -32,6 +37,21 @@ Game::Create(Input& input,
         GG_CHECK(game.SpawnProp(propTypeDefResult->SpriteName, propDef.Transform),
             "Failed to spawn prop: {}",
             propTypeDefResult->SpriteName);
+    }
+
+    for(const ActorInstanceDef& actorDef : levelDef.ActorInstDefs)
+    {
+        const auto actorTypeDefResult = levelDef.GetActorTypeDef(actorDef.TypeName);
+        GG_CHECK(actorTypeDefResult, "Failed to get actor type definition for {}", actorDef.TypeName);
+
+        if(GG_VERIFYB(actorTypeDefResult->ClassName == "Tombstone",
+               "Unknown actor class: {}",
+               actorTypeDefResult->ClassName))
+        {
+            GG_CHECK(game.SpawnTombstone(actorTypeDefResult->SpriteName, actorDef.Transform),
+                "Failed to spawn tombstone: {}",
+                actorTypeDefResult->SpriteName);
+        }
     }
     return std::move(game);
 }
@@ -44,16 +64,6 @@ Game::Begin()
     GG_TRYB(caretaker, Caretaker::Create(*this), "Failed to create caretaker");
 
     m_Caretaker = std::move(caretaker);
-
-    for(size_t i = 0; i < kMaxLostSouls; ++i)
-    {
-        Transform2D transform;
-        // NOLINTNEXTLINE(readability-magic-numbers)
-        transform.Pos.x = m_EntityRng.NextInRange(-14.0f, 14.0f);
-        // NOLINTNEXTLINE(readability-magic-numbers)
-        transform.Pos.y = m_EntityRng.NextInRange(-14.0f, 14.0f);
-        GG_CHECK(SpawnLostSoul(transform), "Failed to spawn lost soul");
-    }
 
     m_Stage = Stage::Running;
     return Result<>::Ok;
@@ -75,7 +85,21 @@ Game::SpawnProp(const std::string_view spriteName, const Transform2D& transform)
     return Result<>::Ok;
 }
 
-Result<const LostSoul&>
+Result<EntityId>
+Game::SpawnTombstone(const std::string_view spriteName, const Transform2D& transform)
+{
+    GG_CHECKB(m_Tombstones.size() < m_Tombstones.capacity(), "Maximum number of tombstones reached");
+
+    GG_TRYB(tombstone,
+        Tombstone::Create(*this, spriteName),
+        "Failed to create tombstone: {}",
+        spriteName);
+    tombstone.MoveTo(transform.Pos.x, transform.Pos.y);
+    tombstone.RotateTo(transform.Rot);
+    return m_Tombstones.emplace_back(std::move(tombstone)).GetEntityId();
+}
+
+Result<EntityId>
 Game::SpawnLostSoul(const Transform2D& transform)
 {
     GG_CHECKB(m_LostSouls.size() < m_LostSouls.capacity(), "Maximum number of lost souls reached");
@@ -83,7 +107,7 @@ Game::SpawnLostSoul(const Transform2D& transform)
     GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
     lostSoul.MoveTo(transform.Pos.x, transform.Pos.y);
     lostSoul.RotateTo(transform.Rot);
-    return m_LostSouls.emplace_back(std::move(lostSoul));
+    return m_LostSouls.emplace_back(std::move(lostSoul)).GetEntityId();
 }
 
 Result<>
@@ -167,7 +191,13 @@ Result<>
 Game::TickEntities(float deltaTime)
 {
     GG_CHECK(m_Caretaker->Tick(deltaTime, *this));
-    for(auto& lostSoul : m_LostSouls)
+
+    for(Tombstone& tombstone : m_Tombstones)
+    {
+        GG_CHECK(tombstone.Tick(deltaTime, *this));
+    }
+
+    for(LostSoul& lostSoul : m_LostSouls)
     {
         GG_CHECK(lostSoul.Tick(deltaTime, *this));
     }
@@ -181,8 +211,11 @@ Game::RenderSprites()
 
     GG_CHECK(m_Caretaker->Render(renderer));
 
-    QueueFrameRect(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
-    QueueCollisionRects(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
+    if(kDrawRectangles)
+    {
+        QueueFrameRect(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
+        QueueCollisionRects(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
+    }
 
     for(const LostSoul& lostSoul : m_LostSouls)
     {
@@ -190,8 +223,24 @@ Game::RenderSprites()
 
         const SpriteFrame& spriteFrame = lostSoul.GetSpriteFrame();
 
-        QueueFrameRect(spriteFrame, lostSoul.GetTransform());
-        QueueCollisionRects(spriteFrame, lostSoul.GetTransform());
+        if(kDrawRectangles)
+        {
+            QueueFrameRect(spriteFrame, lostSoul.GetTransform());
+            QueueCollisionRects(spriteFrame, lostSoul.GetTransform());
+        }
+    }
+
+    for(const Tombstone& tombstone : m_Tombstones)
+    {
+        GG_CHECK(tombstone.Render(renderer));
+
+        const SpriteFrame& spriteFrame = tombstone.GetSpriteFrame();
+
+        if(kDrawRectangles)
+        {
+            QueueFrameRect(spriteFrame, tombstone.GetTransform());
+            QueueCollisionRects(spriteFrame, tombstone.GetTransform());
+        }
     }
 
     for(const Prop& prop : m_Props)
@@ -199,8 +248,11 @@ Game::RenderSprites()
         GG_CHECK(prop.Render(renderer));
         const SpriteFrame& spriteFrame = prop.GetSpriteFrame();
 
-        QueueFrameRect(spriteFrame, prop.GetTransform());
-        QueueCollisionRects(spriteFrame, prop.GetTransform());
+        if(kDrawRectangles)
+        {
+            QueueFrameRect(spriteFrame, prop.GetTransform());
+            QueueCollisionRects(spriteFrame, prop.GetTransform());
+        }
     }
 
     return Result<>::Ok;

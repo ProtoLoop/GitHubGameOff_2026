@@ -28,7 +28,8 @@ private:
         BoundedVector<SpriteDef>&& spriteDefs,
         BoundedVector<PropTypeDef>&& propTypeDefs,
         BoundedVector<ActorTypeDef>&& actorTypeDefs,
-        BoundedVector<PropDef>&& propDefs,
+        BoundedVector<PropInstanceDef>&& propInstDefs,
+        BoundedVector<ActorInstanceDef>&& actorInstDefs,
         BoundedVector<AudioClipDef>&& audioClipDefs)
         : m_CellsPerSide(cellsPerSide),
           m_TileSheetPaths(std::move(tileSheetPaths)),
@@ -38,7 +39,8 @@ private:
           m_SpriteDefs(std::move(spriteDefs)),
           m_PropTypeDefs(std::move(propTypeDefs)),
           m_ActorTypeDefs(std::move(actorTypeDefs)),
-          m_PropDefs(std::move(propDefs)),
+          m_PropInstDefs(std::move(propInstDefs)),
+          m_ActorInstDefs(std::move(actorInstDefs)),
           m_AudioClipDefs(std::move(audioClipDefs))
     {
     }
@@ -51,7 +53,8 @@ private:
     BoundedVector<SpriteDef> m_SpriteDefs;
     BoundedVector<PropTypeDef> m_PropTypeDefs;
     BoundedVector<ActorTypeDef> m_ActorTypeDefs;
-    BoundedVector<PropDef> m_PropDefs;
+    BoundedVector<PropInstanceDef> m_PropInstDefs;
+    BoundedVector<ActorInstanceDef> m_ActorInstDefs;
     BoundedVector<AudioClipDef> m_AudioClipDefs;
     LevelDef m_LevelDef //
         {
@@ -65,7 +68,8 @@ private:
             .SpriteDefs{ m_SpriteDefs },
             .PropTypeDefs{ m_PropTypeDefs },
             .ActorTypeDefs{ m_ActorTypeDefs },
-            .PropDefs{ m_PropDefs },
+            .PropInstDefs{ m_PropInstDefs },
+            .ActorInstDefs{ m_ActorInstDefs },
             .AudioClipDefs{ m_AudioClipDefs },
         };
 };

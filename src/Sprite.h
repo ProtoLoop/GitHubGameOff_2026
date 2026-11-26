@@ -42,6 +42,10 @@ public:
     /// Returns the scale factor for the sprite.
     float GetScale() const { return m_Scale; }
 
+    /// Sets the color tint for the sprite.
+    /// Overrides whatever tint with which the sprite was configured.
+    void SetTint(const glm::vec4& tint) { m_Tint = tint; }
+
     /// Returns the color tint for the sprite.
     const glm::vec4& GetTint() const { return m_Tint; }
 
@@ -216,7 +220,7 @@ public:
 private:
     friend Sprite;
 
-    explicit Instance(const Sprite& anim);
+    explicit Instance(const Sprite& sprite);
 
     const Sprite* m_Sprite;
 

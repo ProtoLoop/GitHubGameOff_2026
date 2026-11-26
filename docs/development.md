@@ -453,8 +453,9 @@ Level startup separates parsing from resource loading. `LevelParser` fetches the
 level file and returns a `ParsedLevel` that owns the parsed definitions. Its
 `LevelDef` view borrows that storage. `LoadingState` retains the parsed data while
 `LevelLoader` validates resource references and builds the level. `Game::Create`
-then uses the retained placement definitions to spawn initial props. The parsed
-definitions are released when the loading state is replaced by the created game.
+then uses the retained placement definitions to spawn initial props and actors.
+The parsed definitions are released when the loading state is replaced by the
+created game.
 
 `Game` owns the level, renderer, audio player, actors, and props. Entities
 own their transforms and animation playback state. `Level` owns the cell map,
@@ -465,12 +466,15 @@ borrow sequences from the catalog. Gameplay actors and decorative props hold
 Actors and props are destroyed before the level resources they borrow. Within
 the level, sprites are destroyed before sequences.
 
-Mosaic now writes version 27 with explicit prop and actor definitions. Its prop
-placements reference `propTypes` by name instead of directly referencing sprites.
-The C++ loader parses `propTypes` and `actorTypes`. Prop placements reference
-`propTypes` through their `type` field, and the game resolves these definitions
-to create props. Actor placements remain editor-only: the runtime does not yet
-parse or instantiate them.
+Mosaic writes version 27 with explicit `propTypes` and `actorTypes` catalogs. The
+C++ loader parses both catalogs and their placements. Each placement's `type`
+field identifies an entry in the corresponding catalog. `Game::Create` resolves
+these definitions and applies each placement's position and rotation.
+
+Actor definitions identify their runtime implementation through `class`. The
+game currently supports `Tombstone`. Unsupported classes are logged and their
+placements skipped, allowing startup to continue. Missing type definitions or
+failures to create supported actors cause startup to fail.
 
 Gameplay actors use the same level-defined sprite catalog as decorative props.
 They resolve required resources from the level and request audio playback

@@ -49,6 +49,23 @@ public:
         return std::string_view(lhs) <=> rhs;
     }
 
+    friend constexpr auto operator<=>(std::string_view lhs, const InlineString& rhs)
+    {
+        return lhs <=> std::string_view(rhs);
+    }
+
+    template<std::size_t M>
+    friend constexpr auto operator<=>(const InlineString& lhs, const char (&rhs)[M])
+    {
+        return std::string_view(lhs) <=> std::string_view(&rhs[0], M - 1);
+    }
+
+    template<std::size_t M>
+    friend constexpr auto operator<=>(const char (&lhs)[M], const InlineString& rhs)
+    {
+        return std::string_view(&lhs[0], M - 1) <=> std::string_view(rhs);
+    }
+
     friend constexpr bool operator==(const InlineString& lhs, const InlineString& rhs)
     {
         return std::string_view(lhs) == std::string_view(rhs);
@@ -57,6 +74,23 @@ public:
     friend constexpr bool operator==(const InlineString& lhs, std::string_view rhs)
     {
         return std::string_view(lhs) == rhs;
+    }
+
+    friend constexpr bool operator==(std::string_view lhs, const InlineString& rhs)
+    {
+        return lhs == std::string_view(rhs);
+    }
+
+    template<std::size_t M>
+    friend constexpr bool operator==(const InlineString& lhs, const char (&rhs)[M])
+    {
+        return std::string_view(lhs) == std::string_view(&rhs[0], M - 1);
+    }
+
+    template<std::size_t M>
+    friend constexpr bool operator==(const char (&lhs)[M], const InlineString& rhs)
+    {
+        return std::string_view(&lhs[0], M - 1) == std::string_view(rhs);
     }
 
     constexpr const char* c_str() const { return data.data(); }

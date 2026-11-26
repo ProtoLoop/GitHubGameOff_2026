@@ -2,6 +2,7 @@
 
 #include "Actors/Caretaker.h"
 #include "Actors/LostSoul.h"
+#include "Actors/Tombstone.h"
 #include "AudioPlayer.h"
 #include "Level.h"
 #include "Prop.h"
@@ -52,7 +53,10 @@ public:
 
     Result<> SpawnProp(const std::string_view spriteName, const Transform2D& transform);
 
-    Result<const LostSoul&> SpawnLostSoul(const Transform2D& transform);
+    Result<EntityId> SpawnTombstone(const std::string_view spriteName,
+        const Transform2D& transform);
+
+    Result<EntityId> SpawnLostSoul(const Transform2D& transform);
 
     Result<> QueueDespawn(const LostSoul& lostSoul);
 
@@ -61,7 +65,7 @@ public:
     bool IsRunning() const { return m_Stage == Stage::Running; }
 
 private:
-    static constexpr size_t kMaxLostSouls = 10;
+    static constexpr size_t kMaxLostSouls = 64; // Also tombstones
     static constexpr size_t kMaxProps = 1024;
 
     enum class Stage
@@ -101,6 +105,7 @@ private:
     BoundedVector<Prop> m_Props{ kMaxProps };
 
     BoundedVector<LostSoul> m_LostSouls{ kMaxLostSouls };
+    BoundedVector<Tombstone> m_Tombstones{ kMaxLostSouls };
 
     BoundedVector<EntityId> m_DespawnQueue{ kMaxLostSouls };
 

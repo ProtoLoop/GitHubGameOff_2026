@@ -94,20 +94,14 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
         const Dimension2D size = def.Size ? *def.Size : kNullSize;
         const Rect srcRect = def.SrcRect ? *def.SrcRect : kNullRect;
 
-        GG_CHECKB(size.w> 0 && size.h > 0,
+        GG_CHECKB(size.w > 0 && size.h > 0,
             "Sprite size must be greater than zero: {} : {}",
             def.Name,
             def.TexturePath);
 
-        GG_CHECKB(def.Tint.r >= 0.0f
-                && def.Tint.r <= 1.0f
-                && def.Tint.g >= 0.0f
-                && def.Tint.g <= 1.0f
-                && def.Tint.b >= 0.0f
-                && def.Tint.b <= 1.0f
-                && def.Tint.a >= 0.0f
-                && def.Tint.a <= 1.0f,
-            "Tint values must be between 0 and 1: {} : {}",
+        GG_CHECKB(
+            def.Tint.r >= 0.0f && def.Tint.g >= 0.0f && def.Tint.b >= 0.0f && def.Tint.a >= 0.0f,
+            "Tint values must be non-negative: {} : {}",
             def.Name,
             def.TexturePath);
 
