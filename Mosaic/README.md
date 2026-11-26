@@ -27,7 +27,7 @@ project is `project2`. Copy its asset folders to make a new project.
 Project2 contains 48 sequences grouped into 27 sprites: 24 static sprites and
 three directional actor sprites. The referenced actor textures are present in the
 project. There is no fallback to repository-level assets.
-Mosaic reads and writes version 27 only, with no migration support. Existing
+Mosaic reads and writes version 28 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -102,7 +102,7 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   Saves write the name explicitly and preserve it on reload. Name collisions
   require explicit names in JSON. Multiple sequences may share one texture.
   `tint: { r, g, b, a }` multiplies each color and alpha channel, with components
-  from 0 to 1. Omission means white. Edit metadata in JSON and reload.
+  that are finite and non-negative, with no upper limit. Omission means white. Edit metadata in JSON and reload.
   Referenced textures may be anywhere under the project's `assets/` directory.
   Automatic discovery still appends only images under `assets/props/` that are
   not already referenced by the catalog.
@@ -169,9 +169,7 @@ Use one editor per project because concurrent saves overwrite each other.
 Run checks with `cmake --build Mosaic/build --target check`.
 See [FILE_FORMATS.md](docs/FILE_FORMATS.md) for the JSON and HTTP contract.
 
-Mosaic reads and writes version 27 only, with no migration loader. The checked-in
-levels contain explicit prop and actor catalogs. Tombstone appearances were
-assigned once in those files, not by editor logic. The C++ loader parses
-`propTypes` and `actorTypes`. Prop placements reference `propTypes` through their
-`type` field, and the game resolves these definitions to create props. Actor
-placements remain editor-only: the runtime does not yet parse or instantiate them.
+Mosaic reads and writes version 28 only, without migration support. The game loads
+prop and actor placements from their type catalogs. Actors currently support the
+`Tombstone` class. Unsupported classes are logged and skipped. See the
+[runtime boundary](../docs/development.md#runtime-boundary) for details.

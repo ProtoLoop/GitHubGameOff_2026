@@ -325,7 +325,7 @@ export function validateDocument(project: ProjectDocument): void
         if(names.has(name)) { fail(`duplicate sequence name: ${name}`); }
         names.add(name);
         const tint = sequenceTint(asset);
-        if([tint.r, tint.g, tint.b, tint.a].some((value) => !Number.isFinite(value) || value < 0 || value > 1))
+        if([tint.r, tint.g, tint.b, tint.a].some((value) => !Number.isFinite(value) || value < 0))
         {
             fail("invalid sequence tint");
         }

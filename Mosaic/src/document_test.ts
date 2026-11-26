@@ -280,3 +280,25 @@ Deno.test("map size controls occupancy lengths and prop bounds, and participates
     smaller.gridSize = 2;
     assert.throws(() => validateDocument(smaller), /painted-cell grid/);
 });
+
+
+Deno.test("sequence tint accepts non-negative multipliers and rejects nonfinite values", () => {
+    const project = createDocument([asset("tile")], [asset("mask")]);
+    const image: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a",
+        blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 20 },
+        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+    for(const key of ["r", "g", "b", "a"])
+    {
+        for(const value of [0, 0.5, 1, 2, Number.MAX_VALUE])
+        {
+            project.sequences = [{ ...image, tint: { r: 1, g: 1, b: 1, a: 1, [key]: value } }];
+            validateDocument(project);
+        }
+        for(const value of [-0.1, NaN, Infinity, -Infinity])
+        {
+            project.sequences = [{ ...image, tint: { r: 1, g: 1, b: 1, a: 1, [key]: value } }];
+            assert.throws(() => validateDocument(project), /tint/);
+        }
+    }
+});

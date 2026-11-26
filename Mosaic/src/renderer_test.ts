@@ -516,6 +516,12 @@ Deno.test("frame-zero tint multiplies RGBA pixels once and shares the cached pre
         assert.deepEqual({ x: frame.x, y: frame.y, w: frame.w, h: frame.h }, { x: 0, y: 0, w: 2, h: 1 });
         assert.equal(propFrameSource(asset).image, frame.image);
         assert.equal(calls.length, 1);
+        const amplified = { ...asset, tint: { r: 2, g: 3, b: 0, a: 2 } };
+        const amplifiedFrame = propFrameSource(amplified);
+        assert.deepEqual(Array.from(result!), [255, 255, 0, 255, 160, 120, 0, 0]);
+        assert.deepEqual(amplified.tint, { r: 2, g: 3, b: 0, a: 2 });
+        assert.equal(propFrameSource(amplified).image, amplifiedFrame.image);
+        assert.equal(calls.length, 2);
         assert.deepEqual(propFrameSource({ ...asset, tint: undefined }), { image, x: 4, y: 2, w: 2, h: 1 });
         assert.deepEqual(propFrameSource({ ...asset, size: undefined, tint: undefined }), { image, x: 4, y: 2, w: 16, h: 8 });
     }

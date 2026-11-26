@@ -1112,7 +1112,8 @@ and the [Mosaic guide](../../Mosaic/README.md).
 
 ## Mosaic placement types and actor classes
 
-Date: 2026-11-26. Status: Accepted.
+Date: 2026-11-26. Status: Accepted. Version support is superseded by
+[Mosaic non-negative tint multipliers](#mosaic-non-negative-tint-multipliers).
 
 Version 27 names both prop and actor placement references `type`. Each resolves
 within its corresponding `propTypes` or `actorTypes` catalog. Actor definitions
@@ -1127,3 +1128,28 @@ preserving their other data. This supersedes version support and field names in
 C++ integration remains separate. No dependencies or build requirements change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements).
+
+
+## Mosaic non-negative tint multipliers
+
+Date: 2026-11-26. Status: Accepted.
+
+Version 28 accepts finite, non-negative values for every sequence tint component
+(`r`, `g`, `b`, and `a`), with no upper limit. Values above 1 amplify channels,
+allowing preview pixels to saturate. Keeping the upper limit of 1 would prevent
+level authors from expressing these effects through shared sequence metadata.
+
+Loading, document validation, and saving preserve these multipliers. The existing
+preview renderer multiplies channels into clamped 8-bit pixel storage, so pixels
+saturate at 255 without clamping the stored tint. Omission still means white,
+and explicit tint objects still require all four components. Negative and
+nonfinite values remain invalid.
+
+Mosaic reads and writes version 28 only, without migration support. Version 27
+rejects values above 1, so the accepted format range requires a version bump.
+Project1 advances its version while retaining its tint values. This supersedes
+version support in [placement types and actor classes](#mosaic-placement-types-and-actor-classes)
+and the upper tint bound introduced with [named sprite sequences](#mosaic-named-sprite-sequences).
+C++ files, dependencies, and build requirements are unchanged.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).

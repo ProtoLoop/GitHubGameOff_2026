@@ -36,7 +36,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([formatJson({
-        format: "mosaic", version: 27,
+        format: "mosaic", version: 28,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
@@ -124,14 +124,14 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function projectTexturePaths(blob: Blob): Promise<string[]>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 27) { throw new Error("Unsupported Mosaic project format/version"); }
+    if(data.format !== "mosaic" || data.version !== 28) { throw new Error("Unsupported Mosaic project format/version"); }
     return [...new Set(list(data.sequences, 0, 256).map((entry) => assetId(object(entry).texPath)))];
 }
 
 export async function readProject(blob: Blob, available: readonly (ImageAsset | SpriteSequence)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 27)
+    if(data.format !== "mosaic" || data.version !== 28)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -182,7 +182,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         for(const key of ["r", "g", "b", "a"])
         {
             const value = tintData[key];
-            if(typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1)
+            if(typeof value !== "number" || !Number.isFinite(value) || value < 0)
             {
                 throw new Error("Invalid sequence tint");
             }

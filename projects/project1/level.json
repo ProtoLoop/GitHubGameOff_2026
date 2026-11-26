@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 27,
+  "version": 28,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/coast_sand_rocks_02_diff_1k.png",

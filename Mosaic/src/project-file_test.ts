@@ -26,7 +26,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 27,'));
+    assert(text.includes('\n  "version": 28,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "sequences", "sprites", "propTypes", "actorTypes", "props", "actors", "layers", "editor"]);
@@ -419,7 +419,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.nextPlacementId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 27);
+        assert.equal(data.version, 28);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);
@@ -563,7 +563,7 @@ Deno.test("named sequences share textures, preserve optional frame dimensions an
     const data = JSON.parse(await (await writeProject(project)).text());
     const entries = [
         { name: "Walk", texPath: "/" + asset.id, srcRect: { x: 16, y: 8, w: 100, h: 40 },
-            size: { w: 24, h: 16 }, tint: { r: 0.5, g: 0.25, b: 1, a: 0.7 } },
+            size: { w: 24, h: 16 }, tint: { r: 2, g: 0, b: 3, a: 1.5 } },
         { name: "Portrait", texPath: "/" + asset.id, srcRect: { x: 16, y: 8, w: 32, h: 40 } }
     ];
     data.sequences = entries;
@@ -604,11 +604,17 @@ Deno.test("sequence metadata rejects invalid names, frame dimensions and tints",
         ...[null, {}, [], { w: 8 }, { w: 0, h: 8 }, { w: 33, h: 8 }, { w: 8, h: 33 },
             { w: 1.5, h: 8 }].map((size) => ({ size })),
         ...[null, {}, [], { r: 1, g: 1, b: 1 }, { r: -0.1, g: 1, b: 1, a: 1 },
-            { r: 1, g: 1, b: 1, a: 1.1 }].map((tint) => ({ tint }))
+            { r: 1, g: 1, b: 1, a: -0.1 }].map((tint) => ({ tint }))
     ])
     {
         data.sequences = [{ ...entry, ...fields }];
         await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
+    }
+    for(const key of ["r", "g", "b", "a"])
+    {
+        data.sequences = [{ ...entry, tint: { r: 1, g: 1, b: 1, a: 1, [key]: "overflow" } }];
+        await assert.rejects(() => readProject(
+            new Blob([JSON.stringify(data).replace('"overflow"', "1e400")]), [tile, mask, asset]), /tint/);
     }
     data.sequences = [entry, { ...entry, size: { w: 8, h: 8 } }];
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
@@ -728,6 +734,7 @@ Deno.test("explicit object catalogs round-trip by name without promoting discove
     for(const corrupt of [
         (d: typeof data) => { d.version = 25; },
         (d: typeof data) => { d.version = 26; },
+        (d: typeof data) => { d.version = 27; },
         (d: typeof data) => { d.props[0].prop = d.props[0].type; delete d.props[0].type; },
         (d: typeof data) => { d.actors[0].actor = d.actors[0].type; delete d.actors[0].type; },
         (d: typeof data) => { d.actorTypes[0].type = d.actorTypes[0].class; delete d.actorTypes[0].class; },

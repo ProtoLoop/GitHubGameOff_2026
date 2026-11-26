@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 27`. Only version 27 is supported.
+The container has `format: "mosaic"` and `version: 28`. Only version 28 is supported.
 Older versions are rejected. There is no migration loader.
 
 Saves use two-space indentation, with small objects containing only scalar values
@@ -52,7 +52,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-Extension preservation was introduced in version 21 and continues in version 27.
+Extension preservation was introduced in version 21 and continues in version 28.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -267,7 +267,9 @@ and picking are relative to one frame. Without `size`, existing static props kee
 their source-rectangle geometry.
 
 `tint: { r, g, b, a }` multiplies the source RGB and alpha channels in all sprite
-previews. Every component must be a finite number in `[0, 1]`. Omission defaults
+previews. Every component must be a finite, non-negative number, with no upper limit.
+Values above 1 amplify channels. Preview pixels saturate at 255, while saves
+preserve the original tint multipliers. Omission defaults
 all four components to 1. Explicit tint objects require all four components.
 Arrays, `null`, and incomplete objects are invalid. Saves write tint explicitly.
 Tinted frame-zero images are cached per immutable catalog entry while the decoded
