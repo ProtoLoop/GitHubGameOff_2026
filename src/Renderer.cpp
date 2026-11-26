@@ -632,6 +632,8 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget,
 
     renderPass.SetViewport(vpX, vpY, vpW, vpH, 0.0f, 1.0f);
 
+    renderPass.SetScissorRect(0, 0, renderTarget.GetWidth(), renderTarget.GetHeight());
+
     return Result<>::Ok;
 }
 
