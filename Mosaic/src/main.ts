@@ -1,10 +1,10 @@
 import { listDirectory, loadProject } from "./project-http.ts";
 import { documentAssets, sameTerrainContent,
-    type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type SpriteSequence } from "./document.ts";
+    type ProjectDocument, type Layer, type ImageAsset as TileAtlas, type SpriteSequence, type ObjectDefinition } from "./document.ts";
 import { Editor, type Tool, type EditResult } from "./editor.ts";
 import { History } from "./history.ts";
 import { writeProject } from "./project-file.ts";
-import { drawTerrainRegion, drawCoverageRegion, drawProps, propFrameSource, type ImagePreview, type RenderView } from "./renderer.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawObjects, propFrameSource, type ImagePreview, type RenderView } from "./renderer.ts";
 import { kCellSize, kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
 import { mapPoint, type Point } from "./props.ts";
@@ -69,7 +69,7 @@ function renderPropOverlay(): void
 {
     if(overlayFrame !== null) { cancelAnimationFrame(overlayFrame); overlayFrame = null; }
     let preview: ImagePreview | null = null;
-    const asset = editor.tool === "place" ? editor.selectedSprite?.sequences[0] : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
+    const asset = editor.tool === "place" ? editor.selectedDefinition?.sprite.sequences[0] : editor.tool === "terrain" ? editor.getLayer(editor.document.activeLayerId).sheet : null;
     if(asset && hoverClient && editor.activeGesture?.kind !== "pan" && !fileBusy
         && !dialogOpen())
     {
@@ -94,33 +94,33 @@ function renderPropOverlay(): void
                     } };
                 }
             }
-            else { preview = { asset, ...point }; }
+            else { preview = { asset, ...point, actor: editor.selectedDefinition?.kind === "actor" }; }
         }
     }
-    drawProps(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPropIds, preview, editor.selectionBox, required("show-collision-rects", HTMLInputElement).checked);
+    drawObjects(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPlacementIds, preview, editor.selectionBox, required("show-collision-rects", HTMLInputElement).checked);
 }
 
 function updatePropControls(): void
 {
-    const selected = editor.selectedPropIds.size === 1 ? editor.document.props.find((prop) => editor.selectedPropIds.has(prop.id)) : undefined;
-    required("prop-selection", HTMLOutputElement).value = (selected ? selected.sprite.name : undefined)
-        ?? (editor.selectedPropIds.size > 1 ? `${editor.selectedPropIds.size} props selected` : "No prop selected");
+    const selected = editor.selectedPlacementIds.size === 1 ? editor.document.placements.find((prop) => editor.selectedPlacementIds.has(prop.id)) : undefined;
+    required("prop-selection", HTMLOutputElement).value = (selected ? `${selected.definition.name} (${selected.definition.kind === "actor" ? selected.definition.class : "prop"})` : undefined)
+        ?? (editor.selectedPlacementIds.size > 1 ? `${editor.selectedPlacementIds.size} objects selected` : "No object selected");
 }
 
-function renderPropPalette(): void
+function renderObjectPalette(id: string, definitions: readonly ObjectDefinition[]): void
 {
-    const palette = required("prop-palette", HTMLDivElement);
+    const palette = required(id, HTMLDivElement);
     palette.replaceChildren();
-    for(const sprite of editor.document.sprites)
+    for(const definition of definitions)
     {
-        const asset = sprite.sequences[0];
+        const asset = definition.sprite.sequences[0];
         const button = document.createElement("button");
         button.type = "button";
         button.className = "material-choice";
         const source = propFrameSource(asset);
-        button.title = `${sprite.name} — ${asset.id} (${source.w}×${source.h})`;
-        button.setAttribute("aria-label", sprite.name);
-        button.setAttribute("aria-pressed", String(editor.tool === "place" && sprite === editor.selectedSprite));
+        button.title = `${definition.name} — ${asset.id} (${source.w}×${source.h})`;
+        button.setAttribute("aria-label", definition.name);
+        button.setAttribute("aria-pressed", String(editor.tool === "place" && definition === editor.selectedDefinition));
         const preview = document.createElement("canvas");
         preview.width = 56;
         preview.height = 56;
@@ -136,14 +136,14 @@ function renderPropPalette(): void
         button.append(preview);
         button.addEventListener("click", () => {
             finishInteraction("commit");
-            editor.chooseProp(sprite);
+            editor.chooseDefinition(definition);
             refreshTool();
         });
         palette.append(button);
     }
-    if(editor.document.sprites.length === 0)
+    if(definitions.length === 0)
     {
-        palette.textContent = "Add images to assets/props/ and reload the project.";
+        palette.textContent = "Add definitions to level.json and reload the project.";
     }
 }
 
@@ -151,7 +151,8 @@ function refreshTool(): void
 {
     controls.map.dataset.tool = editor.tool;
     renderPalette();
-    renderPropPalette();
+    renderObjectPalette("prop-palette", editor.document.propTypes);
+    renderObjectPalette("actor-palette", editor.document.actorTypes);
     updatePropControls();
     drawPropOverlay();
 }
@@ -338,7 +339,7 @@ function startInteraction(event: PointerEvent): void
         }
         else if(event.button === 0)
         {
-            if(editor.tool === "place") { applyEdit(() => editor.placeProp(propPoint(event))); }
+            if(editor.tool === "place") { applyEdit(() => editor.placeObject(propPoint(event))); }
             else
             {
                 editor.beginSelection(event.pointerId, propPoint(event), clientPoint(event), event.shiftKey);
@@ -604,12 +605,14 @@ function requestMapResize(event: SubmitEvent): void
     finishInteraction("commit");
     const oldSize = editor.document.gridSize;
     pendingMapSize = size;
-    const removed = editor.document.props.filter((prop) => Math.abs(prop.x) > size / 2 || Math.abs(prop.y) > size / 2).length;
+    const cropped = editor.document.placements.filter((prop) => Math.abs(prop.x) > size / 2 || Math.abs(prop.y) > size / 2);
+    const removedProps = cropped.filter((placement) => placement.definition.kind === "prop").length;
+    const removedActors = cropped.length - removedProps;
     required("resize-dimensions", HTMLParagraphElement).textContent =
         `Change from ${oldSize} × ${oldSize} cells (${oldSize * kCellSize} × ${oldSize * kCellSize} pixels) to ${size} × ${size} cells (${size * kCellSize} × ${size * kCellSize} pixels).`;
     required("resize-consequences", HTMLParagraphElement).textContent = size > oldSize
-        ? "The map center stays fixed. New space is added equally on all four sides, filled with base terrain and empty overlays. Existing props keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid."
-        : `The map center stays fixed. Terrain is cropped equally from all four sides of every layer. ${removed} ${removed === 1 ? "prop will" : "props will"} be removed because their pivots lie outside the new map. Remaining props keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid. Props with pivots on the boundary are kept, with artwork clipped at the map edge.`;
+        ? "The map center stays fixed. New space is added equally on all four sides, filled with base terrain and empty overlays. Existing objects keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid."
+        : `The map center stays fixed. Terrain is cropped equally from all four sides of every layer. ${removedProps} props and ${removedActors} actors will be removed because their pivots lie outside the new map. Remaining objects keep their coordinates. Terrain texture repeats and mask variations are regenerated for the resized grid. Objects with pivots on the boundary are kept, with artwork clipped at the map edge.`;
     hoverClient = null;
     required("resize-dialog", HTMLDialogElement).showModal();
     required("resize-cancel", HTMLButtonElement).focus();
@@ -768,7 +771,8 @@ function refreshDocument(previous: ProjectDocument | null): void
     controls.mapViewport.scrollTop = editor.document.view.scrollTop;
     renderMaskChoices();
     renderLayers();
-    renderPropPalette();
+    renderObjectPalette("prop-palette", editor.document.propTypes);
+    renderObjectPalette("actor-palette", editor.document.actorTypes);
     controls.map.dataset.tool = editor.tool;
     updatePropControls();
     if(previous === null || !sameTerrainContent(previous, editor.document))
@@ -970,11 +974,11 @@ globalThis.addEventListener("keydown", (event) => {
     }
     const target = event.target;
     if(target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) { return; }
-    if((event.key === "Delete" || event.key === "Backspace") && editor.selectedPropIds.size > 0
+    if((event.key === "Delete" || event.key === "Backspace") && editor.selectedPlacementIds.size > 0
         && !event.ctrlKey && !event.metaKey && !event.altKey)
     {
         event.preventDefault();
-        applyEdit(() => editor.deleteSelectedProps());
+        applyEdit(() => editor.deleteSelectedObjects());
     }
 });
 

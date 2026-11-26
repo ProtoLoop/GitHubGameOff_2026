@@ -26,10 +26,10 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 25,'));
+    assert(text.includes('\n  "version": 27,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
-    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "sequences", "sprites", "props", "layers", "editor"]);
+    assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "sequences", "sprites", "propTypes", "actorTypes", "props", "actors", "layers", "editor"]);
     assert.deepEqual(data.tileSheets, ["/" + tile.id]);
     assert.deepEqual(data.maskSheets, ["/" + mask.id]);
     assert.deepEqual(data.layers[0], { sheet: 0, cells: [] });
@@ -89,6 +89,7 @@ Deno.test("file asset paths require a project-root slash while discovered IDs re
     const project = fixture();
     project.sequences = [prop];
     project.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const blob = await writeProject(project);
     const data = JSON.parse(await blob.text());
     assert.deepEqual(data.tileSheets, ["/" + tile.id]);
@@ -253,28 +254,29 @@ Deno.test("props round-trip with catalog order, transforms and placement order i
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 5, sprite: project.sprites[0], x: 2.5, y: 3.25, rotation: 45 },
-        { id: 9, sprite: project.sprites[0], x: 1, y: 2, rotation: 270 }];
-    project.nextPropId = 10;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 5, definition: project.propTypes[0], x: 2.5, y: 3.25, rotation: 45 },
+        { id: 9, definition: project.propTypes[0], x: 1, y: 2, rotation: 270 }];
+    project.nextPlacementId = 10;
     const blob = await writeProject(project);
     const data = JSON.parse(await blob.text());
     assert.deepEqual(data.props, [
-        { sprite: sequenceName(asset), pos: { x: 2.5, y: 3.25 }, rot: 45 },
-        { sprite: sequenceName(asset), pos: { x: 1, y: 2 }, rot: 270 }
+        { type: sequenceName(asset), pos: { x: 2.5, y: 3.25 }, rot: 45 },
+        { type: sequenceName(asset), pos: { x: 1, y: 2 }, rot: 270 }
     ]);
     const loaded = await readProject(blob, [tile, mask, extra, asset]);
     assert.deepEqual(loaded.sequences, [{ ...asset, name: sequenceName(asset), size: undefined, tint: sequenceTint(asset) }, extra]);
-    assert.deepEqual(loaded.props.map(({ x, y, rotation }) => ({ x, y, rotation })),
-        project.props.map(({ x, y, rotation }) => ({ x, y, rotation })));
-    assert.equal(loaded.nextPropId, 2);
+    assert.deepEqual(loaded.placements.map(({ x, y, rotation }) => ({ x, y, rotation })),
+        project.placements.map(({ x, y, rotation }) => ({ x, y, rotation })));
+    assert.equal(loaded.nextPlacementId, 2);
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()).props, data.props);
     await assert.rejects(() => readProject(blob, [tile, mask]));
     for(const corrupt of [
         (d: typeof data) => { d.version = 7; },
         (d: typeof data) => { delete d.props; },
-        (d: typeof data) => { d.props[0].index = 0; delete d.props[0].sprite; },
+        (d: typeof data) => { d.props[0].index = 0; delete d.props[0].type; },
         (d: typeof data) => { d.props[0].rotation = d.props[0].rot; delete d.props[0].rot; },
-        (d: typeof data) => { d.props[0].sprite = "missing"; },
+        (d: typeof data) => { d.props[0].type = "missing"; },
         (d: typeof data) => { d.props[0].pos.x = "200"; },
         (d: typeof data) => { d.props[0].pos.y = null; },
         (d: typeof data) => { delete d.props[0].pos; },
@@ -303,8 +305,9 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 1, y: 2, rotation: 90 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
+    project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
     for(const fields of [{}, { pivotX: 0 }, { pivotY: 1 }, { scale: 0.25 }, { pivotX: 0.25, pivotY: 1, scale: 2 }])
     {
@@ -313,8 +316,8 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
         const expected = { pivotX: 0.5, pivotY: 0.5, scale: 1, ...fields, collisionRects: [] };
         assert.deepEqual(loaded.sequences[0], { ...asset, name: sequenceName(asset), size: undefined, tint: sequenceTint(asset), ...expected });
         assert.equal(loaded.sequences[1], extra);
-        assert.equal(loaded.props[0].sprite.sequences[0], loaded.sequences[0]);
-        assert.equal(loaded.props[0].sprite.sequences[0].image, asset.image);
+        assert.equal(loaded.placements[0].definition.sprite.sequences[0], loaded.sequences[0]);
+        assert.equal(loaded.placements[0].definition.sprite.sequences[0].image, asset.image);
         assert.deepEqual([asset.pivotX, asset.pivotY, asset.scale], [0.5, 0.5, 1]);
         const saved = await writeProject(loaded);
         assert.deepEqual(JSON.parse(await saved.text()).sequences, [
@@ -350,15 +353,16 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     const project = createDocument([first, second], [mask]);
     project.sequences = [prop];
     project.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 1, y: 2, rotation: 0 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 }];
+    project.nextPlacementId = 1;
     const blob = await writeProject(project);
     const loaded = await readProject(blob, [extra, second, first, mask, newProp, prop]);
     assert.deepEqual(loaded.tileSheets, [first, second, extra]);
     assert.deepEqual(loaded.sequences, [{ ...prop, name: sequenceName(prop), size: undefined, tint: sequenceTint(prop) }, newProp]);
     assert.equal(loaded.layers[1].sheet, second);
-    assert.equal(loaded.props[0].sprite.sequences[0], loaded.sequences[0]);
-    assert.equal(loaded.props[0].sprite.sequences[0].image, prop.image);
+    assert.equal(loaded.placements[0].definition.sprite.sequences[0], loaded.sequences[0]);
+    assert.equal(loaded.placements[0].definition.sprite.sequences[0].image, prop.image);
     const saved = JSON.parse(await (await writeProject(loaded)).text());
     assert.deepEqual(saved.tileSheets, [first, second, extra].map((asset) => "/" + asset.id));
     assert.deepEqual(saved.sequences, [prop, newProp].map((asset) => ({
@@ -377,18 +381,19 @@ Deno.test("prop coordinates round on load and save without accepting invalid bou
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 12.12349, y: 31.9998, rotation: 45 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 12.12349, y: 31.9998, rotation: 45 }];
+    project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
-    assert.deepEqual(data.props, [{ sprite: sequenceName(asset), pos: { x: 12.123, y: 32 }, rot: 45 }]);
-    assert.equal(project.props[0].x, 12.12349);
+    assert.deepEqual(data.props, [{ type: sequenceName(asset), pos: { x: 12.123, y: 32 }, rot: 45 }]);
+    assert.equal(project.placements[0].x, 12.12349);
     data.props[0].pos.x = 0.0004;
     data.props[0].pos.y = 23.56789;
     const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]);
-    assert.equal(loaded.props[0].x, 0);
-    assert.equal(loaded.props[0].y, 23.568);
+    assert.equal(loaded.placements[0].x, 0);
+    assert.equal(loaded.placements[0].y, 23.568);
     assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()).props,
-        [{ sprite: sequenceName(asset), pos: { x: 0, y: 23.568 }, rot: 45 }]);
+        [{ type: sequenceName(asset), pos: { x: 0, y: 23.568 }, rot: 45 }]);
     for(const invalid of [-32.0001, 32.0001])
     {
         data.props[0].pos.x = invalid;
@@ -409,16 +414,17 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.layers[1].painted[size * size - 1] = true;
         project.sequences = [asset];
         project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-        project.props = [{ id: 0, sprite: project.sprites[0], x: -size / 2, y: size / 2, rotation: 0 }];
-        project.nextPropId = 1;
+        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+        project.placements = [{ id: 0, definition: project.propTypes[0], x: -size / 2, y: size / 2, rotation: 0 }];
+        project.nextPlacementId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 25);
+        assert.equal(data.version, 27);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);
         assert.deepEqual(loaded.layers, project.layers);
-        assert.deepEqual(loaded.props, project.props.map((prop) => ({ ...prop, sprite: loaded.sprites[0] })));
+        assert.deepEqual(loaded.placements, project.placements.map((prop) => ({ ...prop, definition: loaded.propTypes[0] })));
         assert.deepEqual(JSON.parse(await (await writeProject(loaded)).text()), data);
         for(const corrupt of [
             (value: typeof data) => { value.layers[1].cells = [size * size]; },
@@ -447,6 +453,7 @@ Deno.test("collision rectangles default, validate and round-trip independently o
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const data = JSON.parse(await (await writeProject(project)).text());
     const collisionRects = [{ x: -0.2, y: 0.75, w: 1.5, h: 0.2 }, { x: 0.3, y: 0.8, w: 0.4, h: 0.5 }];
     for(const value of [undefined, [], collisionRects])
@@ -492,8 +499,9 @@ Deno.test("source rectangles default to the full texture and round-trip without 
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 1, y: 2, rotation: 90 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
+    project.nextPlacementId = 1;
     const before = cloneDocument(project);
     const data = JSON.parse(await (await writeProject(project)).text());
     for(const srcRect of [undefined, {}, { x: 0, y: 0, w: 80, h: 20 },
@@ -505,8 +513,8 @@ Deno.test("source rectangles default to the full texture and round-trip without 
         const fullTexture = srcRect === undefined || Object.keys(srcRect).length === 0
             || (srcRect.x === 0 && srcRect.y === 0 && srcRect.w === 80 && srcRect.h === 20);
         assert.deepEqual(loaded.sequences[0].srcRect, fullTexture ? asset.srcRect : srcRect);
-        assert.equal(loaded.props[0].sprite.sequences[0], loaded.sequences[0]);
-        assert.equal(loaded.props[0].sprite.sequences[0].image, asset.image);
+        assert.equal(loaded.placements[0].definition.sprite.sequences[0], loaded.sequences[0]);
+        assert.equal(loaded.placements[0].definition.sprite.sequences[0].image, asset.image);
         assert.deepEqual(loaded.sequences[0].collisionRects, asset.collisionRects);
         assert.equal(loaded.sequences[0].pivotX, asset.pivotX);
         const saved = await writeProject(loaded);
@@ -526,6 +534,7 @@ Deno.test("source rectangles reject malformed, fractional and out-of-texture reg
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const data = JSON.parse(await (await writeProject(project)).text());
     const rect = { x: 5, y: 2, w: 10, h: 8 };
     const invalid = [null, [], [0, 0, 80, 20], [{}], { unknown: true }, "rectangle", ...["x", "y", "w", "h"].flatMap((key) =>
@@ -559,7 +568,8 @@ Deno.test("named sequences share textures, preserve optional frame dimensions an
     ];
     data.sequences = entries;
     data.sprites = [{ name: "Actor", sequences: ["Portrait", "Walk"] }];
-    data.props = [{ sprite: "Actor", pos: { x: 0, y: 0 }, rot: 0 }];
+    data.propTypes = [{ name: "Actor", sprite: "Actor" }];
+    data.props = [{ type: "Actor", pos: { x: 0, y: 0 }, rot: 0 }];
     data.extensions = { animations: ["Walk"] };
     let loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]);
     assert.equal(loaded.sequences.length, 2);
@@ -577,7 +587,7 @@ Deno.test("named sequences share textures, preserve optional frame dimensions an
         assert.deepEqual(output.sequences[0].tint, entries[0].tint);
         assert(!Object.hasOwn(output.sequences[1], "size"));
         assert.deepEqual(output.sequences[1].tint, { r: 1, g: 1, b: 1, a: 1 });
-        assert.equal(output.props[0].sprite, "Actor");
+        assert.equal(output.props[0].type, "Actor");
         assert.deepEqual(output.extensions, data.extensions);
         loaded = await readProject(saved, [tile, mask, asset]);
     }
@@ -614,16 +624,17 @@ Deno.test("sprite names resolve independently of catalog order and discovery pre
     const project = fixture();
     project.sequences = [north, south];
     project.sprites = [{ name: "Actor", sequences: [south, north] }, { name: "Portrait", sequences: [north] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 1, y: 2, rotation: 90 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
+    project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
     data.sequences.reverse();
     data.sprites.reverse();
     const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, north, extra]);
-    assert.equal(loaded.props[0].sprite, loaded.sprites[1]);
-    assert.deepEqual(loaded.props[0].sprite.sequences.map(sequenceName), ["South", "North"]);
-    assert.equal(loaded.props[0].sprite.sequences[0], loaded.sequences[0]);
-    assert.equal(loaded.sprites[0].sequences[0], loaded.props[0].sprite.sequences[1]);
+    assert.equal(loaded.placements[0].definition.sprite, loaded.sprites[1]);
+    assert.deepEqual(loaded.placements[0].definition.sprite.sequences.map(sequenceName), ["South", "North"]);
+    assert.equal(loaded.placements[0].definition.sprite.sequences[0], loaded.sequences[0]);
+    assert.equal(loaded.sprites[0].sequences[0], loaded.placements[0].definition.sprite.sequences[1]);
     assert.deepEqual(loaded.sprites.map((sprite) => sprite.name), ["Portrait", "Actor", "Tree"]);
     assert.equal(loaded.sprites[2].sequences[0], extra);
     const saved = await writeProject(loaded);
@@ -646,8 +657,9 @@ Deno.test("sprite catalogs reject malformed names, empty groups, missing referen
     const project = fixture();
     project.sequences = [sequence];
     project.sprites = [{ name: "Stone", sequences: [sequence] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 0, y: 0, rotation: 0 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 0, y: 0, rotation: 0 }];
+    project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
     for(const corrupt of [
         (d: typeof data) => { d.version = 24; },
@@ -662,11 +674,83 @@ Deno.test("sprite catalogs reject malformed names, empty groups, missing referen
         ...[undefined, null, {}, [], ["Missing"], [0], [null], Array(257).fill("Stone")].map((sequences) =>
             (d: typeof data) => { d.sprites[0].sequences = sequences; }),
         ...[undefined, null, 0, "Missing"].map((sprite) =>
-            (d: typeof data) => { d.props[0].sprite = sprite; })
+            (d: typeof data) => { d.props[0].type = sprite; })
     ])
     {
         const invalid = structuredClone(data);
         corrupt(invalid);
         await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), [tile, mask, sequence]));
+    }
+});
+
+Deno.test("explicit object catalogs round-trip by name without promoting discovered sprites", async () => {
+    const image: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone",
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+    const project = fixture();
+    project.sequences = [image];
+    project.sprites = [{ name: "Stone", sequences: [image] }];
+    project.propTypes = [{ kind: "prop", name: "Decoration", sprite: project.sprites[0] }];
+    project.actorTypes = [
+        { kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] },
+        { kind: "actor", name: "Other Grave", class: "Tombstone", sprite: project.sprites[0] }
+    ];
+    project.placements = [
+        { id: 4, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 },
+        { id: 7, definition: project.actorTypes[0], x: -1.23456, y: 3, rotation: 45 },
+        { id: 8, definition: project.actorTypes[1], x: 2, y: -3, rotation: 90 }
+    ];
+    project.nextPlacementId = 9;
+    const data = JSON.parse(await (await writeProject(project)).text());
+    assert.deepEqual(data.props, [{ type: "Decoration", pos: { x: 1, y: 2 }, rot: 0 }]);
+    assert.deepEqual(data.actors, [
+        { type: "Grave", pos: { x: -1.235, y: 3 }, rot: 45 },
+        { type: "Other Grave", pos: { x: 2, y: -3 }, rot: 90 }
+    ]);
+    assert.deepEqual(data.actorTypes[0], { name: "Grave", class: "Tombstone", sprite: "Stone" });
+    assert(!Object.hasOwn(data.props[0], "prop"));
+    assert(!Object.hasOwn(data.actors[0], "actor"));
+    assert(!Object.hasOwn(data.actorTypes[0], "type"));
+    data.actorTypes.reverse();
+    const extra = { ...image, id: "assets/props/discovered.png" };
+    const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, image, extra]);
+    assert.equal(loaded.placements[1].definition, loaded.actorTypes[1]);
+    assert.equal(loaded.placements[2].definition, loaded.actorTypes[0]);
+    assert.equal(loaded.sprites.length, 2);
+    assert.equal(loaded.propTypes.length, 1);
+    assert.equal(loaded.actorTypes.length, 2);
+    const saved = JSON.parse(await (await writeProject(loaded)).text());
+    assert.deepEqual(saved.actorTypes, data.actorTypes);
+    assert.deepEqual(saved.actors, data.actors);
+    assert.deepEqual(saved.props, data.props);
+    assert(!Object.hasOwn(saved.actors[0], "id"));
+
+    for(const corrupt of [
+        (d: typeof data) => { d.version = 25; },
+        (d: typeof data) => { d.version = 26; },
+        (d: typeof data) => { d.props[0].prop = d.props[0].type; delete d.props[0].type; },
+        (d: typeof data) => { d.actors[0].actor = d.actors[0].type; delete d.actors[0].type; },
+        (d: typeof data) => { d.actorTypes[0].type = d.actorTypes[0].class; delete d.actorTypes[0].class; },
+        (d: typeof data) => { delete d.actorTypes; },
+        (d: typeof data) => { d.propTypes = null; },
+        (d: typeof data) => { d.actorTypes.push({ ...d.actorTypes[0] }); },
+        (d: typeof data) => { d.propTypes.push({ ...d.propTypes[0] }); },
+        (d: typeof data) => { d.actorTypes[0].sprite = "missing"; },
+        (d: typeof data) => { d.propTypes[0].sprite = "missing"; },
+        (d: typeof data) => { d.actorTypes[0].class = ""; },
+        (d: typeof data) => { d.actorTypes[0].class = null; },
+        (d: typeof data) => { d.actorTypes[0].name = " "; },
+        (d: typeof data) => { d.actorTypes[0].name = "x".repeat(64); },
+        (d: typeof data) => { d.actors[0].type = "Decoration"; },
+        (d: typeof data) => { d.props[0].type = "Grave"; },
+        (d: typeof data) => { d.actors[0].sprite = "Stone"; delete d.actors[0].type; },
+        (d: typeof data) => { d.actors[0].pos.x = 32.0001; },
+        (d: typeof data) => { d.actors[0].rot = 360; },
+        (d: typeof data) => { d.actors = Array(10000).fill(d.actors[0]); }
+    ])
+    {
+        const invalid = structuredClone(data);
+        corrupt(invalid);
+        await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), [tile, mask, image]));
     }
 });

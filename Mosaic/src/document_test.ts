@@ -89,28 +89,29 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     project.sequences = [image];
     project.sprites = [{ name: sequenceName(image), sequences: [image] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const emptyBytes = documentBytes(project);
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 1.2, y: 2.3, rotation: 45 }];
-    project.nextPropId = 1;
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 1.2, y: 2.3, rotation: 45 }];
+    project.nextPlacementId = 1;
     validateDocument(project);
     assert(documentBytes(project) > emptyBytes);
     const copy = cloneDocument(project);
     assert(sameContent(project, copy));
-    assert.equal(copy.props[0].sprite.sequences[0], image);
+    assert.equal(copy.placements[0].definition.sprite.sequences[0], image);
     assert.notEqual(copy.sprites, project.sprites);
     assert.equal(copy.sprites[0], project.sprites[0]);
-    assert.equal(copy.props[0].sprite, copy.sprites[0]);
-    copy.props[0].x++;
-    assert.equal(project.props[0].x, 1.2);
+    assert.equal(copy.placements[0].definition.sprite, copy.sprites[0]);
+    copy.placements[0].x++;
+    assert.equal(project.placements[0].x, 1.2);
     assert(!sameContent(project, copy));
     assert(documentAssets(copy).includes(image));
     for(const corrupt of [
-        (p: typeof project) => { p.props[0].rotation = 360; },
-        (p: typeof project) => { p.props[0].x = NaN; },
-        (p: typeof project) => { p.props[0].y = -32.001; },
-        (p: typeof project) => { p.props[0].x = 64.001; },
-        (p: typeof project) => { p.nextPropId = 0; },
-        (p: typeof project) => { p.props.push(p.props[0]); },
+        (p: typeof project) => { p.placements[0].rotation = 360; },
+        (p: typeof project) => { p.placements[0].x = NaN; },
+        (p: typeof project) => { p.placements[0].y = -32.001; },
+        (p: typeof project) => { p.placements[0].x = 64.001; },
+        (p: typeof project) => { p.nextPlacementId = 0; },
+        (p: typeof project) => { p.placements.push(p.placements[0]); },
         (p: typeof project) => { p.sequences = []; },
         (p: typeof project) => { p.sequences = [image, image]; },
         (p: typeof project) => { p.sprites = []; },
@@ -231,8 +232,9 @@ Deno.test("terrain comparison detects rendering inputs but ignores prop and edit
     const changed = cloneDocument(original);
     changed.sequences = [prop];
     changed.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
-    changed.props = [{ id: 0, sprite: changed.sprites[0], x: 1, y: 2, rotation: 90 }];
-    changed.nextPropId = 1;
+    changed.propTypes = changed.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    changed.placements = [{ id: 0, definition: changed.propTypes[0], x: 1, y: 2, rotation: 90 }];
+    changed.nextPlacementId = 1;
     changed.view.zoom = 0.5;
     changed.activeLayerId = 0;
     changed.layers[1] = { ...changed.layers[1], id: 42 };
@@ -263,11 +265,12 @@ Deno.test("map size controls occupancy lengths and prop bounds, and participates
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
         project.sequences = [image];
         project.sprites = [{ name: sequenceName(image), sequences: [image] }];
-        project.props = [{ id: 0, sprite: project.sprites[0], x: size / 2, y: -size / 2, rotation: 0 }];
-        project.nextPropId = 1;
+        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+        project.placements = [{ id: 0, definition: project.propTypes[0], x: size / 2, y: -size / 2, rotation: 0 }];
+        project.nextPlacementId = 1;
         validateDocument(project);
-        project.props[0].x += 0.001;
-        assert.throws(() => validateDocument(project), /prop/);
+        project.placements[0].x += 0.001;
+        assert.throws(() => validateDocument(project), /placement/);
     }
     for(const size of [0, 1, 3, 6, 511, 513, -1, NaN, 2.5, Infinity])
     {

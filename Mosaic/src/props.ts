@@ -1,5 +1,5 @@
 import { kCellSize } from "./grid.ts";
-import { type Prop, type SpriteSequence } from "./document.ts";
+import { type Placement, type SpriteSequence } from "./document.ts";
 
 /// Scaled sprite bounds in Y-down pixels relative to the pivot, before rotation.
 export function propImageRect(asset: SpriteSequence): { x: number; y: number; width: number; height: number }
@@ -29,7 +29,7 @@ export function clampPropPoint(x: number, y: number, size: number): { x: number;
 }
 
 /// Pick the last drawn rectangle under the pointer, including transparent pixels.
-export function hitProp(props: readonly Prop[], x: number, y: number): Prop | null
+export function hitProp(props: readonly Placement[], x: number, y: number): Placement | null
 {
     for(let index = props.length - 1; index >= 0; index--)
     {
@@ -39,7 +39,7 @@ export function hitProp(props: readonly Prop[], x: number, y: number): Prop | nu
         const dy = (prop.y - y) * kCellSize;
         const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
         const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-        const rect = propImageRect(prop.sprite.sequences[0]);
+        const rect = propImageRect(prop.definition.sprite.sequences[0]);
         if(localX >= rect.x && localX <= rect.x + rect.width
             && localY >= rect.y && localY <= rect.y + rect.height)
         {
@@ -54,7 +54,7 @@ export interface Point { readonly x: number; readonly y: number; }
 export interface SelectionBox { readonly start: Point; readonly end: Point; }
 
 /// Rectangle selection uses pivots, independently of sprite rotation and transparent margins.
-export function propsInBox(props: readonly Prop[], box: SelectionBox): number[]
+export function propsInBox(props: readonly Placement[], box: SelectionBox): number[]
 {
     const left = Math.min(box.start.x, box.end.x);
     const right = Math.max(box.start.x, box.end.x);

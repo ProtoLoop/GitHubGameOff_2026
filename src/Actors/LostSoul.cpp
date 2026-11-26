@@ -3,6 +3,8 @@
 #include "Game.h"
 #include "Renderer.h"
 
+#include <string_view>
+
 namespace
 {
 constexpr float kTurnsPerSec = 0.5;
@@ -12,7 +14,7 @@ constexpr float kAnimPeriod = 1.0f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr ResourceName kSpriteName_hover{"SH_Hover"};
+constexpr const std::string_view kSpriteName_hover{"SH_Hover"};
 
 } // namespace
 

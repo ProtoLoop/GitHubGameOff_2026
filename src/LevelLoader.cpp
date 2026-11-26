@@ -55,36 +55,103 @@ CheckForDuplicateAudioClipNames(const std::span<const AudioClipDef>& audioClipDe
     return Result<>::Ok;
 }
 
-/// Prunes the list of sprite frame sequences to only include those that are actually used by the
-/// sprite definitions.
-Result<BoundedVector<SpriteFrameSequenceDef>>
-PruneSpriteSequences(const std::span<const SpriteFrameSequenceDef> seqDefs,
-    const std::span<const SpriteDef> spriteDefs)
+Result<>
+CheckForDuplicatePropTypeNames(const std::span<const PropTypeDef>& propTypeDefs)
 {
-    BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(seqDefs.size());
+    std::span span2 = propTypeDefs;
 
-    // Build the sprite sequence list from sprite sequences that are actually used, instead of
-    // all the sequences listed in the file.
-    for(const SpriteDef& spriteDef : spriteDefs)
+    for(const PropTypeDef& def : propTypeDefs)
     {
-        // For each sequence referenced by the sprite find it in the list of sprite sequences.
+        span2 = span2.subspan(1);
+
+        const auto it = std::ranges::find(span2, def.Name, &PropTypeDef::Name);
+        GG_CHECKB(it == span2.end(), "Duplicate prop type name: {}", def.Name);
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+CheckForDuplicateActorTypeNames(const std::span<const ActorTypeDef>& actorTypeDefs)
+{
+    std::span span2 = actorTypeDefs;
+
+    for(const ActorTypeDef& def : actorTypeDefs)
+    {
+        span2 = span2.subspan(1);
+
+        const auto it = std::ranges::find(span2, def.Name, &ActorTypeDef::Name);
+        GG_CHECKB(it == span2.end(), "Duplicate actor type name: {}", def.Name);
+    }
+    return Result<>::Ok;
+}
+
+/// Prunes the list of sprite frame sequences down to those actually used in the level by
+/// props/actors.
+Result<BoundedVector<SpriteFrameSequenceDef>>
+PruneSpriteSequences(const LevelDef& levelDef)
+{
+    BoundedVector<SpriteFrameSequenceDef> pruned(levelDef.SpriteSeqDefs.size());
+
+    for(const SpriteDef& spriteDef : levelDef.SpriteDefs)
+    {
         for(const ResourceName& seqName : spriteDef.SequenceNames)
         {
-            auto itSeqDef = std::ranges::find(seqDefs, seqName, &SpriteFrameSequenceDef::Name);
-            GG_CHECKB(itSeqDef != seqDefs.end(), "Missing sprite sequence: {}", seqName.c_str());
+            const auto itSeqDef =
+                std::ranges::find(levelDef.SpriteSeqDefs, seqName, &SpriteFrameSequenceDef::Name);
+            GG_CHECK(itSeqDef != levelDef.SpriteSeqDefs.end(),
+                "Missing sprite sequence: {}",
+                seqName);
 
-            // Now add the found sequence to the list of used sequences if it's not already there.
-
-            const bool alreadyInList =
-                std::ranges::contains(spriteSeqDefs, seqName, &SpriteFrameSequenceDef::Name);
-
-            if(!alreadyInList)
+            const bool have = std::ranges::contains(pruned, seqName, &SpriteFrameSequenceDef::Name);
+            if(!have)
             {
-                spriteSeqDefs.push_back(*itSeqDef);
+                pruned.push_back(*itSeqDef);
             }
         }
     }
-    return spriteSeqDefs;
+
+    // Below is more aggressive, but some sprite usages aren't reflected in the prop or
+    // actor definitions.
+    // E.g. some actors are defined at run time (not in the level def) but still reference sprite
+    // sequences.
+
+    /*for(const PropDef& propDef : levelDef.PropDefs)
+    {
+        // Fetch the prop type defintion.
+
+        const auto propTypeDefResult = levelDef.GetPropTypeDef(propDef.TypeName);
+        GG_CHECK(propTypeDefResult, "Failed to get prop type definition for {}", propDef.TypeName);
+
+        // Fetch the sprite definition associated with the prop type.
+
+        const auto spriteDefResult = levelDef.GetSpriteDef(propTypeDefResult->SpriteName);
+        GG_CHECK(spriteDefResult,
+            "Failed to get sprite definition for {}",
+            propTypeDefResult->SpriteName);
+
+        // Iterate over each sequence name referenced by the sprite definition.
+
+        for(const ResourceName& seqName : spriteDefResult->SequenceNames)
+        {
+            // Find the sprite sequence definition corresponding to the sequence name.
+
+            const auto itSeqDef =
+                std::ranges::find(levelDef.SpriteSeqDefs, seqName, &SpriteFrameSequenceDef::Name);
+            GG_CHECK(itSeqDef != levelDef.SpriteSeqDefs.end(),
+                "Missing sprite sequence: {}",
+                seqName);
+
+            // Check if the sequence is already in the pruned list.
+
+            const bool have = std::ranges::contains(pruned, seqName, &SpriteFrameSequenceDef::Name);
+            if(!have)
+            {
+                pruned.push_back(*itSeqDef);
+            }
+        }
+    }*/
+
+    return pruned;
 }
 } // namespace
 
@@ -98,8 +165,10 @@ LevelLoader::Load(const LevelDef& levelDef,
     // Check for duplicate sprite frame sequence names.
 
     GG_CHECK(CheckForDuplicateSequenceNames(levelDef.SpriteSeqDefs));
-
     GG_CHECK(CheckForDuplicateSpriteNames(levelDef.SpriteDefs));
+    GG_CHECK(CheckForDuplicatePropTypeNames(levelDef.PropTypeDefs));
+    GG_CHECK(CheckForDuplicateActorTypeNames(levelDef.ActorTypeDefs));
+    GG_CHECK(CheckForDuplicateAudioClipNames(levelDef.AudioClipDefs));
 
     BoundedVector<SpriteDef> spriteDefs(levelDef.SpriteDefs.size());
 
@@ -112,7 +181,7 @@ LevelLoader::Load(const LevelDef& levelDef,
 
     // Prune then load the sprite sequences.
 
-    auto prunedSeqDefsResult = PruneSpriteSequences(levelDef.SpriteSeqDefs, spriteDefs);
+    auto prunedSeqDefsResult = PruneSpriteSequences(levelDef);
     GG_CHECK(prunedSeqDefsResult, "Failed to prune sprite sequences");
 
     auto spriteSeqLoadResult =
@@ -123,8 +192,6 @@ LevelLoader::Load(const LevelDef& levelDef,
 
     auto cellResult = CellMapLoader::Load(levelDef.CellMapDef, renderer, fileFetcher, webGpu);
     GG_CHECK(cellResult, "Failed to load cell map");
-
-    GG_CHECK(CheckForDuplicateAudioClipNames(levelDef.AudioClipDefs));
 
     // Load the audio clips.
     BoundedVector<AudioClipLoader> audioClipLoaders(levelDef.AudioClipDefs.size());

@@ -125,6 +125,8 @@ set(GAMEOFF_SOURCES
     src/Actors/Caretaker.cpp
     src/Actors/LostSoul.h
     src/Actors/LostSoul.cpp
+    src/Actors/Tombstone.h
+    src/Actors/Tombstone.cpp
     src/Angle.h
     src/AudioClip.h
     src/AudioClip.cpp
@@ -167,6 +169,7 @@ set(GAMEOFF_SOURCES
     src/Random.h
     src/Random.cpp
     src/ResourceDefs.h
+    src/ResourceDefs.cpp
     src/Shortcuts.h
     src/Sprite.h
     src/Sprite.cpp

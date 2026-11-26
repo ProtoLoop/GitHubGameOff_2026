@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 25,
+  "version": 27,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",
@@ -754,25 +754,147 @@
       ]
     }
   ],
+  "propTypes": [
+    {
+      "name": "Cemetery_Ancient_Tree_001",
+      "sprite": "Cemetery_Ancient_Tree_001"
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_002",
+      "sprite": "Cemetery_Ancient_Tree_002"
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_003",
+      "sprite": "Cemetery_Ancient_Tree_003"
+    },
+    {
+      "name": "Cemetery_Ancient_Tree_004",
+      "sprite": "Cemetery_Ancient_Tree_004"
+    },
+    {
+      "name": "Cemetery_Bell_001",
+      "sprite": "Cemetery_Bell_001"
+    },
+    {
+      "name": "Cemetery_Bell_002",
+      "sprite": "Cemetery_Bell_002"
+    },
+    {
+      "name": "Cemetery_Bell_003",
+      "sprite": "Cemetery_Bell_003"
+    },
+    {
+      "name": "Cemetery_Bell_004",
+      "sprite": "Cemetery_Bell_004"
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_001",
+      "sprite": "Cemetery_Stonewall_and_Boundary_001"
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_002",
+      "sprite": "Cemetery_Stonewall_and_Boundary_002"
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_003",
+      "sprite": "Cemetery_Stonewall_and_Boundary_003"
+    },
+    {
+      "name": "Cemetery_Stonewall_and_Boundary_004",
+      "sprite": "Cemetery_Stonewall_and_Boundary_004"
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_001",
+      "sprite": "Gothic_Necropolis_Gate_001"
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_002",
+      "sprite": "Gothic_Necropolis_Gate_002"
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_003",
+      "sprite": "Gothic_Necropolis_Gate_003"
+    },
+    {
+      "name": "Gothic_Necropolis_Gate_004",
+      "sprite": "Gothic_Necropolis_Gate_004"
+    }
+  ],
+  "actorTypes": [
+    {
+      "name": "Forgotten_Headstone_001",
+      "class": "Tombstone",
+      "sprite": "Forgotten_Headstone_001"
+    },
+    {
+      "name": "Forgotten_Headstone_002",
+      "class": "Tombstone",
+      "sprite": "Forgotten_Headstone_002"
+    },
+    {
+      "name": "Forgotten_Headstone_003",
+      "class": "Tombstone",
+      "sprite": "Forgotten_Headstone_003"
+    },
+    {
+      "name": "Forgotten_Headstone_004",
+      "class": "Tombstone",
+      "sprite": "Forgotten_Headstone_004"
+    },
+    {
+      "name": "Noble_Family_Tombstone_001",
+      "class": "Tombstone",
+      "sprite": "Noble_Family_Tombstone_001"
+    },
+    {
+      "name": "Noble_Family_Tombstone_002",
+      "class": "Tombstone",
+      "sprite": "Noble_Family_Tombstone_002"
+    },
+    {
+      "name": "Noble_Family_Tombstone_003",
+      "class": "Tombstone",
+      "sprite": "Noble_Family_Tombstone_003"
+    },
+    {
+      "name": "Noble_Family_Tombstone_004",
+      "class": "Tombstone",
+      "sprite": "Noble_Family_Tombstone_004"
+    }
+  ],
   "props": [
     {
-      "sprite": "Cemetery_Bell_004",
-      "pos": {"x":-5,"y":3.005},
+      "type": "Cemetery_Bell_004",
+      "pos": {
+        "x": -5,
+        "y": 3.005
+      },
       "rot": 0
     },
     {
-      "sprite": "Noble_Family_Tombstone_003",
-      "pos": {"x":-1.291,"y":4.678},
+      "type": "Cemetery_Ancient_Tree_001",
+      "pos": {
+        "x": -5.742,
+        "y": 5.151
+      },
+      "rot": 0
+    }
+  ],
+  "actors": [
+    {
+      "type": "Noble_Family_Tombstone_003",
+      "pos": {
+        "x": -1.291,
+        "y": 4.678
+      },
       "rot": 0
     },
     {
-      "sprite": "Noble_Family_Tombstone_003",
-      "pos": {"x":-0.388,"y":2.865},
-      "rot": 0
-    },
-    {
-      "sprite": "Cemetery_Ancient_Tree_001",
-      "pos": {"x":-5.742,"y":5.151},
+      "type": "Noble_Family_Tombstone_003",
+      "pos": {
+        "x": -0.388,
+        "y": 2.865
+      },
       "rot": 0
     }
   ],

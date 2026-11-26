@@ -952,7 +952,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic sprites and facing sequences
 
-Date: 2026-11-23. Status: Accepted.
+Date: 2026-11-23. Status: Accepted. Version support, palette membership, and prop
+placement references are superseded by [Mosaic explicit prop and actor catalogs](#mosaic-explicit-prop-and-actor-catalogs).
 
 Version 25 renames `propAssets` to `sequences` and adds `sprites`. Each sprite
 has a unique name and a nonempty ordered list of sequence names, one per facing
@@ -1060,3 +1061,69 @@ and follows [clear responsibility](principles.md#make-it-clear-who-is-responsibl
 and [sharing concepts without requiring shared code](principles.md#share-the-concept-not-necessarily-the-code).
 See the [runtime boundary](../development.md#runtime-boundary),
 [Game](../../src/Game.h), and [Level](../../src/Level.h).
+
+
+## Mosaic explicit prop and actor catalogs
+
+Date: 2026-11-26. Status: Accepted. Version support and reference field names are
+superseded by [Mosaic placement types and actor classes](#mosaic-placement-types-and-actor-classes).
+
+Sprites are shared visual resources. Listing every sprite in the prop palette
+also exposes actor artwork and supporting animations as decoration. Version 26
+introduces explicit `propTypes` and `actorTypes` catalogs. Both define a unique
+name and a sprite reference. Actor definitions also specify a runtime behavior
+`type`. The editor does not interpret that behavior, infer spawn policies, or
+classify sprites by filename or sequence count.
+
+The prop palette lists only prop definitions and the actor palette lists only
+actor definitions. Each placement references its definition by name and stores
+position and rotation. Definitions remain immutable within an editing session,
+shared by history snapshots alongside sprite resources. They are authored in JSON
+and reloaded. Discovery adds sprite resources without adding palette entries.
+
+The document stores both kinds of placement together so selection, movement,
+cancellation, deletion, resize, history, and autosave share the same rules. Props
+precede actors in this list. Serialization splits it into `props` and `actors`,
+each retaining its own order. The editor draws actor previews above props and
+marks actor pivots with green squares. This is an editing convention, not a
+runtime rendering requirement. Saved placements contain no runtime entity IDs.
+
+We considered hiding sprites used by actors from an otherwise automatic prop
+palette. Explicit catalogs also exclude unused supporting animations and allow
+placeable definitions to remain stable when their artwork changes. They require
+an explicit JSON definition before a newly discovered image can be placed.
+
+Both checked-in levels are populated once with eight Tombstone actor definitions
+and sixteen prop definitions. Existing tombstone placements become actors while
+retaining their transforms. Multi-sequence animation sprites remain resources.
+The prototype actor catalog is removed from project1's extensions, while its audio
+extension is preserved. Other extensions remain opaque.
+
+Mosaic reads and writes version 26 only, without migration support. This
+supersedes version 25 support, automatic sprite palette membership, and direct
+sprite references on props in [sprites and facing sequences](#mosaic-sprites-and-facing-sequences).
+C++ files are unchanged. The current runtime loader expects the old prop layout
+and does not consume actor placements, so runtime integration remains necessary.
+No dependencies, licenses, toolchains, or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements)
+and the [Mosaic guide](../../Mosaic/README.md).
+
+
+## Mosaic placement types and actor classes
+
+Date: 2026-11-26. Status: Accepted.
+
+Version 27 names both prop and actor placement references `type`. Each resolves
+within its corresponding `propTypes` or `actorTypes` catalog. Actor definitions
+name their runtime implementation `class`, replacing the previous `type` field.
+This separates the configured placeable type from the runtime class shared by
+several definitions. Names, sprites, transforms, ordering, and behavior are unchanged.
+
+Mosaic reads and writes version 27 only, with no version 26 migration loader or
+legacy field aliases. Both checked-in levels adopt the new field names while
+preserving their other data. This supersedes version support and field names in
+[explicit prop and actor catalogs](#mosaic-explicit-prop-and-actor-catalogs).
+C++ integration remains separate. No dependencies or build requirements change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements).

@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 25,
+  "version": 27,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/coast_sand_rocks_02_diff_1k.png",
@@ -754,25 +754,105 @@
       ]
     }
   ],
+  "propTypes": [
+    {"name":"Cemetery_Ancient_Tree_001","sprite":"Cemetery_Ancient_Tree_001"},
+    {"name":"Cemetery_Ancient_Tree_002","sprite":"Cemetery_Ancient_Tree_002"},
+    {"name":"Cemetery_Ancient_Tree_003","sprite":"Cemetery_Ancient_Tree_003"},
+    {"name":"Cemetery_Ancient_Tree_004","sprite":"Cemetery_Ancient_Tree_004"},
+    {"name":"Cemetery_Bell_001","sprite":"Cemetery_Bell_001"},
+    {"name":"Cemetery_Bell_002","sprite":"Cemetery_Bell_002"},
+    {"name":"Cemetery_Bell_003","sprite":"Cemetery_Bell_003"},
+    {"name":"Cemetery_Bell_004","sprite":"Cemetery_Bell_004"},
+    {"name":"Cemetery_Stonewall_and_Boundary_001","sprite":"Cemetery_Stonewall_and_Boundary_001"},
+    {"name":"Cemetery_Stonewall_and_Boundary_002","sprite":"Cemetery_Stonewall_and_Boundary_002"},
+    {"name":"Cemetery_Stonewall_and_Boundary_003","sprite":"Cemetery_Stonewall_and_Boundary_003"},
+    {"name":"Cemetery_Stonewall_and_Boundary_004","sprite":"Cemetery_Stonewall_and_Boundary_004"},
+    {"name":"Gothic_Necropolis_Gate_001","sprite":"Gothic_Necropolis_Gate_001"},
+    {"name":"Gothic_Necropolis_Gate_002","sprite":"Gothic_Necropolis_Gate_002"},
+    {"name":"Gothic_Necropolis_Gate_003","sprite":"Gothic_Necropolis_Gate_003"},
+    {"name":"Gothic_Necropolis_Gate_004","sprite":"Gothic_Necropolis_Gate_004"}
+  ],
+  "actorTypes": [
+    {"name":"Forgotten_Headstone_001","class":"Tombstone","sprite":"Forgotten_Headstone_001"},
+    {"name":"Forgotten_Headstone_002","class":"Tombstone","sprite":"Forgotten_Headstone_002"},
+    {"name":"Forgotten_Headstone_003","class":"Tombstone","sprite":"Forgotten_Headstone_003"},
+    {"name":"Forgotten_Headstone_004","class":"Tombstone","sprite":"Forgotten_Headstone_004"},
+    {"name":"Noble_Family_Tombstone_001","class":"Tombstone","sprite":"Noble_Family_Tombstone_001"},
+    {"name":"Noble_Family_Tombstone_002","class":"Tombstone","sprite":"Noble_Family_Tombstone_002"},
+    {"name":"Noble_Family_Tombstone_003","class":"Tombstone","sprite":"Noble_Family_Tombstone_003"},
+    {"name":"Noble_Family_Tombstone_004","class":"Tombstone","sprite":"Noble_Family_Tombstone_004"}
+  ],
   "props": [
     {
-      "sprite": "Cemetery_Bell_004",
-      "pos": {"x":-5,"y":3.005},
+      "type": "Cemetery_Ancient_Tree_001",
+      "pos": {"x":-5.742,"y":5.151},
       "rot": 0
     },
     {
-      "sprite": "Noble_Family_Tombstone_003",
+      "type": "Cemetery_Ancient_Tree_002",
+      "pos": {"x":-2.3,"y":-1.369},
+      "rot": 0
+    }
+  ],
+  "actors": [
+    {
+      "type": "Noble_Family_Tombstone_003",
       "pos": {"x":-1.291,"y":4.678},
       "rot": 0
     },
     {
-      "sprite": "Noble_Family_Tombstone_003",
+      "type": "Noble_Family_Tombstone_003",
       "pos": {"x":-0.388,"y":2.865},
       "rot": 0
     },
     {
-      "sprite": "Cemetery_Ancient_Tree_001",
-      "pos": {"x":-5.742,"y":5.151},
+      "type": "Noble_Family_Tombstone_004",
+      "pos": {"x":2.008,"y":3.881},
+      "rot": 0
+    },
+    {
+      "type": "Noble_Family_Tombstone_004",
+      "pos": {"x":-3.285,"y":2.5},
+      "rot": 0
+    },
+    {
+      "type": "Noble_Family_Tombstone_004",
+      "pos": {"x":3.245,"y":0.234},
+      "rot": 0
+    },
+    {
+      "type": "Noble_Family_Tombstone_004",
+      "pos": {"x":-0.095,"y":-0.239},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_004",
+      "pos": {"x":-4.887,"y":0.886},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_004",
+      "pos": {"x":4.371,"y":3.44},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_002",
+      "pos": {"x":-5.47,"y":3.747},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_002",
+      "pos": {"x":4.134,"y":-1.615},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_002",
+      "pos": {"x":-5.143,"y":-2.03},
+      "rot": 0
+    },
+    {
+      "type": "Forgotten_Headstone_002",
+      "pos": {"x":0.637,"y":-2.757},
       "rot": 0
     }
   ],
@@ -840,16 +920,13 @@
       ]
     }
   ],
-  "editor": {
-    "activeLayer": 1,
-    "view": {"zoom":0.3930943424174467,"scrollLeft":293,"scrollTop":468.5,"showGrid":false}
-  },
   "extensions": {
     "audioClips": [
-      {
-        "name": "Ding",
-        "filePath": "/audio/dragon-studio-ding-sfx-472366.mp3"
-      }      
+      {"name":"Ding","filePath":"/audio/dragon-studio-ding-sfx-472366.mp3"}
     ]
+  },
+  "editor": {
+    "activeLayer": 1,
+    "view": {"zoom":1.0266431078142266,"scrollLeft":1605,"scrollTop":1699.5,"showGrid":false}
   }
 }

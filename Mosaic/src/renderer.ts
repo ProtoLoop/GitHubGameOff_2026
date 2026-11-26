@@ -109,6 +109,7 @@ export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasE
 
 export interface ImagePreview
 {
+    readonly actor?: boolean;
     readonly asset: SpriteSequence | ImageAsset;
     /// Optional terrain preview dimensions in map pixels. Props use their asset scale.
     readonly size?: { readonly width: number; readonly height: number };
@@ -170,7 +171,7 @@ export function propFrameSource(asset: SpriteSequence): { image: CanvasImageSour
 }
 
 /// A transparent overlay keeps previews and selection separate from terrain rendering.
-export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
+export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement, view: RenderView, selectedIds: ReadonlySet<number>,
     preview: ImagePreview | null, box: SelectionBox | null, showCollisionRects: boolean): void
 {
     const context = prepareCanvas(canvas, view);
@@ -178,10 +179,10 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
     context.imageSmoothingEnabled = false;
     context.save();
     context.setTransform(view.zoom, 0, 0, view.zoom, -view.x * view.zoom, -view.y * view.zoom);
-    const visible = (prop: ProjectDocument["props"][number]): boolean => {
+    const visible = (prop: ProjectDocument["placements"][number]): boolean => {
         const point = mapPixels(prop, project.gridSize);
         const angle = prop.rotation * Math.PI / 180;
-        const rect = propImageRect(prop.sprite.sequences[0]);
+        const rect = propImageRect(prop.definition.sprite.sequences[0]);
         const cos = Math.cos(angle), sin = Math.sin(angle);
         const offsetX = rect.x + rect.width / 2, offsetY = rect.y + rect.height / 2;
         const centerX = point.x + offsetX * cos - offsetY * sin;
@@ -193,15 +194,15 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
             && centerX - halfWidth - margin <= view.x + view.width / view.zoom
             && centerY - halfHeight - margin <= view.y + view.height / view.zoom;
     };
-    for(const prop of project.props)
+    for(const prop of project.placements)
     {
         if(!visible(prop)) { continue; }
         context.save();
         const point = mapPixels(prop, project.gridSize);
         context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
-        const rect = propImageRect(prop.sprite.sequences[0]);
-        const source = propFrameSource(prop.sprite.sequences[0]);
+        const rect = propImageRect(prop.definition.sprite.sequences[0]);
+        const source = propFrameSource(prop.definition.sprite.sequences[0]);
         context.drawImage(source.image, source.x, source.y, source.w, source.h,
             rect.x, rect.y, rect.width, rect.height);
         context.restore();
@@ -209,9 +210,9 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
     if(showCollisionRects)
     {
         // Collision rectangles can extend beyond the image, so image culling must not hide them.
-        for(const prop of project.props)
+        for(const prop of project.placements)
         {
-            const sequence = prop.sprite.sequences[0];
+            const sequence = prop.definition.sprite.sequences[0];
             if(sequence.collisionRects.length === 0) { continue; }
             context.save();
             const point = mapPixels(prop, project.gridSize);
@@ -228,7 +229,7 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
             context.restore();
         }
     }
-    for(const selected of project.props)
+    for(const selected of project.placements)
     {
         if(!selectedIds.has(selected.id) || !visible(selected)) { continue; }
         context.save();
@@ -237,7 +238,7 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         context.rotate(selected.rotation * Math.PI / 180);
         context.strokeStyle = "#ffdc60";
         context.lineWidth = 2 / view.zoom;
-        const rect = propImageRect(selected.sprite.sequences[0]);
+        const rect = propImageRect(selected.definition.sprite.sequences[0]);
         context.strokeRect(rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
@@ -278,8 +279,28 @@ export function drawProps(project: ProjectDocument, canvas: HTMLCanvasElement, v
         context.strokeRect(x, y, width, height);
         context.restore();
     }
+    const markActor = (point: { x: number; y: number }): void => {
+        const pixel = mapPixels(point, project.gridSize);
+        const x = (pixel.x - view.x) * view.zoom;
+        const y = (pixel.y - view.y) * view.zoom;
+        if(x + 8 < 0 || y + 8 < 0 || x - 8 > canvas.width || y - 8 > canvas.height) { return; }
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.strokeStyle = "#161b16";
+        context.lineWidth = 4;
+        context.strokeRect(x - 8, y - 8, 16, 16);
+        context.strokeStyle = "#5ce6ad";
+        context.lineWidth = 2;
+        context.strokeRect(x - 8, y - 8, 16, 16);
+        context.restore();
+    };
+    for(const placement of project.placements)
+    {
+        if(placement.definition.kind === "actor") { markActor(placement); }
+    }
+    if(preview?.actor) { markActor(preview); }
     // Draw pivots last in screen pixels so they stay upright and readable at every zoom.
-    for(const selected of project.props)
+    for(const selected of project.placements)
     {
         if(!selectedIds.has(selected.id)) { continue; }
         const point = mapPixels(selected, project.gridSize);

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { sequenceName, createDocument, cloneDocument, sameContent, type ImageAsset, type SpriteSequence } from "./document.ts";
-import { drawTerrainRegion, drawCoverageRegion, drawProps, propFrameSource, type RenderView } from "./renderer.ts";
+import { drawTerrainRegion, drawCoverageRegion, drawObjects, propFrameSource, type RenderView } from "./renderer.ts";
 
 const fullView: RenderView = { x: 0, y: 0, width: 4096, height: 4096, zoom: 1 };
 
@@ -70,9 +70,10 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [image];
     project.sprites = [{ name: sequenceName(image), sequences: [image] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 },
-        { id: 1, sprite: project.sprites[0], x: 300 / 64 - 32, y: 32 - 400 / 64, rotation: 0 }];
-    project.nextPropId = 2;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 },
+        { id: 1, definition: project.propTypes[0], x: 300 / 64 - 32, y: 32 - 400 / 64, rotation: 0 }];
+    project.nextPlacementId = 2;
     const calls: unknown[][] = [];
     const context = {
         setTransform: () => {},
@@ -85,15 +86,15 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
         fillRect: (...args: number[]) => calls.push(["pivot", ...args])
     };
     const canvas = { width: 4096, height: 4096, getContext: () => context } as unknown as HTMLCanvasElement;
-    drawProps(project, canvas, fullView, new Set([0]), null, null, false);
+    drawObjects(project, canvas, fullView, new Set([0]), null, null, false);
     assert.deepEqual(calls.slice(0, 7), [["clear", 0, 0, 4096, 4096], ["save"], ["save"],
         ["translate", 100, 200], ["rotate", Math.PI / 2], ["image", image.image, 0, 0, 80, 20, -40, -10, 80, 20], ["restore"]]);
     assert.deepEqual(calls[8], ["translate", 300, 400]);
     assert.deepEqual(calls.filter((call) => call[0] === "selection"), [["selection", -40, -10, 80, 20]]);
     assert.equal(calls.filter((call) => call[0] === "pivot").length, 4);
     calls.length = 0;
-    project.props = [];
-    drawProps(project, canvas, fullView, new Set(), null, null, false);
+    project.placements = [];
+    drawObjects(project, canvas, fullView, new Set(), null, null, false);
     assert.deepEqual(calls, [["clear", 0, 0, 4096, 4096], ["save"], ["restore"]]);
 });
 
@@ -106,8 +107,9 @@ Deno.test("preview and multi-selection render independently of document state an
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 0 }, { id: 1, sprite: project.sprites[0], x: 200 / 64 - 32, y: 32 - 200 / 64, rotation: 45 }];
-    project.nextPropId = 2;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 0 }, { id: 1, definition: project.propTypes[0], x: 200 / 64 - 32, y: 32 - 200 / 64, rotation: 45 }];
+    project.nextPlacementId = 2;
     const snapshot = cloneDocument(project);
     const calls: unknown[][] = [];
     const alphas: number[] = [];
@@ -123,7 +125,7 @@ Deno.test("preview and multi-selection render independently of document state an
         fillRect: (...args: number[]) => calls.push(["fill", ...args])
     };
     const canvas = { width: 4096, height: 4096, getContext: () => context } as unknown as HTMLCanvasElement;
-    drawProps(project, canvas, fullView, new Set([0, 1]), { asset, x: 400 / 64 - 32, y: 32 - 500 / 64 },
+    drawObjects(project, canvas, fullView, new Set([0, 1]), { asset, x: 400 / 64 - 32, y: 32 - 500 / 64 },
         { start: { x: 300 / 64 - 32, y: 32 - 400 / 64 }, end: { x: 50 / 64 - 32, y: 32 - 60 / 64 } }, false);
     assert.equal(calls.filter((call) => call[0] === "stroke").length, 3);
     assert(calls.some((call) => JSON.stringify(call) === JSON.stringify(["fill", 50, 60, 250, 340])));
@@ -131,7 +133,7 @@ Deno.test("preview and multi-selection render independently of document state an
     assert.equal(context.globalAlpha, 1);
     assert(sameContent(project, snapshot));
     calls.length = 0;
-    drawProps(project, canvas, fullView, new Set(), null, null, false);
+    drawObjects(project, canvas, fullView, new Set(), null, null, false);
     assert.deepEqual(calls[0], ["clear", 0, 0, 4096, 4096]);
     assert.equal(calls.filter((call) => call[0] === "image").length, 2);
     assert.equal(calls.filter((call) => call[0] === "stroke" || call[0] === "fill").length, 0);
@@ -174,7 +176,7 @@ Deno.test("terrain preview keeps thumbnail screen size across zoom levels withou
             for(const zoom of [1 / 16, 0.25, 1, 4])
             {
                 project.view.zoom = zoom;
-                drawProps(project, canvas, fullView, new Set(), { asset: terrain, x: 400 / 64 - 32, y: 32 - 500 / 64,
+                drawObjects(project, canvas, fullView, new Set(), { asset: terrain, x: 400 / 64 - 32, y: 32 - 500 / 64,
                     size: { width: thumbnailSize / zoom, height: thumbnailSize / zoom } }, null, false);
                 const call = calls.at(-1)!;
                 assert.equal(call.width * zoom, thumbnailSize);
@@ -192,7 +194,7 @@ Deno.test("terrain preview keeps thumbnail screen size across zoom levels withou
         assert.equal(decoded[0].pixels[4 + 1], terrain.pixels[4 + 1]);
         assert.equal(decoded[0].pixels[3], 255);
         assert.equal(terrain.pixels[3], 0);
-        drawProps(project, canvas, fullView, new Set(), null, null, false);
+        drawObjects(project, canvas, fullView, new Set(), null, null, false);
         assert.equal(calls.length, 8);
         assert.equal(clears, 9);
         assert(sameContent(project, snapshot));
@@ -267,8 +269,9 @@ Deno.test("viewport props cull rotated bounds rather than centers and use a shar
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 110 / 64 - 32, y: 32 - 80 / 64, rotation: 90 },
-        { id: 1, sprite: project.sprites[0], x: 500 / 64 - 32, y: 32 - 500 / 64, rotation: 0 }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 110 / 64 - 32, y: 32 - 80 / 64, rotation: 90 },
+        { id: 1, definition: project.propTypes[0], x: 500 / 64 - 32, y: 32 - 500 / 64, rotation: 0 }];
     const calls: unknown[][] = [];
     const context = {
         save: () => {}, restore: () => {}, clearRect: () => {}, rotate: () => {},
@@ -277,7 +280,7 @@ Deno.test("viewport props cull rotated bounds rather than centers and use a shar
         drawImage: () => calls.push(["image"]), strokeRect: () => calls.push(["selection"])
     };
     const canvas = { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement;
-    drawProps(project, canvas, { x: 100, y: 100, width: 150, height: 120, zoom: 2 }, new Set([0, 1]), null, null, false);
+    drawObjects(project, canvas, { x: 100, y: 100, width: 150, height: 120, zoom: 2 }, new Set([0, 1]), null, null, false);
     assert.deepEqual(calls[0], ["transform", 2, 0, 0, 2, -200, -200]);
     assert.equal(calls.filter((call) => call[0] === "image").length, 1);
     assert.equal(calls.filter((call) => call[0] === "selection").length, 1);
@@ -294,9 +297,10 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     // The fixed pivot is at map pixels (100, 100). After rotation the image covers [100, 140] × [100, 260].
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
-    project.nextPropId = 1;
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
+    project.nextPlacementId = 1;
     const calls: unknown[][] = [];
     const context = {
         save: () => {}, restore: () => {}, clearRect: () => {}, setTransform: () => {},
@@ -308,16 +312,16 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     };
     const canvas = { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement;
     const view = { x: 110, y: 200, width: 20, height: 20, zoom: 1 };
-    drawProps(project, canvas, view, new Set([0]), null, null, false);
+    drawObjects(project, canvas, view, new Set([0]), null, null, false);
     assert.deepEqual(calls, [
         ["translate", 100, 100], ["rotate", Math.PI / 2], ["image", asset.image, 0, 0, 80, 20, -0, -40, 160, 40],
         ["translate", 100, 100], ["rotate", Math.PI / 2], ["selection", -0, -40, 160, 40]
     ]);
     calls.length = 0;
-    drawProps(project, canvas, { ...view, x: 150 }, new Set([0]), null, null, false);
+    drawObjects(project, canvas, { ...view, x: 150 }, new Set([0]), null, null, false);
     assert.deepEqual(calls, []);
-    project.props = [];
-    drawProps(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
+    project.placements = [];
+    drawObjects(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
     assert.deepEqual(calls, [["image", asset.image, 0, 0, 80, 20, 100, 60, 160, 40]]);
 });
 
@@ -330,9 +334,10 @@ Deno.test("selected pivot markers stay upright at fixed screen size and clear on
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [0, 1, 2].map((id) => ({ id, sprite: project.sprites[0],
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [0, 1, 2].map((id) => ({ id, definition: project.propTypes[0],
         x: (100 + id * 50) / 64 - 32, y: 32 - (200 + id * 20) / 64, rotation: id * 45 }));
-    project.nextPropId = 3;
+    project.nextPlacementId = 3;
     const before = cloneDocument(project);
     const fills: { rect: number[]; color: string; transform: number[] }[] = [];
     let transform: number[] = [];
@@ -348,7 +353,7 @@ Deno.test("selected pivot markers stay upright at fixed screen size and clear on
     for(const zoom of [1 / 16, 0.25, 1, 4])
     {
         fills.length = 0;
-        drawProps(project, canvas, { x: 80, y: 160, width: 400, height: 400, zoom }, new Set([0, 1]), null, null, false);
+        drawObjects(project, canvas, { x: 80, y: 160, width: 400, height: 400, zoom }, new Set([0, 1]), null, null, false);
         assert.equal(fills.length, 8);
         for(const id of [0, 1])
         {
@@ -365,12 +370,12 @@ Deno.test("selected pivot markers stay upright at fixed screen size and clear on
     assert(sameContent(project, before));
     fills.length = 0;
     // A marker remains partially visible even when the image bounds are outside the viewport.
-    drawProps(project, canvas, { x: 106, y: 190, width: 100, height: 100, zoom: 1 }, new Set([0]), null, null, false);
+    drawObjects(project, canvas, { x: 106, y: 190, width: 100, height: 100, zoom: 1 }, new Set([0]), null, null, false);
     assert.equal(fills.length, 4);
     fills.length = 0;
-    drawProps(project, canvas, { x: 108, y: 190, width: 100, height: 100, zoom: 1 }, new Set([0]), null, null, false);
+    drawObjects(project, canvas, { x: 108, y: 190, width: 100, height: 100, zoom: 1 }, new Set([0]), null, null, false);
     assert.equal(fills.length, 0);
-    drawProps(project, canvas, fullView, new Set(), null, null, false);
+    drawObjects(project, canvas, fullView, new Set(), null, null, false);
     assert.equal(fills.length, 0);
     assert.equal(clears, 7);
 });
@@ -423,8 +428,9 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
     const project = createDocument([material("base", 64, 0)], [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 }];
+    project.nextPlacementId = 1;
     const snapshot = cloneDocument(project);
     const calls: unknown[][] = [];
     const context = {
@@ -436,12 +442,12 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
     };
     const canvas = { width: 100, height: 100, getContext: () => context } as unknown as HTMLCanvasElement;
     const view = { x: 180, y: 0, width: 100, height: 100, zoom: 1 };
-    drawProps(project, canvas, view, new Set(), null, null, true);
+    drawObjects(project, canvas, view, new Set(), null, null, true);
     assert.deepEqual(calls, [["translate", 100, 200], ["rotate", Math.PI / 2],
         ["collisionRects", -40, -20, 80, 10], ["collisionRects", -360, -120, 160, 40]]);
     assert(sameContent(project, snapshot));
     calls.length = 0;
-    drawProps(project, canvas, view, new Set(), null, null, false);
+    drawObjects(project, canvas, view, new Set(), null, null, false);
     assert.deepEqual(calls, []);
 });
 
@@ -455,8 +461,9 @@ Deno.test("sprite first-sequence frame zero shares geometry across drawing, prev
     const other = { ...asset, name: "Other", size: { w: 100, h: 100 }, pivotX: 0, scale: 1, collisionRects: [] };
     project.sequences = [other, asset];
     project.sprites = [{ name: "Actor", sequences: [asset, other] }];
-    project.props = [{ id: 0, sprite: project.sprites[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
-    project.nextPropId = 1;
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
+    project.nextPlacementId = 1;
     const snapshot = cloneDocument(project);
     const calls: unknown[][] = [];
     const context = {
@@ -470,7 +477,7 @@ Deno.test("sprite first-sequence frame zero shares geometry across drawing, prev
     const canvas = { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement;
     // The rotated crop spans [100, 120] x [80, 160], with its pivot outside this view.
     const view = { x: 105, y: 130, width: 10, height: 10, zoom: 1 };
-    drawProps(project, canvas, view, new Set([0]), null, null, true);
+    drawObjects(project, canvas, view, new Set([0]), null, null, true);
     assert.deepEqual(calls, [
         ["translate", 100, 100], ["rotate", Math.PI / 2], ["image", asset.image, 32, 16, 40, 10, -20, -20, 80, 20],
         ["translate", 100, 100], ["rotate", Math.PI / 2], ["stroke", -20, -10, 40, 5],
@@ -478,12 +485,12 @@ Deno.test("sprite first-sequence frame zero shares geometry across drawing, prev
     ]);
     calls.length = 0;
     // The original texture would reach this view, but the cropped sprite does not.
-    drawProps(project, canvas, { ...view, x: 130 }, new Set([0]), null, null, false);
+    drawObjects(project, canvas, { ...view, x: 130 }, new Set([0]), null, null, false);
     assert.deepEqual(calls, []);
-    project.props = [];
-    drawProps(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
+    project.placements = [];
+    drawObjects(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
     assert.deepEqual(calls, [["image", asset.image, 32, 16, 40, 10, 80, 80, 80, 20]]);
-    project.props = snapshot.props;
+    project.placements = snapshot.placements;
     assert(sameContent(project, snapshot));
 });
 
@@ -513,4 +520,31 @@ Deno.test("frame-zero tint multiplies RGBA pixels once and shares the cached pre
         assert.deepEqual(propFrameSource({ ...asset, size: undefined, tint: undefined }), { image, x: 4, y: 2, w: 16, h: 8 });
     }
     finally { globalThis.OffscreenCanvas = originalCanvas; }
+});
+
+Deno.test("actor placement and preview markers stay at their pivots at every zoom", () => {
+    const image: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone",
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0, pivotY: 1, scale: 2, collisionRects: [] };
+    const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
+    const project = createDocument([material("base", 64, 0)], [mask]);
+    project.sequences = [image];
+    project.sprites = [{ name: "Stone", sequences: [image] }];
+    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] }];
+    project.placements = [{ id: 0, definition: project.actorTypes[0], x: 0, y: 0, rotation: 90 }];
+    project.nextPlacementId = 1;
+    const marks: number[][] = [];
+    const context = {
+        setTransform: () => {}, clearRect: () => {}, save: () => {}, restore: () => {},
+        translate: () => {}, rotate: () => {}, drawImage: () => {},
+        strokeRect: (...args: number[]) => marks.push(args)
+    };
+    const canvas = { width: 200, height: 200, getContext: () => context } as unknown as HTMLCanvasElement;
+    for(const zoom of [0.25, 1, 4])
+    {
+        marks.length = 0;
+        drawObjects(project, canvas, { x: 2048 - 100 / zoom, y: 2048 - 100 / zoom, width: 200, height: 200, zoom },
+            new Set(), { asset: image, x: 0, y: 0, actor: true }, null, false);
+        assert.deepEqual(marks, Array(4).fill([92, 92, 16, 16]));
+    }
 });

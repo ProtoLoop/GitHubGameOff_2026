@@ -165,7 +165,7 @@ FileFetcher::Fetch(const FilePath& path)
         sv.remove_prefix(1);
     }
 
-    const FilePath localPath(sv);
+    GG_TRYB(localPath, FilePath::Create(sv))
 
     const FilePtr file(std::fopen(localPath.c_str(), "rb"));
     GG_CHECKB(file, "Failed to open file: {} - {}", localPath.c_str(), std::strerror(errno));
@@ -220,7 +220,7 @@ FileFetcher::Dispose(FileFetchRequest* request)
 #endif
         request->RemoveFromList(m_PendingList);
         request->AddToList(m_FreeList);
-        request->m_Path = "";
+        request->m_Path = FilePath::kEmpty;
         request->m_Status = FileFetchRequest::Status::None;
         request->m_Released = true;
     }

@@ -26,9 +26,12 @@ Game::Create(Input& input,
 
     for(const PropDef& propDef : levelDef.PropDefs)
     {
-        GG_CHECK(game.SpawnProp(propDef.SpriteName, propDef.Transform),
+        const auto propTypeDefResult = levelDef.GetPropTypeDef(propDef.TypeName);
+        GG_CHECK(propTypeDefResult, "Failed to get prop type definition for {}", propDef.TypeName);
+
+        GG_CHECK(game.SpawnProp(propTypeDefResult->SpriteName, propDef.Transform),
             "Failed to spawn prop: {}",
-            propDef.SpriteName);
+            propTypeDefResult->SpriteName);
     }
     return std::move(game);
 }

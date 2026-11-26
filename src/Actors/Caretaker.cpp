@@ -5,6 +5,8 @@
 #include "Input.h"
 #include "Renderer.h"
 
+#include <string_view>
+
 namespace
 {
 constexpr float kTurnsPerSec = 1;
@@ -15,10 +17,10 @@ constexpr float kAnimPeriod_Idle = 2.0f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr ResourceName kSpriteName_Idle{ "Warrior_Idle" };
-constexpr ResourceName kSpriteName_Run{ "Warrior_Run" };
+constexpr const std::string_view kSpriteName_Idle{ "Warrior_Idle" };
+constexpr const std::string_view kSpriteName_Run{ "Warrior_Run" };
 
-constexpr ResourceName kAudioClipName_Ding{ "Ding" };
+constexpr const std::string_view kAudioClipName_Ding{ "Ding" };
 
 } // namespace
 

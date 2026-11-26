@@ -1,5 +1,5 @@
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
-import { validateDocument, appendDiscoveredSequences, sequenceName, sequenceTint, type ImageAsset, type SpriteSequence, type ProjectDocument, type JsonValue } from "./document.ts";
+import { validateDocument, appendDiscoveredSequences, sequenceName, sequenceTint, type ImageAsset, type SpriteSequence, type ProjectDocument, type JsonValue, type ObjectDefinition, type Placement } from "./document.ts";
 
 /// Format plain JSON data, keeping small scalar-only objects on one line.
 function formatJson(value: unknown, depth: number, column: number): string
@@ -26,12 +26,17 @@ function formatJson(value: unknown, depth: number, column: number): string
     }).join(",\n") + "\n" + indent + "}";
 }
 
+function placementTransform(placement: Placement): { pos: { x: number; y: number }; rot: number }
+{
+    return { pos: { x: Math.round(placement.x * 1000) / 1000, y: Math.round(placement.y * 1000) / 1000 }, rot: placement.rotation };
+}
+
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
 export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([formatJson({
-        format: "mosaic", version: 25,
+        format: "mosaic", version: 27,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
@@ -44,10 +49,13 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
             collisionRects: asset.collisionRects.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         sprites: project.sprites.map((sprite) => ({ name: sprite.name, sequences: sprite.sequences.map(sequenceName) })),
-        props: project.props.map((prop) => ({
-            sprite: prop.sprite.name,
-            pos: { x: Math.round(prop.x * 1000) / 1000, y: Math.round(prop.y * 1000) / 1000 },
-            rot: prop.rotation
+        propTypes: project.propTypes.map((definition) => ({ name: definition.name, sprite: definition.sprite.name })),
+        actorTypes: project.actorTypes.map((definition) => ({ name: definition.name, class: definition.class, sprite: definition.sprite.name })),
+        props: project.placements.filter((placement) => placement.definition.kind === "prop").map((placement) => ({
+            type: placement.definition.name, ...placementTransform(placement)
+        })),
+        actors: project.placements.filter((placement) => placement.definition.kind === "actor").map((placement) => ({
+            type: placement.definition.name, ...placementTransform(placement)
         })),
         layers: project.layers.map((layer, index) => ({
             sheet: project.tileSheets.indexOf(layer.sheet),
@@ -116,14 +124,14 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function projectTexturePaths(blob: Blob): Promise<string[]>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 25) { throw new Error("Unsupported Mosaic project format/version"); }
+    if(data.format !== "mosaic" || data.version !== 27) { throw new Error("Unsupported Mosaic project format/version"); }
     return [...new Set(list(data.sequences, 0, 256).map((entry) => assetId(object(entry).texPath)))];
 }
 
 export async function readProject(blob: Blob, available: readonly (ImageAsset | SpriteSequence)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 25)
+    if(data.format !== "mosaic" || data.version !== 27)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -198,19 +206,37 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         }) };
     });
     const spriteNames = new Map(sprites.map((sprite) => [sprite.name, sprite]));
-    const props = list(data.props, 0, 10000).map((item, id) => {
-        const prop = object(item);
-        const pos = object(prop.pos);
-        if(typeof pos.x !== "number" || typeof pos.y !== "number" || typeof prop.rot !== "number")
-        {
-            throw new Error("Invalid prop coordinate or rotation");
-        }
-        if(typeof prop.sprite !== "string") { throw new Error("Invalid sprite reference"); }
-        const sprite = spriteNames.get(prop.sprite);
-        if(!sprite) { throw new Error(`Missing sprite: ${prop.sprite}`); }
-        return { id, sprite,
-            x: pos.x, y: pos.y, rotation: prop.rot };
+    const readDefinition = (item: unknown): { name: string; sprite: typeof sprites[number] } => {
+        const entry = object(item);
+        if(typeof entry.name !== "string" || typeof entry.sprite !== "string") { throw new Error("Invalid object definition"); }
+        const sprite = spriteNames.get(entry.sprite);
+        if(!sprite) { throw new Error(`Missing sprite: ${entry.sprite}`); }
+        return { name: entry.name, sprite };
+    };
+    const propTypes = list(data.propTypes, 0, 256).map((item) => ({ kind: "prop" as const, ...readDefinition(item) }));
+    const actorTypes = list(data.actorTypes, 0, 256).map((item) => {
+        const entry = object(item);
+        if(typeof entry.class !== "string") { throw new Error("Invalid actor class"); }
+        return { kind: "actor" as const, class: entry.class, ...readDefinition(item) };
     });
+    let nextPlacementId = 0;
+    const readPlacements = (items: unknown, kind: "prop" | "actor", definitions: readonly ObjectDefinition[]): Placement[] => {
+        const names = new Map(definitions.map((definition) => [definition.name, definition]));
+        return list(items, 0, 10000).map((item) => {
+            const entry = object(item);
+            const pos = object(entry.pos);
+            if(typeof pos.x !== "number" || typeof pos.y !== "number" || typeof entry.rot !== "number")
+            {
+                throw new Error(`Invalid ${kind} coordinate or rotation`);
+            }
+            const name = entry.type;
+            if(typeof name !== "string") { throw new Error(`Invalid ${kind} reference`); }
+            const definition = names.get(name);
+            if(!definition) { throw new Error(`Missing ${kind} definition: ${name}`); }
+            return { id: nextPlacementId++, definition, x: pos.x, y: pos.y, rotation: entry.rot };
+        });
+    };
+    const placements = [...readPlacements(data.props, "prop", propTypes), ...readPlacements(data.actors, "actor", actorTypes)];
     const gridSize = integer(data.gridSize, kMinGridSize, kMaxGridSize);
     if(!validGridSize(gridSize)) { throw new Error("Map size must be a power of two from 2 to 512 cells"); }
     const cellCount = gridSize * gridSize;
@@ -219,7 +245,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         extensions: data.extensions as JsonValue | undefined,
         gridSize,
         nextLayerId: layers.length,
-        sequences, sprites, props, nextPropId: props.length,
+        sequences, sprites, propTypes, actorTypes, placements, nextPlacementId,
         activeLayerId: integer(editor.activeLayer, 0, layers.length - 1),
         maskMode: data.maskMode === "random" ? "random" : integer(data.maskMode, 0, masks.length - 1),
         tileSheets, masks, view: object(editor.view) as ProjectDocument["view"],
@@ -247,7 +273,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
     appendDiscoveredSequences(project, available.filter((asset): asset is SpriteSequence => asset.kind === "prop"));
     validateDocument(project);
     // Validate the original coordinates before rounding so invalid bounds still fail.
-    for(const prop of project.props)
+    for(const prop of project.placements)
     {
         prop.x = Math.round(prop.x * 1000) / 1000;
         prop.y = Math.round(prop.y * 1000) / 1000;

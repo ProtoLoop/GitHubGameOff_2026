@@ -7,7 +7,7 @@ my-project/
   assets/
     tiles/       # equally sized square seamless terrain textures
     masks/       # 256×256 alpha-mask sheets
-    props/       # optional individual decorative images, including transparency
+    props/       # optional discovered sprite images, including transparency
   level.json     # created when you save
 ```
 
@@ -24,10 +24,10 @@ layer's material preserves painted cells and can be undone.
 
 Masks use the [4×4 coverage layout](../docs/COVERAGE_MASKS.md). The main
 project is `project2`. Copy its asset folders to make a new project.
-Project2 contains 104 sequences grouped into 31 sprites: 24 static sprites and
-seven directional actor sprites. The referenced actor textures are present in the
+Project2 contains 48 sequences grouped into 27 sprites: 24 static sprites and
+three directional actor sprites. The referenced actor textures are present in the
 project. There is no fallback to repository-level assets.
-Mosaic reads and writes version 25 only, with no migration support. Existing
+Mosaic reads and writes version 27 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -58,7 +58,7 @@ Map canvases cover only the visible viewport. Scrolling and zooming redraw that
 view directly, without cached terrain chunks or full-map pixel buffers. The
 coverage preview remains a whole-map overview, sampled at its displayed size.
 Canvas memory depends on window size. Map data and Undo snapshots still grow
-with the number of cells, layers, and props.
+with the number of cells, layers, and placed objects.
 
 The app starts in **Select** mode. Later project switches and reloads retain the current tool.
 
@@ -70,29 +70,29 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   New projects start at 64×64 cells. The confirmation dialog shows old and new
   cell/pixel dimensions and explains the consequences. Cancel is focused initially.
   Growing adds base terrain equally on all four sides, keeping the map center fixed.
-  Shrinking crops terrain equally on all four sides and removes props outside the new bounds.
-  Retained props keep their coordinates. Terrain repeats and mask variations are
-  regenerated using the resized grid. The dialog reports how many props will be removed. Props with pivots exactly on an
+  Shrinking crops terrain equally on all four sides and removes props and actors outside the new bounds.
+  Retained objects keep their coordinates. Terrain repeats and mask variations are
+  regenerated using the resized grid. The dialog reports how many props and actors will be removed. Objects with pivots exactly on an
   edge remain, with their artwork clipped there. **Resize map** applies one
   undoable, autosaved change. Undo restores the previous size, cropped terrain,
-  and removed props within the editor's bounded, session-only history.
+  and removed objects within the editor's bounded, session-only history.
 - Select a swatch and drag left to paint. Right-click erases the selected overlay.
-- Choose a prop palette swatch for placement or a terrain swatch for painting.
+- Choose a prop or actor palette swatch for placement or a terrain swatch for painting.
   The active swatch is highlighted. Escape cancels the active gesture and always
-  returns to prop selection, clearing palette highlights while retaining the last
-  choices. Prop selection uses the move cursor, placement uses the default arrow,
+  returns to object selection, clearing palette highlights while retaining the last
+  choices. Object selection uses the move cursor, placement uses the default arrow,
   and terrain painting uses a crosshair. Middle-button panning uses the grabbing cursor.
 - Terrain painting shows a 50%-opacity preview of the selected whole texture,
   centered under the cursor at the palette thumbnail's displayed size (56×56 pixels,
   or 42×42 on narrow windows), independent of map zoom. It follows scrolling and
   disappears outside the map or after Escape. Painting still affects individual
   cells. The preview does not change terrain sampling or brush size.
-- Choose a prop swatch to enter **Place**. A translucent preview follows the cursor
+- Choose a prop or actor swatch to enter **Place**. A translucent preview follows the cursor
   at the asset scale, with its pivot under the cursor. Left-click places one copy and stays in Place for repeated
   stamping. Escape or right-click returns to Select, keeping the last copy selected.
-  Choose a prop swatch again to resume placement. Previewing does not save or create
+  Choose a prop or actor swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
-  reload to update the palette. Rectangular images support 1–4096 pixels per axis.
+  reload to add sprite resources. Add definitions in JSON to make them placeable. Rectangular images support 1–4096 pixels per axis.
 - `sequences` is a catalog of named image sequences. Each entry stores `name`,
   `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects`, with optional
   `size: { w, h }` specifying one frame's pixel dimensions. Omit `size` to use the
@@ -115,31 +115,41 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   `1`. Scale and rotation both operate about the pivot. Edit these asset settings
   in JSON and reload the project to apply them.
 - `sprites` groups sequences by facing direction. Each entry has a unique `name`
-  and a nonempty ordered `sequences` array of sequence names. The palette lists
-  sprites, and placed `props` reference them through `sprite: "name"`. Mosaic
+  and a nonempty ordered `sequences` array of sequence names. Mosaic
   displays frame zero of each sprite's first sequence. Rotation still rotates
   that image. Size, pivot, scale, tint, and collision rectangles stay on sequences.
   Reordering either top-level catalog does not change references. Edit sprite
   groups in JSON and reload. Newly discovered images each get one sequence and
   one same-named sprite. Name conflicts fail loading.
+- **Props** lists `propTypes` entries with `name` and `sprite`. **Actors** lists
+  `actorTypes` entries with `name`, `class`, and `sprite`. The sprite reference
+  selects the appearance. The actor class identifies runtime behavior, which Mosaic
+  does not execute. Both catalogs are explicit and maintained in JSON. Discovered
+  sprites are not automatically placeable, and no filename or animation rules
+  assign them to a palette. Multiple definitions may share a behavior type.
+- `props` placements reference definitions through `type: "name"`, and `actors`
+  through `type: "name"`. Both store `pos: { x, y }` and `rot`. Names are unique
+  within each definition catalog. Definitions initially use the same name as their
+  sprite, but this is not required. Actors show a green square at their pivot,
+  including during placement preview. Actor previews draw above props.
 - Add normalized collision rectangles to a sequence’s `collisionRects` array using `x`, `y`,
   `w`, and `h`. Omitted `collisionRects` or `[]` means no collision. Dimensions must be
   positive, and rectangles may extend outside the cropped sprite. Collision rectangles use the
   frame dimensions for normalization: `(0, 0)` is the upper-left corner
   and `(1, 1)` the lower-right, before scale and rotation. Edit JSON and reload,
-  then enable **Show collision rectangles** to see cyan rectangles on placed props. The toggle
+  then enable **Show collision rectangles** to see cyan rectangles on placed props and actors. The toggle
   is session-only. Collision rectangles follow pivot, scale, and rotation without changing picking.
-- In **Select**, click a prop to select it. Shift-click adds or removes it from the
-  selection. Drag empty space to box-select props whose pivots lie inside the box.
-  Shift-drag empty space adds those props to the selection. Clicking without dragging
-  selects only the clicked prop, while dragging a selected prop moves the group.
-- Selected props have outlines and a magenta crosshair with a dark border at each
+- In **Select**, click a prop or actor to select it. Shift-click adds or removes it from the
+  selection. Drag empty space to box-select objects whose pivots lie inside the box.
+  Shift-drag empty space adds those objects to the selection. Clicking without dragging
+  selects only the clicked object, while dragging a selected object moves the group.
+- Selected objects have outlines and a magenta crosshair with a dark border at each
   pivot. Crosshairs stay upright and the same screen size at every zoom. The sidebar
   shows the selection count. Delete or Backspace removes the group as one undo action.
   Escape cancels an active move or box selection, otherwise it clears selection.
   Picking uses scaled, rotated image rectangles, including transparent pixels. Later
-  placements draw on top.
-- Props move freely in fractional cell coordinates, rounded to three decimal
+  placements within each palette category draw on top.
+- Props and actors move freely in fractional cell coordinates, rounded to three decimal
   places during editing and saving. `(1.5, 2.25)` places the image pivot 1.5 cells
   right and 2.25 cells up from the map center. `(0, 0)` is the corner shared by
   the four central cells. Each cell spans 64 pixels. Their
@@ -158,3 +168,10 @@ Use one editor per project because concurrent saves overwrite each other.
 
 Run checks with `cmake --build Mosaic/build --target check`.
 See [FILE_FORMATS.md](docs/FILE_FORMATS.md) for the JSON and HTTP contract.
+
+Mosaic reads and writes version 27 only, with no migration loader. The checked-in
+levels contain explicit prop and actor catalogs. Tombstone appearances were
+assigned once in those files, not by editor logic. The C++ loader parses
+`propTypes` and `actorTypes`. Prop placements reference `propTypes` through their
+`type` field, and the game resolves these definitions to create props. Actor
+placements remain editor-only: the runtime does not yet parse or instantiate them.

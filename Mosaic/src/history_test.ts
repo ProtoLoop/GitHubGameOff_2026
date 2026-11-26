@@ -121,40 +121,41 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const history = new History(100, 64 * 1024 * 1024);
     history.begin(project, "Place prop");
-    project.props.push({ id: project.nextPropId++, sprite: project.sprites[0], x: 1, y: 2, rotation: 0 });
+    project.placements.push({ id: project.nextPlacementId++, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 });
     history.commit(project);
     history.begin(project, "Move prop");
-    project.props[0].x = 1.5;
-    project.props[0].x = 2.0;
-    assert.equal(history.committedState(project).props[0].x, 1);
+    project.placements[0].x = 1.5;
+    project.placements[0].x = 2.0;
+    assert.equal(history.committedState(project).placements[0].x, 1);
     history.commit(project);
     history.begin(project, "Rotate prop");
-    project.props[0].rotation = 45;
+    project.placements[0].rotation = 45;
     history.commit(project);
     history.begin(project, "Delete prop");
-    project.props = [];
+    project.placements = [];
     history.commit(project);
     project = history.undo(project)!;
-    assert.equal(project.props[0].rotation, 45);
+    assert.equal(project.placements[0].rotation, 45);
     project = history.undo(project)!;
-    assert.equal(project.props[0].rotation, 0);
+    assert.equal(project.placements[0].rotation, 0);
     project = history.undo(project)!;
-    assert.equal(project.props[0].x, 1);
+    assert.equal(project.placements[0].x, 1);
     project = history.undo(project)!;
-    assert.equal(project.props.length, 0);
+    assert.equal(project.placements.length, 0);
     project = history.redo(project)!;
-    assert.equal(project.props[0].sprite.sequences[0], asset);
-    assert.equal(project.props[0].sprite, project.sprites[0]);
-    assert.deepEqual(project.props[0].sprite.sequences[0].size, { w: 20, h: 20 });
-    assert.deepEqual(project.props[0].sprite.sequences[0].tint, { r: 0.5, g: 1, b: 1, a: 0.7 });
-    assert.equal(project.props[0].sprite.sequences[0].name, "Stone");
+    assert.equal(project.placements[0].definition.sprite.sequences[0], asset);
+    assert.equal(project.placements[0].definition.sprite, project.sprites[0]);
+    assert.deepEqual(project.placements[0].definition.sprite.sequences[0].size, { w: 20, h: 20 });
+    assert.deepEqual(project.placements[0].definition.sprite.sequences[0].tint, { r: 0.5, g: 1, b: 1, a: 0.7 });
+    assert.equal(project.placements[0].definition.sprite.sequences[0].name, "Stone");
     history.begin(project, "Cancelled drag");
-    project.props[0].x = 3.33;
+    project.placements[0].x = 3.33;
     project = history.rollback()!;
-    assert.equal(project.props[0].x, 1);
-    assert.equal(project.props[0].sprite, project.sprites[0]);
+    assert.equal(project.placements[0].x, 1);
+    assert.equal(project.placements[0].definition.sprite, project.sprites[0]);
     assert(history.retainedStates().some((state) => state.sequences.includes(asset)));
 });
 
@@ -166,12 +167,13 @@ Deno.test("terrain comparison skips prop edits through undo and redo but detects
         pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
     const history = new History(100, 64 * 1024 * 1024);
     for(const mutate of [
-        () => { project.props.push({ id: project.nextPropId++, sprite: project.sprites[0], x: 1, y: 2, rotation: 0 }); },
-        () => { project.props[0].x = 3.0; },
-        () => { project.props[0].rotation = 90; },
-        () => { project.props = []; }
+        () => { project.placements.push({ id: project.nextPlacementId++, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 }); },
+        () => { project.placements[0].x = 3.0; },
+        () => { project.placements[0].rotation = 90; },
+        () => { project.placements = []; }
     ])
     {
         history.begin(project, "Prop edit");

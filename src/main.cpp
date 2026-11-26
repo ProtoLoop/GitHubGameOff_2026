@@ -79,7 +79,7 @@ struct App
 
     struct LoadingState
     {
-        LoadingState(const std::string_view levelPath,
+        LoadingState(const FilePath& levelPath,
             std::unique_ptr<FileFetcher> fileFetcher,
             std::unique_ptr<Renderer> renderer,
             AudioPlayer&& audioPlayer,
@@ -249,7 +249,12 @@ App::Update()
             auto audioPlayerResult = AudioPlayer::Create();
             GG_CHECKB(audioPlayerResult, "Failed to create audio player");
 
-            m_State.emplace<LoadingState>(kLevelFilePath,
+            GG_TRY(levelPath,
+                FilePath::Create(kLevelFilePath),
+                "Failed to create file path from {}",
+                kLevelFilePath);
+
+            m_State.emplace<LoadingState>(levelPath,
                 std::make_unique<FileFetcher>(),
                 std::move(*rendererResult),
                 std::move(*audioPlayerResult),

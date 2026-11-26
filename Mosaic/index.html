@@ -196,7 +196,7 @@
         .map-surface { position: relative; overflow: hidden; }
         #map { position: absolute; }
         .prop-preview { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
-        #prop-palette button[aria-pressed="true"] { outline: 2px solid #ffdc60; }
+        #prop-palette button[aria-pressed="true"], #actor-palette button[aria-pressed="true"] { outline: 2px solid #ffdc60; }
         #prop-overlay { position: absolute; pointer-events: none; }
         #map-grid
         {
@@ -263,10 +263,14 @@
                 <details open>
                     <summary>Props</summary>
                     <div id="prop-palette" class="material-palette" role="group" aria-label="Prop to place"></div>
-                    <div class="settings">
-                        <output id="prop-selection">No prop selected</output>
-                    </div>
                 </details>
+                <details open>
+                    <summary>Actors</summary>
+                    <div id="actor-palette" class="material-palette" role="group" aria-label="Actor to place"></div>
+                </details>
+                <div class="settings">
+                    <output id="prop-selection">No object selected</output>
+                </div>
                 <details open aria-labelledby="palette-heading">
                     <summary id="palette-heading">Material palette</summary>
                     <div id="material-palette" class="material-palette" role="group" aria-label="Material to edit"></div>
@@ -294,7 +298,7 @@
                 <details>
                     <summary>Help</summary>
                     <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
-                    <p class="hint">The app starts in Select mode. Later project switches and reloads retain the current tool. Choose a prop image to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to prop selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to prop selection, clearing palette highlights. In Select, Shift-click adds or removes a prop. Drag empty space to select prop pivots inside a box, or Shift-drag to add them. Drag a selected prop to move the group. Delete or Backspace removes the selection. Escape in prop selection cancels a drag, or clears selection when idle. Props use their asset scale and rotate about their pivots. Selected props show a magenta crosshair with a dark border at each pivot. Crosshairs stay upright and the same screen size at every zoom. Later placements draw on top. Selection uses image rectangles, including transparent pixels.</p>
+                    <p class="hint">The app starts in Select mode. Later project switches and reloads retain the current tool. Choose a prop or actor to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to object selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to object selection, clearing palette highlights. In Select, Shift-click adds or removes an object. Drag empty space to select object pivots inside a box, or Shift-drag to add them. Drag a selected object to move the group. Delete or Backspace removes the selection. Escape in object selection cancels a drag, or clears selection when idle. Objects use their asset scale and rotate about their pivots. Selected objects show a magenta crosshair with a dark border at each pivot. Crosshairs stay upright and the same screen size at every zoom. Actors have green square markers at their pivots and draw above props. Later placements within each category draw on top. Selection uses image rectangles, including transparent pixels.</p>
                     <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
                     <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
                     <p class="hint">Layers composite from bottom to top. Terrain textures must be square, have identical dimensions, and be 64–4096 pixels per side in multiples of 64. Each whole texture repeats from the map origin at one texture pixel per world pixel. Texture edges must be seamless. Masks always cover 64×64 pixels.</p>
@@ -326,7 +330,7 @@
                 </div>
                 <div class="map-footer">
                     <label class="checkbox"><input id="show-grid" title="Show or hide the grid over the map." type="checkbox" checked> Show grid</label>
-                    <label class="checkbox"><input id="show-collision-rects" title="Show prop collision rectangles." type="checkbox"> Show collision rectangles</label>
+                    <label class="checkbox"><input id="show-collision-rects" title="Show object collision rectangles." type="checkbox"> Show collision rectangles</label>
                 </div>
             </div>
         </div>
@@ -347,7 +351,7 @@
         <h2 id="resize-heading">Resize map?</h2>
         <p id="resize-dimensions"></p>
         <p id="resize-consequences"></p>
-        <p id="resize-undo">This change autosaves. You can undo it, including any cropped terrain and removed props, using Undo in this editor session.</p>
+        <p id="resize-undo">This change autosaves. You can undo it, including any cropped terrain and removed props and actors, using Undo in this editor session.</p>
         <div class="controls chooser-actions">
             <button id="resize-cancel" type="button" autofocus>Cancel</button>
             <button id="resize-confirm" type="button">Resize map</button>

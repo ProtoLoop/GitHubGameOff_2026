@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 25`. Only version 25 is supported.
+The container has `format: "mosaic"` and `version: 27`. Only version 27 is supported.
 Older versions are rejected. There is no migration loader.
 
 Saves use two-space indentation, with small objects containing only scalar values
@@ -39,7 +39,10 @@ algorithms below are part of the versioned format contract.
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
 | `sequences` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `scale`, `tint`, and `collisionRects` |
 | `sprites` | Named sprites with ordered sequence-name references, one per facing direction |
-| `props` | Decorative instances referencing sprite names, in back-to-front draw order |
+| `propTypes` | Named prop definitions with a `sprite` name reference |
+| `actorTypes` | Named actor definitions with a runtime `class` and a `sprite` name reference |
+| `props` | Decorative placements referencing prop definitions through `type` |
+| `actors` | Actor placements referencing actor definitions through `type` |
 | `editor` | Editor settings described below |
 | `extensions` | Optional opaque JSON preserved across loads and saves |
 
@@ -49,7 +52,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-Extension preservation was introduced in version 21 and continues in version 25.
+Extension preservation was introduced in version 21 and continues in version 27.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -203,10 +206,17 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 ```json
 {
   "sequences": [
-    { "name": "headstone", "tint": { "r": 1, "g": 1, "b": 1, "a": 1 }, "texPath": "/assets/props/headstone.png", "pivot": { "x": 0.5, "y": 0.5 }, "scale": 1, "srcRect": {}, "collisionRects": [] }
+    { "name": "tree", "texPath": "/assets/props/tree.png", "srcRect": {}, "collisionRects": [] },
+    { "name": "headstone", "texPath": "/assets/props/headstone.png", "srcRect": {}, "collisionRects": [] }
   ],
-  "sprites": [{ "name": "headstone", "sequences": ["headstone"] }],
-  "props": [{ "sprite": "headstone", "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }]
+  "sprites": [
+    { "name": "tree", "sequences": ["tree"] },
+    { "name": "headstone", "sequences": ["headstone"] }
+  ],
+  "propTypes": [{ "name": "tree", "sprite": "tree" }],
+  "actorTypes": [{ "name": "headstone", "class": "Tombstone", "sprite": "headstone" }],
+  "props": [{ "type": "tree", "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }],
+  "actors": [{ "type": "headstone", "pos": { "x": -2, "y": 1 }, "rot": 0 }]
 }
 ```
 
@@ -284,7 +294,30 @@ sequence, including its geometry, tint, pivot, scale, and collision rectangles.
 Rotation transforms that image and does not select another facing direction.
 There is no animation playback or sprite-level metadata inheritance yet.
 
-Each instance uses `sprite` to reference a sprite by name. Reordering the top-level
+### Prop and actor definitions and placements
+
+The required `propTypes` and `actorTypes` arrays explicitly determine the two palettes.
+Both may be empty and support at most 256 definitions each. A prop definition has
+`name` and `sprite`. An actor definition additionally requires `class`, a runtime
+implementation name. Mosaic stores that string without interpreting it or restricting
+it to a built-in list. Spawning policies, brains, and multi-sprite actor bindings
+are outside this version's editor contract.
+
+Definition names are unique within each catalog and follow the sprite-name rules.
+Actor `class` follows the same nonblank, 63 UTF-8 byte, no-control-character rules.
+Several definitions may use the same runtime class. `sprite` must resolve to the
+shared sprite catalog. Names need not match sprite names. Palette thumbnails and
+placement previews use frame zero of the referenced sprite's first sequence.
+Neither palette lists sprites automatically. Newly discovered images add sequence
+and sprite resources only, and definitions are maintained in JSON and reloaded.
+
+Both placement arrays are required, even when empty. Each `props` entry references
+a prop definition with `type: "name"`. Each `actors` entry references an actor
+definition with `type: "name"`. Both carry `pos` and `rot` as described below.
+Missing or malformed references and duplicate definition names fail loading before
+installation. A sprite name alone is no longer a valid placement reference.
+
+Reordering the top-level definition,
 sequence or sprite catalog does not change references. Reordering a sprite's
 sequence list changes its direction order and which sequence Mosaic displays.
 
@@ -292,7 +325,7 @@ sequence list changes its direction order and which sequence Mosaic displays.
 cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2`
 inclusive. The origin is at the map center, with X increasing rightward and Y
 increasing upward. `(0, 0)` is the corner shared by the four central cells.
-Prop coordinates are rounded to the nearest 0.001 cells during placement,
+Placement coordinates are rounded to the nearest 0.001 cells during placement,
 movement, loading, and saving. JSON numbers use at most three decimal places
 without padded trailing zeros.
 `rot` is a finite clockwise angle in degrees, at least 0 and less than 360.
@@ -303,31 +336,37 @@ Both scaling and clockwise rotation operate about that fixed pivot. For a point 
 then subtract `(pivot.x * frameWidth, pivot.y * frameHeight)`,
 multiply by `scale`, rotate clockwise in Y-down image space, then add the pivot's
 map-pixel position. There is no snapping to whole cells. At scale 1, one source
-pixel covers one map pixel. Source alpha is preserved. Render all props above terrain,
-in array order, using ordinary source-over alpha blending and nearest sampling.
+pixel covers one map pixel. Source alpha is preserved. Render props above terrain and actor previews above props, each in its saved
+array order, using ordinary source-over alpha blending and nearest sampling.
+This editor ordering does not prescribe runtime actor rendering. Actors have a
+16-pixel green square marker with a dark border at their pivot, independent of
+zoom and rotation. The marker also appears in the placement preview.
 Clip artwork at map edges, even when its pivot lies inside the map.
 
 A catalog entry selects a sprite sequence within its source texture. Rectangular textures are allowed,
 with each dimension from 1 to 4096 pixels. The catalog supports at most 256 named
 sequences, 256 sprites, and 256 sequence references per sprite. The level supports
-at most 10,000 instances. Asset dimensions come from the
+at most 10,000 combined prop and actor instances. Asset dimensions come from the
 images. Sequence entries sharing a texture share its decoded image and URL.
 Missing referenced images, incorrect asset kinds, invalid source rectangles or transforms,
 and invalid catalog references fail loading before installation.
 
-The document owns prop placements. Snapshots copy their transforms and share
-immutable sprite definitions, sequence definitions, and decoded images. Placement, movement, and deletion are undoable,
+The document owns prop and actor placements in one list, props followed by actors. Snapshots copy their transforms and share
+immutable prop and actor definitions, sprite definitions, sequence definitions, and decoded images. Placement, movement, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
 retains the current view. Saved rotation and asset source rectangles, pivots, and scale are preserved and rendered, but have no editing controls.
-Prop selection, tool mode, and palette selection are transient editor state
+Object selection, tool mode, and palette selection are transient editor state
 and are not saved or undoable. Instance IDs and the next-ID counter are session-only.
-The loader reconstructs IDs in array order. Picking checks scaled, rotated image rectangles
+The loader reconstructs IDs in prop array order followed by actor array order. Picking checks scaled, rotated image rectangles
 from front to back, including transparent pixels.
 
-This format change applies to Mosaic only. No game loader changes are included here. The paths are rooted at the project
-directory, which is the game's root.
+The C++ loader parses `propTypes` and `actorTypes`. Prop placements reference
+`propTypes` through their `type` field, and the game resolves these definitions
+to create props. Actor placements remain editor-only: the runtime does not yet
+parse or instantiate them.
+The paths are rooted at the project directory, which is the game's root.
 
 ### Editor settings and editing
 
@@ -352,7 +391,7 @@ and settings, reproducing the corresponding rendering choices.
 
 Map size is document state. New projects default to 64×64 cells, and the Map
 settings control accepts powers of two from 2–512 cells per side. Apply opens a warning dialog with
-old and new dimensions, crop/growth behavior, and the number of props removed.
+old and new dimensions, crop/growth behavior, and the numbers of props and actors removed.
 Cancel is initially focused. Only confirmation performs the resize.
 
 Resizing keeps the map center fixed. Occupancy stays in top-left row-major
@@ -360,14 +399,14 @@ storage. Copy the centered overlap using source offset `(oldSize - overlap) / 2`
 and destination offset `(newSize - overlap) / 2` on both axes. Allowed sizes are
 all even, so these offsets are whole cells. Growing adds base terrain and empty
 overlays equally on all four sides. Shrinking crops equally on all four sides
-and removes props whose absolute X or Y exceeds `newSize / 2`. Pivots exactly
-on the boundary remain. Retained prop coordinates do not change.
+and removes prop and actor placements whose absolute X or Y exceeds `newSize / 2`. Pivots exactly
+on the boundary remain. Retained placement coordinates do not change.
 
 Texture repeats and procedural mask choices still use top-left row/column
 indices. Resizing can change their appearance even where occupancy is retained,
 and the confirmation dialog explains this. Terrain scale, mask size, and retained
 layer IDs stay unchanged. A resize is one autosaved history action. Undo restores
-size, occupancy, and removed props from the prior snapshot.
+size, occupancy, and removed props and actors from the prior snapshot.
 
 ### Assets and limits
 
@@ -399,7 +438,7 @@ read or write.
 
 Catalog order is preserved on load. Discovered images are sorted by their full
 encoded resource URLs. Newly discovered images append in that deterministic order,
-without changing existing references or prop placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
+without changing existing references or placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
 and scales are preserved. Textures already referenced by any saved sequence are
 not appended as new entries. Each new sequence also gets a same-named sprite
 containing only that sequence. Existing sprite groups are preserved. A generated
@@ -415,7 +454,7 @@ before replacing the current document.
 
 Undo history is session-only, bounded to 100 actions and an estimated 64 MiB
 of map snapshots. Each snapshot owns its occupancy arrays and shares immutable
-images. Saves serialize committed occupancy, prop placements, and rendering settings.
+images. Saves serialize committed occupancy, prop and actor definitions and placements, and rendering settings.
 
 ## HTTP contract
 

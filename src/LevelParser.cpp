@@ -11,11 +11,29 @@
 namespace
 {
 
+Result<ResourceName>
+TryParseResourceName(const JsonObject jobj, const std::string_view key)
+{
+    std::string_view name;
+    GG_CHECKB(jobj.TryGetString(key, name), "Failed to get resource name for key: {}", key);
+    GG_TRY(resName, ResourceName::Create(name), "Failed to create resource name from {}", name);
+    return resName;
+}
+
+Result<ResourceName>
+TryParseResourceName(const JsonValue jval)
+{
+    std::string_view name;
+    GG_CHECKB(jval.TryGetString(name), "Failed to get resource name from JsonValue");
+    GG_TRY(resName, ResourceName::Create(name), "Failed to create resource name from {}", name);
+    return resName;
+}
+
 Result<SpriteFrameSequenceDef>
 ParseSpriteSequence(const JsonObject& sequence)
 {
-    std::string_view texPath;
-    std::string_view name;
+    std::string_view texPathStr;
+    std::optional<ResourceName> optName;
     std::optional<Rect> optSrcRect;
     std::optional<Dimension2D> optSize;
     std::optional<Rectf> optColRect;
@@ -23,12 +41,14 @@ ParseSpriteSequence(const JsonObject& sequence)
     float scale = 1;
     glm::vec4 tint;
 
-    GG_CHECKB(sequence.TryGetString("texPath", texPath) && !texPath.empty(),
+    GG_CHECKB(sequence.TryGetString("texPath", texPathStr) && !texPathStr.empty(),
         "Missing texture path (line:{})",
         sequence.GetLine());
-    GG_CHECKB(!texPath.empty(), "Texture path is empty (line:{})", sequence.GetLine());
+    GG_CHECKB(!texPathStr.empty(), "Texture path is empty (line:{})", sequence.GetLine());
 
-    if(!sequence.TryGetString("name", name) || name.empty())
+    GG_TRY(texPath, FilePath::Create(texPathStr), "Failed to create file path from {}", texPathStr);
+
+    if(std::string_view name; !sequence.TryGetString("name", name) || name.empty())
     {
         // If the name is not specified, derive it from the texture path.
 
@@ -40,8 +60,20 @@ ParseSpriteSequence(const JsonObject& sequence)
         {
             name = name.substr(0, extension);
         }
+
+        GG_TRY(resName, ResourceName::Create(name));
+
+        optName = resName;
     }
-    GG_CHECKB(!name.empty(), "Name is empty (line:{})", sequence.GetLine());
+    else
+    {
+        GG_TRY(resName, ResourceName::Create(name));
+
+        optName = resName;
+    }
+    GG_CHECKB(optName.has_value() && !optName->empty(),
+        "Name is empty (line:{})",
+        sequence.GetLine());
 
     if(JsonObject jsonObj; sequence.TryGetObject("pivot", jsonObj))
     {
@@ -74,7 +106,7 @@ ParseSpriteSequence(const JsonObject& sequence)
         {
             GG_CHECKB(!haveX && !haveY && !haveW && !haveH,
                 "Incomplete srcRect: {} (line:{})",
-                name,
+                *optName,
                 jsonObj.GetLine());
         }
     }
@@ -98,7 +130,7 @@ ParseSpriteSequence(const JsonObject& sequence)
         {
             GG_CHECKB(!haveR && !haveG && !haveB && !haveA,
                 "Incomplete tint: {} (line:{})",
-                name,
+                *optName,
                 jsonObj.GetLine());
         }
     }
@@ -117,7 +149,10 @@ ParseSpriteSequence(const JsonObject& sequence)
         }
         else
         {
-            GG_CHECKB(!haveW && !haveH, "Incomplete size: {} (line:{})", name, jsonObj.GetLine());
+            GG_CHECKB(!haveW && !haveH,
+                "Incomplete size: {} (line:{})",
+                *optName,
+                jsonObj.GetLine());
         }
     }
 
@@ -126,7 +161,9 @@ ParseSpriteSequence(const JsonObject& sequence)
         for(const JsonValue& value : jsonArray)
         {
             JsonObject jsonObj;
-            GG_CHECKB(value.TryGetObject(jsonObj), "Failed to get collision rect object: {}", name);
+            GG_CHECKB(value.TryGetObject(jsonObj),
+                "Failed to get collision rect object: {}",
+                *optName);
 
             Rectf colRect{ 0, 0, 0, 0 };
 
@@ -140,11 +177,13 @@ ParseSpriteSequence(const JsonObject& sequence)
             {
                 GG_CHECKB(!haveX && !haveY && !haveW && !haveH,
                     "Incomplete collision rect: {} (line:{})",
-                    name,
+                    *optName,
                     jsonObj.GetLine());
             }
 
             optColRect = colRect;
+
+            GG_CHECKB(optColRect.has_value(), "Collision rect not specified for: {}", *optName);
         }
     }
 
@@ -156,7 +195,7 @@ ParseSpriteSequence(const JsonObject& sequence)
 
     return SpriteFrameSequenceDef //
         {
-            .Name = name,
+            .Name = *optName,
             .TexturePath = texPath,
             .SrcRect = optSrcRect,
             .Size = optSize,
@@ -168,8 +207,15 @@ ParseSpriteSequence(const JsonObject& sequence)
 }
 
 Result<BoundedVector<SpriteFrameSequenceDef>>
-ParseSpriteSequences(const JsonArray& sequences)
+ParseSpriteSequences(const JsonObject& jobj)
 {
+    JsonArray sequences;
+    if(!jobj.TryGetArray("sequences", sequences))
+    {
+        // Sequences array is optional - return an empty vector if not present.
+        return BoundedVector<SpriteFrameSequenceDef>(0);
+    }
+
     BoundedVector<SpriteFrameSequenceDef> spriteSeqDefs(sequences.size());
 
     for(const JsonValue& value : sequences)
@@ -191,13 +237,11 @@ ParseSpriteSequences(const JsonArray& sequences)
 Result<SpriteDef>
 ParseSprite(const JsonObject& sprite)
 {
-    std::optional<std::string_view> optName;
+    std::optional<ResourceName> optName;
     std::vector<ResourceName> seqNames;
 
-    if(std::string_view name; sprite.TryGetString("name", name))
-    {
-        optName = name;
-    }
+    GG_TRY(resName, TryParseResourceName(sprite, "name"));
+    optName = resName;
     GG_CHECKB(optName.has_value() && !optName->empty(), "Missing name (line:{})", sprite.GetLine());
 
     if(JsonArray seqArray; sprite.TryGetArray("sequences", seqArray))
@@ -206,14 +250,11 @@ ParseSprite(const JsonObject& sprite)
 
         for(const JsonValue& value : seqArray)
         {
-            std::string_view seqName;
-            GG_CHECKB(value.TryGetString(seqName),
-                "Failed to get sequence name (line:{})",
-                value.GetLine());
+            GG_TRY(seqResName, TryParseResourceName(value));
 
-            GG_CHECKB(!seqName.empty(), "Empty sequence name (line:{})", value.GetLine());
+            GG_CHECKB(!seqResName.empty(), "Empty sequence name (line:{})", value.GetLine());
 
-            seqNames.emplace_back(seqName);
+            seqNames.emplace_back(seqResName);
         }
     }
     GG_CHECKB(!seqNames.empty(),
@@ -229,8 +270,15 @@ ParseSprite(const JsonObject& sprite)
 }
 
 Result<BoundedVector<SpriteDef>>
-ParseSprites(const JsonArray& sprites)
+ParseSprites(const JsonObject& jobj)
 {
+    JsonArray sprites;
+    if(!jobj.TryGetArray("sprites", sprites))
+    {
+        // Sprites array is optional - return an empty vector if not present.
+        return BoundedVector<SpriteDef>(0);
+    }
+
     BoundedVector<SpriteDef> spriteDefs(sprites.size());
 
     for(const JsonValue& value : sprites)
@@ -249,19 +297,106 @@ ParseSprites(const JsonArray& sprites)
     return spriteDefs;
 }
 
+Result<PropTypeDef>
+ParsePropType(const JsonObject& propType)
+{
+    GG_TRY(resName, TryParseResourceName(propType, "name"));
+    GG_CHECKB(!resName.empty(), "Missing name (line:{})", propType.GetLine());
+
+    GG_TRY(spriteName, TryParseResourceName(propType, "sprite"));
+    GG_CHECKB(!spriteName.empty(), "Missing sprite name (line:{})", propType.GetLine());
+
+    return PropTypeDef //
+        {
+            .Name = resName,
+            .SpriteName = spriteName,
+        };
+}
+
+Result<BoundedVector<PropTypeDef>>
+ParsePropTypes(const JsonObject& jobj)
+{
+    JsonArray propTypesArray;
+    if(!jobj.TryGetArray("propTypes", propTypesArray))
+    {
+        // Prop types array is optional - return an empty vector if not present.
+        return BoundedVector<PropTypeDef>(0);
+    }
+
+    BoundedVector<PropTypeDef> propTypes(propTypesArray.size());
+
+    for(const JsonValue& value : propTypesArray)
+    {
+        JsonObject propType;
+        GG_CHECKB(value.TryGetObject(propType),
+            "Failed to get prop type object (line:{})",
+            value.GetLine());
+
+        auto result = ParsePropType(propType);
+        GG_CHECKB(result, "Failed to parse prop type (line:{})", value.GetLine());
+
+        propTypes.push_back(*result);
+    }
+
+    return propTypes;
+}
+
+Result<ActorTypeDef>
+ParseActorType(const JsonObject& actorType)
+{
+    GG_TRY(resName, TryParseResourceName(actorType, "name"));
+    GG_CHECKB(!resName.empty(), "Missing name (line:{})", actorType.GetLine());
+
+    GG_TRY(className, TryParseResourceName(actorType, "class"));
+    GG_CHECKB(!className.empty(), "Missing actor class name (line:{})", actorType.GetLine());
+
+    GG_TRY(spriteName, TryParseResourceName(actorType, "sprite"));
+    GG_CHECKB(!spriteName.empty(), "Missing sprite name (line:{})", actorType.GetLine());
+
+    return ActorTypeDef //
+        {
+            .Name = resName,
+            .ActorClassName = className,
+            .SpriteName = spriteName,
+        };
+}
+
+Result<BoundedVector<ActorTypeDef>>
+ParseActorTypes(const JsonObject& jobj)
+{
+    JsonArray actorTypesArray;
+    if(!jobj.TryGetArray("actorTypes", actorTypesArray))
+    {
+        // Actor types array is optional - return an empty vector if not present.
+        return BoundedVector<ActorTypeDef>(0);
+    }
+
+    BoundedVector<ActorTypeDef> actorTypes(actorTypesArray.size());
+
+    for(const JsonValue& value : actorTypesArray)
+    {
+        JsonObject actorType;
+        GG_CHECKB(value.TryGetObject(actorType),
+            "Failed to get actor type object (line:{})",
+            value.GetLine());
+
+        auto result = ParseActorType(actorType);
+        GG_CHECKB(result, "Failed to parse actor type (line:{})", value.GetLine());
+
+        actorTypes.push_back(*result);
+    }
+
+    return actorTypes;
+}
+
 Result<PropDef>
 ParseProp(const JsonObject& prop)
 {
-    std::optional<std::string_view> optSpriteName;
     std::optional<glm::vec2> optPos;
     std::optional<float> optRot;
 
-    if(std::string_view spriteName; prop.TryGetString("sprite", spriteName))
-    {
-        optSpriteName = spriteName;
-    }
-    GG_CHECKB(optSpriteName.has_value(), "Missing sprite name (line:{})", prop.GetLine());
-    GG_CHECKB(!optSpriteName->empty(), "Empty sprite name (line:{})", prop.GetLine());
+    GG_TRY(typeName, TryParseResourceName(prop, "type"));
+    GG_CHECKB(!typeName.empty(), "Missing type name (line:{})", prop.GetLine());
 
     if(JsonObject jsonObj; prop.TryGetObject("pos", jsonObj))
     {
@@ -280,7 +415,7 @@ ParseProp(const JsonObject& prop)
 
     return PropDef //
         {
-            .SpriteName = *optSpriteName,
+            .TypeName = typeName,
             .Transform //
             {
                 .Pos = *optPos,
@@ -290,8 +425,15 @@ ParseProp(const JsonObject& prop)
 }
 
 Result<BoundedVector<PropDef>>
-ParseProps(const JsonArray& jsonProps   )
+ParseProps(const JsonObject& jobj)
 {
+    JsonArray jsonProps;
+    if(!jobj.TryGetArray("props", jsonProps))
+    {
+        // Props array is optional - return an empty vector if not present.
+        return BoundedVector<PropDef>(0);
+    }
+
     BoundedVector<PropDef> props(jsonProps.size());
 
     for(const JsonValue& value : jsonProps)
@@ -338,12 +480,18 @@ ParseLayer(const JsonObject& layer)
         cells.push_back(cellValue);
     }
 
-    return CellMapLayerDef{ .SheetIndex =*optSheetIndex };
+    return CellMapLayerDef{ .SheetIndex = *optSheetIndex };
 }
 
 Result<BoundedVector<CellMapLayerDef>>
-ParseLayers(const JsonArray& jsonLayers)
+ParseLayers(const JsonObject& jobj)
 {
+    // Layers array is required - fail if not present.
+    JsonArray jsonLayers;
+    GG_CHECKB(jobj.TryGetArray("layers", jsonLayers),
+        "Missing layers array (line:{})",
+        jobj.GetLine());
+
     const size_t count = jsonLayers.size();
 
     BoundedVector<CellMapLayerDef> layers(count);
@@ -364,8 +512,22 @@ ParseLayers(const JsonArray& jsonLayers)
 }
 
 Result<BoundedVector<AudioClipDef>>
-ParseAudioClips(const JsonArray& audioClipsArray)
+ParseAudioClips(const JsonObject& jobj)
 {
+    JsonObject extensionsObj;
+    if(!jobj.TryGetObject("extensions", extensionsObj))
+    {
+        // Extensions object is optional - continue if not present.
+        return BoundedVector<AudioClipDef>(0);
+    }
+
+    JsonArray audioClipsArray;
+    if(!extensionsObj.TryGetArray("audioClips", audioClipsArray))
+    {
+        // Audio clips array is optional - return an empty vector if not present.
+        return BoundedVector<AudioClipDef>(0);
+    }
+
     const size_t count = audioClipsArray.size();
 
     BoundedVector<AudioClipDef> audioClips(count);
@@ -377,17 +539,27 @@ ParseAudioClips(const JsonArray& audioClipsArray)
             "Failed to get audio clip object (line:{})",
             value.GetLine());
 
-        std::string_view name;
-        GG_CHECKB(audioClip.TryGetString("name", name),
+        std::string_view nameStr;
+        GG_CHECKB(audioClip.TryGetString("name", nameStr),
             "Missing audio clip name (line:{})",
             audioClip.GetLine());
 
-        std::string_view filePath;
-        GG_CHECKB(audioClip.TryGetString("filePath", filePath),
+        GG_TRY(resName,
+            ResourceName::Create(nameStr),
+            "Failed to create resource name from {}",
+            nameStr);
+
+        std::string_view filePathStr;
+        GG_CHECKB(audioClip.TryGetString("filePath", filePathStr),
             "Missing audio clip file path (line:{})",
             audioClip.GetLine());
 
-        audioClips.push_back(AudioClipDef{ .Name = name, .FilePath = filePath });
+        GG_TRYB(filePath,
+            FilePath::Create(filePathStr),
+            "Failed to create file path from {}",
+            filePathStr);
+
+        audioClips.push_back(AudioClipDef{ .Name = resName, .FilePath = filePath });
     }
 
     return audioClips;
@@ -474,11 +646,6 @@ LevelParser::Parse(std::vector<std::byte>&& data)
 
     std::optional<BoundedVector<FilePath>> optTileSheetPaths;
     std::optional<BoundedVector<FilePath>> optMaskSheetPaths;
-    std::optional<BoundedVector<SpriteFrameSequenceDef>> optSpriteSeqDefs;
-    std::optional<BoundedVector<SpriteDef>> optSpriteDefs;
-    std::optional<BoundedVector<CellMapLayerDef>> optLayers;
-    std::optional<BoundedVector<PropDef>> optPropDefs;
-    std::optional<BoundedVector<AudioClipDef>> optAudioClipDefs;
 
     // Grid size
     if(uint32_t gridSize{}; jobj.TryGetUint32("gridSize", gridSize))
@@ -498,7 +665,10 @@ LevelParser::Parse(std::vector<std::byte>&& data)
             GG_CHECKB(sheet.TryGetString(str),
                 "Failed to get sheet string (line:{})",
                 sheet.GetLine());
-            optTileSheetPaths->push_back(str);
+
+            GG_TRYB(filePath, FilePath::Create(str), "Failed to create file path from {}", str);
+
+            optTileSheetPaths->push_back(filePath);
         }
     }
     GG_CHECKB(optTileSheetPaths.has_value(), "Missing tile sheet paths (line:{})", jobj.GetLine());
@@ -514,105 +684,58 @@ LevelParser::Parse(std::vector<std::byte>&& data)
             GG_CHECKB(sheet.TryGetString(str),
                 "Failed to get sheet string (line:{})",
                 sheet.GetLine());
-            optMaskSheetPaths->push_back(str);
+
+            GG_TRYB(filePath, FilePath::Create(str), "Failed to create file path from {}", str);
+
+            optMaskSheetPaths->push_back(filePath);
         }
     }
     GG_CHECKB(optMaskSheetPaths.has_value(), "Missing mask sheet paths (line:{})", jobj.GetLine());
 
     // Sprite sequences
-    if(JsonArray sequencesArray; jobj.TryGetArray("sequences", sequencesArray))
-    {
-        auto sequencesResult = ParseSpriteSequences(sequencesArray);
-        GG_CHECK(sequencesResult,
-            "Failed to parse sprite sequences (line:{})",
-            sequencesArray.GetLine());
-
-        optSpriteSeqDefs = std::move(*sequencesResult);
-    }
     // sequences is optional - it can be absent in the JSON
-
-    // Ensure we have a valid sprite sequence list, even if it's empty.
-    // Sequence defs are optional in the JSON, but we need a valid list to work with.
-    if(!optSpriteSeqDefs.has_value())
-    {
-        optSpriteSeqDefs.emplace(BoundedVector<SpriteFrameSequenceDef>(0));
-    }
+    auto sequenceDefsResult = ParseSpriteSequences(jobj);
+    GG_CHECK(sequenceDefsResult, "Failed to parse sprite sequences (line:{})", jobj.GetLine());
 
     // Sprites
-    if(JsonArray spritesArray; jobj.TryGetArray("sprites", spritesArray))
-    {
-        auto spritesResult = ParseSprites(spritesArray);
-        GG_CHECK(spritesResult, "Failed to parse sprites (line:{})", spritesArray.GetLine());
-
-        optSpriteDefs = std::move(*spritesResult);
-    }
     // sprites is optional - it can be absent in the JSON
+    auto spriteDefsResult = ParseSprites(jobj);
+    GG_CHECK(spriteDefsResult, "Failed to parse sprites (line:{})", jobj.GetLine());
 
-    // Ensure we have a valid sprite definition list, even if it's empty.
-    // Sprite defs are optional in the JSON, but we need a valid list to work with.
-    if(!optSpriteDefs.has_value())
-    {
-        optSpriteDefs.emplace(BoundedVector<SpriteDef>(0));
-    }
+    // Prop types
+    // propTypes is optional - it can be absent in the JSON
+    auto propTypeDefsResult = ParsePropTypes(jobj);
+    GG_CHECK(propTypeDefsResult, "Failed to parse prop types (line:{})", jobj.GetLine());
+
+    // Actor types
+    // actorTypes is optional - it can be absent in the JSON
+    auto actorTypeDefsResult = ParseActorTypes(jobj);
+    GG_CHECK(actorTypeDefsResult, "Failed to parse actor types (line:{})", jobj.GetLine());
 
     // Props
-    if(JsonArray propsArray; jobj.TryGetArray("props", propsArray))
-    {
-        auto propResult = ParseProps(propsArray);
-        GG_CHECK(propResult, "Failed to parse props (line:{})", propsArray.GetLine());
-
-        optPropDefs.emplace(std::move(*propResult));
-    }
     // props is optional - it can be absent in the JSON
-
-    // Ensure we have a valid prop definition list, even if it's empty.
-    // Prop defs are optional in the JSON, but we need a valid list to work with.
-    if(!optPropDefs.has_value())
-    {
-        optPropDefs.emplace(BoundedVector<PropDef>(0));
-    }
+    auto propDefsResult = ParseProps(jobj);
+    GG_CHECK(propDefsResult, "Failed to parse props (line:{})", jobj.GetLine());
 
     // Layers
-    if(JsonArray layersArray; jobj.TryGetArray("layers", layersArray))
-    {
-        auto layerResult = ParseLayers(layersArray);
-        GG_CHECK(layerResult, "Failed to parse layer (line:{})", layersArray.GetLine());
+    auto layersResult = ParseLayers(jobj);
+    GG_CHECK(layersResult, "Failed to parse layers (line:{})", jobj.GetLine());
 
-        optLayers.emplace(std::move(*layerResult));
-    }
-    GG_CHECKB(optLayers.has_value(), "Missing layers (line:{})", jobj.GetLine());
-
-    // Extensions
-    if(JsonObject extensionsObj; jobj.TryGetObject("extensions", extensionsObj))
-    {
-        // Currently, we only handle audio clips within extensions.
-        if(JsonArray audioClipsArray; extensionsObj.TryGetArray("audioClips", audioClipsArray))
-        {
-            auto audioClipResult = ParseAudioClips(audioClipsArray);
-            GG_CHECK(audioClipResult,
-                "Failed to parse audio clips (line:{})",
-                audioClipsArray.GetLine());
-
-            optAudioClipDefs.emplace(std::move(*audioClipResult));
-        }
-    }
+    // Audio clips
     // audioClips is optional - it can be absent in the JSON
-
-    // Ensure we have a valid audio clip definition list, even if it's empty.
-    // Audio clip defs are optional in the JSON, but we need a valid list to work with.
-    if(!optAudioClipDefs.has_value())
-    {
-        optAudioClipDefs.emplace(BoundedVector<AudioClipDef>(0));
-    }
+    auto audioClipDefsResult = ParseAudioClips(jobj);
+    GG_CHECK(audioClipDefsResult, "Failed to parse audio clips (line:{})", jobj.GetLine());
 
     ParsedLevel parsedLevel(*optGridSize,
         std::move(*optTileSheetPaths),
         std::move(*optMaskSheetPaths),
-        std::move(*optLayers),
-        std::move(*optSpriteSeqDefs),
-        std::move(*optSpriteDefs),
-        std::move(*optPropDefs),
-        std::move(*optAudioClipDefs));
+        std::move(*layersResult),
+        std::move(*sequenceDefsResult),
+        std::move(*spriteDefsResult),
+        std::move(*propTypeDefsResult),
+        std::move(*actorTypeDefsResult),
+        std::move(*propDefsResult),
+        std::move(*audioClipDefsResult));
 
     m_ParsedLevel = std::move(parsedLevel);
 

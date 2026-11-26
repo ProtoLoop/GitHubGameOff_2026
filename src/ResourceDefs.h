@@ -3,9 +3,11 @@
 #include "Geometry2D.h"
 #include "NameTypes.h"
 #include "Transform2D.h"
+#include "Result.h"
 
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
+#include <optional>
 #include <span>
 
 /// Defines frames within a rectangular region of a texture.
@@ -50,11 +52,35 @@ struct SpriteDef
     std::vector<ResourceName> SequenceNames;
 };
 
+struct PropTypeDef
+{
+    /// The unique name of the prop type.
+    ResourceName Name;
+    /// Identifies the sprite associated with this prop type - i.e. the appearance of
+    /// props of this type.
+    /// Sometimes this sprite is only used as a place holder in the level editor and may not
+    /// represent the final in-game appearance.
+    ResourceName SpriteName;
+};
+
+struct ActorTypeDef
+{
+    /// The unique name of the actor type.
+    ResourceName Name;
+    /// Actor class identifier.
+    ResourceName ActorClassName;
+    /// Identifies the sprite associated with this actor type - i.e. the appearance of
+    /// actors of this type.
+    /// Sometimes this sprite is only used as a place holder in the level editor and may not
+    /// represent the final in-game appearance.
+    ResourceName SpriteName;
+};
+
 /// Defines a prop within the level.
 struct PropDef
 {
-    /// The name of the sprite associated with this prop.
-    ResourceName SpriteName;
+    /// The type of the prop.
+    ResourceName TypeName;
     /// The transform (location/rotation) of the prop within the level.
     Transform2D Transform;
 };
@@ -90,6 +116,13 @@ struct LevelDef
     CellMapDef CellMapDef;
     std::span<const SpriteFrameSequenceDef> SpriteSeqDefs;
     std::span<const SpriteDef> SpriteDefs;
+    std::span<const PropTypeDef> PropTypeDefs;
+    std::span<const ActorTypeDef> ActorTypeDefs;
     std::span<const PropDef> PropDefs;
     std::span<const AudioClipDef> AudioClipDefs;
+
+    Result<const SpriteFrameSequenceDef&> GetSpriteFrameSequenceDef(const ResourceName& name) const;
+    Result<const SpriteDef&> GetSpriteDef(const ResourceName& name) const;
+    Result<const PropTypeDef&> GetPropTypeDef(const ResourceName& name) const;
+    Result<const ActorTypeDef&> GetActorTypeDef(const ResourceName& name) const;
 };

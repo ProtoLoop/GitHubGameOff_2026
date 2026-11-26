@@ -129,9 +129,9 @@ Deno.test("explicit sequence textures load once within the project root and fail
     const folder = "http://localhost/projects/test/";
     const texture = folder + "assets/anims/actor%20%23.png";
     const data = {
-        format: "mosaic", version: 25, gridSize: 2,
+        format: "mosaic", version: 27, gridSize: 2,
         tileSheets: ["/assets/tiles/tile.png"], maskSheets: ["/assets/masks/mask.png"], maskMode: "random",
-        layers: [{ sheet: 0, cells: [] }], props: [],
+        layers: [{ sheet: 0, cells: [] }], props: [], actors: [], propTypes: [], actorTypes: [],
         sprites: [{ name: "Actor", sequences: ["Walk", "Idle"] }],
         sequences: [
             { name: "Walk", texPath: "/assets/anims/actor #.png", size: { w: 16, h: 16 } },

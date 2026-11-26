@@ -32,7 +32,7 @@ class FileFetchRequest
 
 public:
     explicit FileFetchRequest(const PassKey& passkey)
-        : m_Path(""),
+        : m_Path{ FilePath::kEmpty },
           m_Fetcher(passkey.m_Fetcher)
     {
     }

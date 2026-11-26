@@ -56,10 +56,27 @@ export interface Sprite
     readonly sequences: readonly SpriteSequence[];
 }
 
-export interface Prop
+export interface PropType
+{
+    readonly kind: "prop";
+    readonly name: string;
+    readonly sprite: Sprite;
+}
+
+export interface ActorType
+{
+    readonly kind: "actor";
+    readonly name: string;
+    readonly class: string;
+    readonly sprite: Sprite;
+}
+
+export type ObjectDefinition = PropType | ActorType;
+
+export interface Placement
 {
     readonly id: number;
-    readonly sprite: Sprite;
+    readonly definition: ObjectDefinition;
     /// Pivot in centered, Y-up fractional cells, rounded to three decimal places during editing.
     x: number;
     y: number;
@@ -104,8 +121,11 @@ export interface ProjectDocument
     gridSize: number;
     sequences: readonly SpriteSequence[];
     sprites: readonly Sprite[];
-    props: Prop[];
-    nextPropId: number;
+    propTypes: readonly PropType[];
+    actorTypes: readonly ActorType[];
+    /// Props precede actors, preserving the two serialized arrays' draw order.
+    placements: Placement[];
+    nextPlacementId: number;
     layers: Layer[];
     tileSheets: readonly ImageAsset[];
     masks: readonly ImageAsset[];
@@ -124,7 +144,7 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
     const sheets = [tiles[0], tiles[Math.min(1, tiles.length - 1)]];
     const project: ProjectDocument = {
         gridSize: kDefaultGridSize, nextLayerId: 2, activeLayerId: 1,
-        sequences: [], sprites: [], props: [], nextPropId: 0,
+        sequences: [], sprites: [], propTypes: [], actorTypes: [], placements: [], nextPlacementId: 0,
         tileSheets: [...tiles], masks: [...masks], maskMode: "random",
         view: { zoom: 1, scrollLeft: 0, scrollTop: 0, showGrid: true },
         layers: sheets.map((sheet, id) => ({
@@ -139,7 +159,8 @@ export function createDocument(tiles: readonly ImageAsset[], masks: readonly Ima
 export function cloneDocument(project: ProjectDocument): ProjectDocument
 {
     return {
-        ...project, sequences: [...project.sequences], sprites: [...project.sprites], props: project.props.map((prop) => ({ ...prop })),
+        ...project, sequences: [...project.sequences], sprites: [...project.sprites],
+        propTypes: [...project.propTypes], actorTypes: [...project.actorTypes], placements: project.placements.map((prop) => ({ ...prop })),
         view: { ...project.view }, tileSheets: [...project.tileSheets], masks: [...project.masks],
         layers: project.layers.map((layer) => ({ ...layer, painted: [...layer.painted] }))
     };
@@ -149,21 +170,24 @@ export function documentBytes(project: ProjectDocument): number
 {
     // Conservative estimate for boolean array slots, excluding shared images.
     return project.layers.reduce((total, layer) => total + 128 + layer.painted.length * 8,
-        256 + project.props.length * 128
-            + (project.tileSheets.length + project.masks.length + project.sequences.length + project.sprites.length) * 8);
+        256 + project.placements.length * 128
+            + (project.tileSheets.length + project.masks.length + project.sequences.length + project.sprites.length + project.propTypes.length + project.actorTypes.length) * 8);
 }
 
 /// View changes and swatch selection do not create undo actions.
 export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
 {
-    if(a.gridSize !== b.gridSize || a.nextPropId !== b.nextPropId || a.props.length !== b.props.length
+    if(a.gridSize !== b.gridSize || a.nextPlacementId !== b.nextPlacementId || a.placements.length !== b.placements.length
+        || a.propTypes.length !== b.propTypes.length || a.actorTypes.length !== b.actorTypes.length
+        || a.propTypes.some((definition, index) => definition !== b.propTypes[index])
+        || a.actorTypes.some((definition, index) => definition !== b.actorTypes[index])
         || a.sequences.length !== b.sequences.length
         || a.sequences.some((asset, index) => asset !== b.sequences[index])
         || a.sprites.length !== b.sprites.length
         || a.sprites.some((sprite, index) => sprite !== b.sprites[index])
-        || a.props.some((prop, index) => {
-            const other = b.props[index];
-            return prop.id !== other.id || prop.sprite !== other.sprite || prop.x !== other.x
+        || a.placements.some((prop, index) => {
+            const other = b.placements[index];
+            return prop.id !== other.id || prop.definition !== other.definition || prop.x !== other.x
                 || prop.y !== other.y || prop.rotation !== other.rotation;
         })
         || a.nextLayerId !== b.nextLayerId || a.maskMode !== b.maskMode
@@ -285,7 +309,7 @@ export function validateDocument(project: ProjectDocument): void
     {
         fail("invalid mask set or selection");
     }
-    if(project.sequences.length > 256 || project.sprites.length > 256 || project.props.length > 10000
+    if(project.sequences.length > 256 || project.sprites.length > 256 || project.placements.length > 10000
         || new Set(project.sequences).size !== project.sequences.length)
     {
         fail("invalid prop catalog or instance count");
@@ -346,23 +370,39 @@ export function validateDocument(project: ProjectDocument): void
             fail("invalid sprite sequences");
         }
     }
+    for(const [kind, definitions] of [["prop", project.propTypes], ["actor", project.actorTypes]] as const)
+    {
+        if(definitions.length > 256) { fail(`too many ${kind} definitions`); }
+        const definitionNames = new Set<string>();
+        for(const definition of definitions)
+        {
+            if(definition.kind !== kind || !validName(definition.name)) { fail(`invalid ${kind} definition`); }
+            if(definitionNames.has(definition.name)) { fail(`duplicate ${kind} name: ${definition.name}`); }
+            definitionNames.add(definition.name);
+            if(!project.sprites.includes(definition.sprite)) { fail(`invalid ${kind} sprite reference`); }
+            if(definition.kind === "actor" && !validName(definition.class)) { fail("invalid actor class"); }
+        }
+    }
     const propIds = new Set<number>();
-    for(const prop of project.props)
+    let seenActor = false;
+    for(const prop of project.placements)
     {
         if(!Number.isSafeInteger(prop.id) || prop.id < 0 || propIds.has(prop.id)
-            || !project.sprites.includes(prop.sprite)
+            || !(prop.definition.kind === "prop" ? project.propTypes.includes(prop.definition) : project.actorTypes.includes(prop.definition))
             || !Number.isFinite(prop.x) || !Number.isFinite(prop.y)
             || Math.abs(prop.x) > project.gridSize / 2 || Math.abs(prop.y) > project.gridSize / 2
             || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360)
         {
-            fail("invalid prop placement");
+            fail("invalid object placement");
         }
+        if(prop.definition.kind === "actor") { seenActor = true; }
+        else if(seenActor) { fail("props must precede actors in placement order"); }
         propIds.add(prop.id);
     }
-    if(!Number.isSafeInteger(project.nextPropId) || project.nextPropId < 0
-        || project.props.some((prop) => prop.id >= project.nextPropId))
+    if(!Number.isSafeInteger(project.nextPlacementId) || project.nextPlacementId < 0
+        || project.placements.some((prop) => prop.id >= project.nextPlacementId))
     {
-        fail("invalid next prop ID");
+        fail("invalid next placement ID");
     }
     const assets = documentAssets(project);
     if(new Set(project.tileSheets).size !== project.tileSheets.length

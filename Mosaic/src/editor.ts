@@ -1,4 +1,4 @@
-import { validateDocument, type ProjectDocument, type Layer, type Prop, type Sprite, type ImageAsset } from "./document.ts";
+import { validateDocument, type ProjectDocument, type Layer, type Placement, type ObjectDefinition, type ImageAsset } from "./document.ts";
 import { History } from "./history.ts";
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
@@ -29,7 +29,7 @@ interface MoveGesture extends SelectionGesture
     readonly kind: "move";
     readonly clickedId: number;
     // These references are borrowed only until the gesture ends. Replacement requires an idle editor.
-    readonly positions: { readonly prop: Prop; readonly x: number; readonly y: number }[];
+    readonly positions: { readonly prop: Placement; readonly x: number; readonly y: number }[];
 }
 interface BoxGesture extends SelectionGesture
 {
@@ -52,20 +52,20 @@ export class Editor
     private project: ProjectDocument;
     private selection = new Set<number>();
     private mode: Tool = "select";
-    private sprite: Sprite | null;
+    private definition: ObjectDefinition | null;
     private gesture: Gesture | null = null;
 
     constructor(project: ProjectDocument, readonly history: History)
     {
         validateDocument(project);
         this.project = project;
-        this.sprite = project.sprites[0] ?? null;
+        this.definition = project.propTypes[0] ?? project.actorTypes[0] ?? null;
     }
 
     get document(): ProjectDocument { return this.project; }
     get committedDocument(): ProjectDocument { return this.history.committedState(this.project); }
-    get selectedPropIds(): ReadonlySet<number> { return this.selection; }
-    get selectedSprite(): Sprite | null { return this.sprite; }
+    get selectedPlacementIds(): ReadonlySet<number> { return this.selection; }
+    get selectedDefinition(): ObjectDefinition | null { return this.definition; }
     get tool(): Tool { return this.mode; }
     get activeGesture(): { readonly kind: Gesture["kind"]; readonly pointerId: number } | null { return this.gesture; }
     get selectionBox(): SelectionBox | null
@@ -88,11 +88,11 @@ export class Editor
         if(tool !== "select") { this.selection.clear(); }
     }
 
-    chooseProp(sprite: Sprite): void
+    chooseDefinition(definition: ObjectDefinition): void
     {
         this.requireIdle();
-        if(!this.project.sprites.includes(sprite)) { throw new Error("Sprite is not in this project"); }
-        this.sprite = sprite;
+        if(!(definition.kind === "prop" ? this.project.propTypes.includes(definition) : this.project.actorTypes.includes(definition))) { throw new Error("Definition is not in this project"); }
+        this.definition = definition;
         this.setTool("place");
     }
 
@@ -131,25 +131,27 @@ export class Editor
         }
     }
 
-    /// Prop positions and selection gestures use fractional cell coordinates.
-    placeProp(point: Point): EditResult
+    /// Object positions and selection gestures use fractional cell coordinates.
+    placeObject(point: Point): EditResult
     {
-        return this.edit("Place prop", (project) => {
-            if(!this.sprite) { throw new Error("Add an image to assets/props/ and reload the project."); }
-            if(project.props.length >= 10000) { throw new Error("The level already contains 10,000 props."); }
-            const id = project.nextPropId++;
+        return this.edit(this.definition?.kind === "actor" ? "Place actor" : "Place prop", (project) => {
+            if(!this.definition) { throw new Error("Add a prop or actor definition to level.json and reload the project."); }
+            if(project.placements.length >= 10000) { throw new Error("The level already contains 10,000 objects."); }
+            const id = project.nextPlacementId++;
             const position = clampPropPoint(point.x, point.y, this.project.gridSize);
-            project.props.push({ id, sprite: this.sprite,
+            const firstActor = project.placements.findIndex((placement) => placement.definition.kind === "actor");
+            const index = this.definition.kind === "prop" && firstActor >= 0 ? firstActor : project.placements.length;
+            project.placements.splice(index, 0, { id, definition: this.definition,
                 x: Math.round(position.x * 1000) / 1000,
                 y: Math.round(position.y * 1000) / 1000, rotation: 0 });
             this.selection = new Set([id]);
         });
     }
 
-    deleteSelectedProps(): EditResult
+    deleteSelectedObjects(): EditResult
     {
-        return this.edit(this.selection.size > 1 ? "Delete props" : "Delete prop", (project) => {
-            project.props = project.props.filter((prop) => !this.selection.has(prop.id));
+        return this.edit(this.selection.size > 1 ? "Delete objects" : "Delete object", (project) => {
+            project.placements = project.placements.filter((prop) => !this.selection.has(prop.id));
             this.selection.clear();
         });
     }
@@ -180,7 +182,7 @@ export class Editor
         });
     }
 
-    /// Keep the map center fixed. Cropped cells and props are retained by the history snapshot.
+    /// Keep the map center fixed. Cropped cells and objects are retained by the history snapshot.
     resizeMap(size: number): EditResult
     {
         if(!validGridSize(size)) { throw new Error(`Map size must be a power of two from ${kMinGridSize} to ${kMaxGridSize} cells.`); }
@@ -198,7 +200,7 @@ export class Editor
                 }
                 return { ...layer, painted };
             });
-            project.props = project.props.filter((prop) => Math.abs(prop.x) <= size / 2 && Math.abs(prop.y) <= size / 2);
+            project.placements = project.placements.filter((prop) => Math.abs(prop.x) <= size / 2 && Math.abs(prop.y) <= size / 2);
             project.gridSize = size;
         });
     }
@@ -264,7 +266,7 @@ export class Editor
     beginSelection(pointerId: number, point: Point, client: Point, shift: boolean): void
     {
         this.requireIdle();
-        const prop = hitProp(this.project.props, point.x, point.y);
+        const prop = hitProp(this.project.placements, point.x, point.y);
         const beforeSelection = new Set(this.selection);
         if(prop && shift)
         {
@@ -274,10 +276,10 @@ export class Editor
         if(prop)
         {
             if(!this.selection.has(prop.id)) { this.selection = new Set([prop.id]); }
-            this.history.begin(this.project, this.selection.size > 1 ? "Move props" : "Move prop");
+            this.history.begin(this.project, this.selection.size > 1 ? "Move objects" : "Move object");
             this.gesture = { kind: "move", pointerId, start: point, clientStart: client, beforeSelection,
                 clickedId: prop.id, moved: false,
-                positions: this.project.props.filter((item) => this.selection.has(item.id)).map((item) => ({ prop: item, x: item.x, y: item.y })) };
+                positions: this.project.placements.filter((item) => this.selection.has(item.id)).map((item) => ({ prop: item, x: item.x, y: item.y })) };
         }
         else
         {
@@ -296,7 +298,7 @@ export class Editor
         if(gesture.kind === "box")
         {
             gesture.end = clampPropPoint(point.x, point.y, this.project.gridSize);
-            this.selection = new Set([...gesture.baseSelection, ...propsInBox(this.project.props, gesture)]);
+            this.selection = new Set([...gesture.baseSelection, ...propsInBox(this.project.placements, gesture)]);
         }
         else
         {
@@ -385,8 +387,12 @@ export class Editor
 
     private reconcileSelection(): void
     {
-        this.selection = new Set(this.project.props.filter((prop) => this.selection.has(prop.id)).map((prop) => prop.id));
-        if(!this.sprite || !this.project.sprites.includes(this.sprite)) { this.sprite = this.project.sprites[0] ?? null; }
+        this.selection = new Set(this.project.placements.filter((prop) => this.selection.has(prop.id)).map((prop) => prop.id));
+        if(!this.definition || !(this.definition.kind === "prop"
+            ? this.project.propTypes.includes(this.definition) : this.project.actorTypes.includes(this.definition)))
+        {
+            this.definition = this.project.propTypes[0] ?? this.project.actorTypes[0] ?? null;
+        }
     }
 
     private requireIdle(): void

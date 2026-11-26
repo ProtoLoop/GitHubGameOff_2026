@@ -465,6 +465,13 @@ borrow sequences from the catalog. Gameplay actors and decorative props hold
 Actors and props are destroyed before the level resources they borrow. Within
 the level, sprites are destroyed before sequences.
 
+Mosaic now writes version 27 with explicit prop and actor definitions. Its prop
+placements reference `propTypes` by name instead of directly referencing sprites.
+The C++ loader parses `propTypes` and `actorTypes`. Prop placements reference
+`propTypes` through their `type` field, and the game resolves these definitions
+to create props. Actor placements remain editor-only: the runtime does not yet
+parse or instantiate them.
+
 Gameplay actors use the same level-defined sprite catalog as decorative props.
 They resolve required resources from the level and request audio playback
 through `AudioPlayer`. Startup fails when a required resource cannot be resolved.
