@@ -1,4 +1,4 @@
-import { mapPixels, propImageRect, type SelectionBox } from "./props.ts";
+import { mapPixels, propImageRect, placementImageRect, scaleHandles, type SelectionBox } from "./props.ts";
 import { sequenceTint, type ProjectDocument, type MaskPlacement, type SpriteSequence, type ImageAsset } from "./document.ts";
 import { cellMasks, sampleMask, terrainSourceOffset } from "./placement.ts";
 import { kCellSize, kHalfCellSize } from "./grid.ts";
@@ -182,7 +182,7 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
     const visible = (prop: ProjectDocument["placements"][number]): boolean => {
         const point = mapPixels(prop, project.gridSize);
         const angle = prop.rotation * Math.PI / 180;
-        const rect = propImageRect(prop.definition.sprite.sequences[0]);
+        const rect = placementImageRect(prop);
         const cos = Math.cos(angle), sin = Math.sin(angle);
         const offsetX = rect.x + rect.width / 2, offsetY = rect.y + rect.height / 2;
         const centerX = point.x + offsetX * cos - offsetY * sin;
@@ -201,7 +201,7 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
         const point = mapPixels(prop, project.gridSize);
         context.translate(point.x, point.y);
         context.rotate(prop.rotation * Math.PI / 180);
-        const rect = propImageRect(prop.definition.sprite.sequences[0]);
+        const rect = placementImageRect(prop);
         const source = propFrameSource(prop.definition.sprite.sequences[0]);
         context.drawImage(source.image, source.x, source.y, source.w, source.h,
             rect.x, rect.y, rect.width, rect.height);
@@ -220,7 +220,7 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
             context.rotate(prop.rotation * Math.PI / 180);
             context.strokeStyle = "#00e5ff";
             context.lineWidth = 2 / view.zoom;
-            const { width, height } = propImageRect(sequence);
+            const { width, height } = placementImageRect(prop);
             for(const rect of sequence.collisionRects)
             {
                 context.strokeRect((rect.x - sequence.pivotX) * width,
@@ -238,7 +238,7 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
         context.rotate(selected.rotation * Math.PI / 180);
         context.strokeStyle = "#ffdc60";
         context.lineWidth = 2 / view.zoom;
-        const rect = propImageRect(selected.definition.sprite.sequences[0]);
+        const rect = placementImageRect(selected);
         context.strokeRect(rect.x, rect.y, rect.width, rect.height);
         context.restore();
     }
@@ -299,6 +299,26 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
         if(placement.definition.kind === "actor") { markActor(placement); }
     }
     if(preview?.actor) { markActor(preview); }
+    if(selectedIds.size === 1)
+    {
+        const selected = project.placements.find((placement) => selectedIds.has(placement.id));
+        if(selected)
+        {
+            context.save();
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            for(const handle of scaleHandles(selected))
+            {
+                const pixel = mapPixels(handle, project.gridSize);
+                const x = (pixel.x - view.x) * view.zoom, y = (pixel.y - view.y) * view.zoom;
+                if(x + 5 < 0 || y + 5 < 0 || x - 5 > canvas.width || y - 5 > canvas.height) { continue; }
+                context.fillStyle = "#161b16";
+                context.fillRect(x - 5, y - 5, 10, 10);
+                context.fillStyle = "#ffdc60";
+                context.fillRect(x - 3, y - 3, 6, 6);
+            }
+            context.restore();
+        }
+    }
     // Draw pivots last in screen pixels so they stay upright and readable at every zoom.
     for(const selected of project.placements)
     {

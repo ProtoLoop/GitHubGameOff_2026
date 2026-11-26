@@ -81,6 +81,8 @@ export interface Placement
     x: number;
     y: number;
     rotation: number;
+    /// Absolute override. Absence inherits the displayed sequence scale.
+    scale?: number;
 }
 
 export interface ImageAsset extends Asset
@@ -188,7 +190,7 @@ export function sameContent(a: ProjectDocument, b: ProjectDocument): boolean
         || a.placements.some((prop, index) => {
             const other = b.placements[index];
             return prop.id !== other.id || prop.definition !== other.definition || prop.x !== other.x
-                || prop.y !== other.y || prop.rotation !== other.rotation;
+                || prop.y !== other.y || prop.rotation !== other.rotation || prop.scale !== other.scale;
         })
         || a.nextLayerId !== b.nextLayerId || a.maskMode !== b.maskMode
         || a.layers.length !== b.layers.length || a.masks.length !== b.masks.length
@@ -391,7 +393,8 @@ export function validateDocument(project: ProjectDocument): void
             || !(prop.definition.kind === "prop" ? project.propTypes.includes(prop.definition) : project.actorTypes.includes(prop.definition))
             || !Number.isFinite(prop.x) || !Number.isFinite(prop.y)
             || Math.abs(prop.x) > project.gridSize / 2 || Math.abs(prop.y) > project.gridSize / 2
-            || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360)
+            || !Number.isFinite(prop.rotation) || prop.rotation < 0 || prop.rotation >= 360
+            || (prop.scale !== undefined && (!Number.isFinite(prop.scale) || prop.scale <= 0)))
         {
             fail("invalid object placement");
         }

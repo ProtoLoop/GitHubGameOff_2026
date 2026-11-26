@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 28,
+  "version": 29,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/coast_sand_rocks_02_diff_1k.png",
@@ -21,10 +21,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_001.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 1,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0.35,"y":0.5,"w":0.25,"h":0.3}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Ancient_Tree_002",
@@ -32,10 +29,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_002.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 1,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Ancient_Tree_003",
@@ -43,10 +37,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 1,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Ancient_Tree_004",
@@ -54,10 +45,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 1,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Bell_001",
@@ -65,10 +53,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_001.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 0.25,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Bell_002",
@@ -76,10 +61,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_002.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 0.25,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Bell_003",
@@ -87,10 +69,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_003.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 0.25,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Bell_004",
@@ -98,10 +77,7 @@
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_004.png",
       "pivot": {"x":0.5,"y":1},
       "scale": 0.25,
-      "srcRect": {},
-      "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
-      ]
+      "srcRect": {}
     },
     {
       "name": "Cemetery_Stonewall_and_Boundary_001",
@@ -790,7 +766,8 @@
     {
       "type": "Cemetery_Ancient_Tree_002",
       "pos": {"x":-2.3,"y":-1.369},
-      "rot": 0
+      "rot": 0,
+      "scale": 0.7893715930558983
     }
   ],
   "actors": [
@@ -954,7 +931,7 @@
     ]
   },
   "editor": {
-    "activeLayer": 2,
-    "view": {"zoom":1.0266431078142266,"scrollLeft":1605,"scrollTop":1699.5,"showGrid":false}
+    "activeLayer": 1,
+    "view": {"zoom":1.0266431078142266,"scrollLeft":1632,"scrollTop":1400,"showGrid":false}
   }
 }

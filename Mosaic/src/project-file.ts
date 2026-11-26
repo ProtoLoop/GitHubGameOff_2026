@@ -26,9 +26,9 @@ function formatJson(value: unknown, depth: number, column: number): string
     }).join(",\n") + "\n" + indent + "}";
 }
 
-function placementTransform(placement: Placement): { pos: { x: number; y: number }; rot: number }
+function placementTransform(placement: Placement): { pos: { x: number; y: number }; rot: number; scale?: number }
 {
-    return { pos: { x: Math.round(placement.x * 1000) / 1000, y: Math.round(placement.y * 1000) / 1000 }, rot: placement.rotation };
+    return { pos: { x: Math.round(placement.x * 1000) / 1000, y: Math.round(placement.y * 1000) / 1000 }, rot: placement.rotation, scale: placement.scale };
 }
 
 /// Serialize occupancy and rendering settings. Texture and mask choices are derived.
@@ -36,7 +36,7 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([formatJson({
-        format: "mosaic", version: 28,
+        format: "mosaic", version: 29,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
@@ -124,14 +124,14 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function projectTexturePaths(blob: Blob): Promise<string[]>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 28) { throw new Error("Unsupported Mosaic project format/version"); }
+    if(data.format !== "mosaic" || data.version !== 29) { throw new Error("Unsupported Mosaic project format/version"); }
     return [...new Set(list(data.sequences, 0, 256).map((entry) => assetId(object(entry).texPath)))];
 }
 
 export async function readProject(blob: Blob, available: readonly (ImageAsset | SpriteSequence)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 28)
+    if(data.format !== "mosaic" || data.version !== 29)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -233,7 +233,12 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
             if(typeof name !== "string") { throw new Error(`Invalid ${kind} reference`); }
             const definition = names.get(name);
             if(!definition) { throw new Error(`Missing ${kind} definition: ${name}`); }
-            return { id: nextPlacementId++, definition, x: pos.x, y: pos.y, rotation: entry.rot };
+            if(entry.scale !== undefined && (typeof entry.scale !== "number" || !Number.isFinite(entry.scale) || entry.scale <= 0))
+            {
+                throw new Error(`Invalid ${kind} scale`);
+            }
+            return { id: nextPlacementId++, definition, x: pos.x, y: pos.y, rotation: entry.rot,
+                ...(entry.scale === undefined ? {} : { scale: entry.scale as number }) };
         });
     };
     const placements = [...readPlacements(data.props, "prop", propTypes), ...readPlacements(data.actors, "actor", actorTypes)];

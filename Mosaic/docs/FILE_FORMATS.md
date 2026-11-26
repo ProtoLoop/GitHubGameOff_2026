@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 28`. Only version 28 is supported.
+The container has `format: "mosaic"` and `version: 29`. Only version 29 is supported.
 Older versions are rejected. There is no migration loader.
 
 Saves use two-space indentation, with small objects containing only scalar values
@@ -52,7 +52,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-Extension preservation was introduced in version 21 and continues in version 28.
+Extension preservation was introduced in version 21 and continues in version 29.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -315,7 +315,7 @@ and sprite resources only, and definitions are maintained in JSON and reloaded.
 
 Both placement arrays are required, even when empty. Each `props` entry references
 a prop definition with `type: "name"`. Each `actors` entry references an actor
-definition with `type: "name"`. Both carry `pos` and `rot` as described below.
+definition with `type: "name"`. Both carry `pos` and `rot` as described below, and may carry an optional `scale`.
 Missing or malformed references and duplicate definition names fail loading before
 installation. A sprite name alone is no longer a valid placement reference.
 
@@ -328,15 +328,23 @@ cell coordinates for the image pivot, between `-gridSize / 2` and `+gridSize / 2
 inclusive. The origin is at the map center, with X increasing rightward and Y
 increasing upward. `(0, 0)` is the corner shared by the four central cells.
 Placement coordinates are rounded to the nearest 0.001 cells during placement,
-movement, loading, and saving. JSON numbers use at most three decimal places
-without padded trailing zeros.
+movement, loading, and saving. Placement coordinates use at most three decimal
+places without padded trailing zeros. Scale overrides retain their numeric precision.
+Instance `scale`, when present, is a finite number greater than zero. It is an
+absolute replacement for the displayed sequence scale, not a multiplier of it.
+Omission inherits the scale of the sprite's first sequence, matching Mosaic's
+frame-zero preview. Loading and saving preserve omission, including when an
+explicit override equals the sequence default. Newly placed objects inherit.
+Drawing, picking, culling, selection bounds, and collision overlays all use this
+same effective scale. Palette and placement previews use sequence defaults.
+
 `rot` is a finite clockwise angle in degrees, at least 0 and less than 360.
 For top-left, Y-down map pixels used by the editor renderer, convert with
 `pixelX = (x + gridSize / 2) * 64` and `pixelY = (gridSize / 2 - y) * 64`.
 For example, `(1.5, 2.25)` cells puts the pivot at `(2144, 1904)` pixels on a 64-cell map.
 Both scaling and clockwise rotation operate about that fixed pivot. For a point `(u, v)` in texture pixels, first subtract `(srcRect.x, srcRect.y)`,
 then subtract `(pivot.x * frameWidth, pivot.y * frameHeight)`,
-multiply by `scale`, rotate clockwise in Y-down image space, then add the pivot's
+multiply by the effective scale, rotate clockwise in Y-down image space, then add the pivot's
 map-pixel position. There is no snapping to whole cells. At scale 1, one source
 pixel covers one map pixel. Source alpha is preserved. Render props above terrain and actor previews above props, each in its saved
 array order, using ordinary source-over alpha blending and nearest sampling.
@@ -354,11 +362,36 @@ Missing referenced images, incorrect asset kinds, invalid source rectangles or t
 and invalid catalog references fail loading before installation.
 
 The document owns prop and actor placements in one list, props followed by actors. Snapshots copy their transforms and share
-immutable prop and actor definitions, sprite definitions, sequence definitions, and decoded images. Placement, movement, and deletion are undoable,
+immutable prop and actor definitions, sprite definitions, sequence definitions, and decoded images. Placement, movement, scaling, scale reset, and deletion are undoable,
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
-retains the current view. Saved rotation and asset source rectangles, pivots, and scale are preserved and rendered, but have no editing controls.
+retains the current view. Saved rotation and sequence source rectangles, pivots, and scale remain JSON-authored.
+When exactly one prop or actor is selected, corner handles start uniform scaling
+about its fixed pivot. A corner coinciding with the pivot has no handle. Handles
+are ten screen pixels wide with fourteen-pixel hit targets, independent of zoom.
+Handle picking precedes body picking, while Shift-click retains selection toggling.
+Dragging projects pointer displacement along the original pivot-to-handle vector
+and retains the initial grab offset. The drag minimum is 0.001, without flipping.
+A click below the three-screen-pixel drag threshold creates no override or undo entry.
+A compact floating row appears on handle press, follows the pointer within the map
+viewport, and displays absolute scale and percentage in two fields continuously
+during a drag without stealing pointer capture or keyboard focus. Only the live
+readouts are rounded to four significant digits. On release both fields use full
+numeric precision. The percentage baseline is the effective scale at handle press.
+A handle click focuses the absolute field for numeric entry and starts at 100%.
+Editing either field updates the other. Absolute entry sets the override directly.
+Percentage entry computes `baselineScale * (percentage / 100)` once when applied
+and stores the result as an absolute override. The baseline stays fixed while the
+control is open, including after a drag, to avoid applying that drag twice. Input and result must be finite and positive.
+Enter in either field applies that field as one undoable edit and closes the control.
+The row contains only the Abs and % fields and a reset arrow. Reset scale lives here rather than in
+the sidebar. Escape cancels an active drag or dismisses unapplied numeric input.
+Outside clicks, selection changes, map scrolling, and viewport resizing dismiss
+unapplied input.
+The numeric control does not change the version-29 serialization contract.
+Multi-selection never permits scaling. Reset scale deletes the override as one
+undoable action. Cancellation restores the prior value or absence.
 Object selection, tool mode, and palette selection are transient editor state
 and are not saved or undoable. Instance IDs and the next-ID counter are session-only.
 The loader reconstructs IDs in prop array order followed by actor array order. Picking checks scaled, rotated image rectangles
@@ -368,6 +401,7 @@ The C++ loader parses `propTypes` and `actorTypes`. Prop placements reference
 `propTypes` through their `type` field, and the game resolves these definitions
 to create props. Actor placements remain editor-only: the runtime does not yet
 parse or instantiate them.
+The C++ runtime does not consume instance scale overrides yet.
 The paths are rooted at the project directory, which is the game's root.
 
 ### Editor settings and editing

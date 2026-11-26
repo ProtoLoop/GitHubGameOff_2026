@@ -105,7 +105,15 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
     assert.equal(project.placements[0].x, 1.2);
     assert(!sameContent(project, copy));
     assert(documentAssets(copy).includes(image));
+    const scaled = cloneDocument(project);
+    scaled.placements[0].scale = image.scale;
+    validateDocument(scaled);
+    assert(!sameContent(project, scaled));
+    assert(sameTerrainContent(project, scaled));
+    assert.equal(project.placements[0].scale, undefined);
     for(const corrupt of [
+        ...[0, -1, NaN, Infinity, -Infinity].map((scale) =>
+            (p: typeof project) => { p.placements[0].scale = scale; }),
         (p: typeof project) => { p.placements[0].rotation = 360; },
         (p: typeof project) => { p.placements[0].x = NaN; },
         (p: typeof project) => { p.placements[0].y = -32.001; },

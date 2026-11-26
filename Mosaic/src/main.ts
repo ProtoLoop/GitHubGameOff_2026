@@ -7,13 +7,17 @@ import { writeProject } from "./project-file.ts";
 import { drawTerrainRegion, drawCoverageRegion, drawObjects, propFrameSource, type ImagePreview, type RenderView } from "./renderer.ts";
 import { kCellSize, kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
 import { ProjectSession, type SaveStatus } from "./project-session.ts";
-import { mapPoint, type Point } from "./props.ts";
+import { mapPoint, hitScaleHandle, placementScale, type Point } from "./props.ts";
 
 let editor: Editor;
 let ready = false;
 let fileBusy = false;
 const assets = new Set<TileAtlas | SpriteSequence>();
 let hoverClient: Point | null = null;
+let activeScaleCursor = "";
+let scalePanelPlacementId: number | null = null;
+let scalePanelBase = 1;
+let scaleEditMode: "absolute" | "percent" = "absolute";
 let overlayFrame: number | null = null;
 let viewportFrame: number | null = null;
 let renderedView: RenderView | null = null;
@@ -103,8 +107,72 @@ function renderPropOverlay(): void
 function updatePropControls(): void
 {
     const selected = editor.selectedPlacementIds.size === 1 ? editor.document.placements.find((prop) => editor.selectedPlacementIds.has(prop.id)) : undefined;
+    if(scalePanelPlacementId !== null && (selected?.id !== scalePanelPlacementId || editor.tool !== "select")) { closeScalePanel(); }
+    const draggingScale = editor.activeGesture?.kind === "scale";
+    required("scale-panel", HTMLFormElement).dataset.dragging = String(draggingScale);
+    required("scale-value", HTMLInputElement).readOnly = draggingScale;
+    required("scale-percent", HTMLInputElement).readOnly = draggingScale;
+    if(draggingScale && selected && scalePanelPlacementId === selected.id)
+    {
+        updateScaleValues(placementScale(selected), true);
+    }
+    required("reset-scale", HTMLButtonElement).disabled = !selected || selected.scale === undefined || editor.activeGesture !== null;
     required("prop-selection", HTMLOutputElement).value = (selected ? `${selected.definition.name} (${selected.definition.kind === "actor" ? selected.definition.class : "prop"})` : undefined)
         ?? (editor.selectedPlacementIds.size > 1 ? `${editor.selectedPlacementIds.size} objects selected` : "No object selected");
+}
+
+/// Percentages share the scale captured when the handle was pressed or clicked.
+function updateScaleValues(scale: number, round: boolean): void
+{
+    const format = (value: number): string => String(round ? Number(value.toPrecision(4)) : value);
+    required("scale-value", HTMLInputElement).value = format(scale);
+    required("scale-percent", HTMLInputElement).value = format(scale / scalePanelBase * 100);
+}
+
+function closeScalePanel(): void
+{
+    const panel = required("scale-panel", HTMLFormElement);
+    const hadFocus = panel.contains(document.activeElement);
+    panel.hidden = true;
+    scalePanelPlacementId = null;
+    if(hadFocus) { controls.map.focus({ preventScroll: true }); }
+}
+
+function openScalePanel(client: Point, focusInput: boolean): void
+{
+    if(editor.selectedPlacementIds.size !== 1 || editor.tool !== "select") { return; }
+    const selected = editor.document.placements.find((item) => editor.selectedPlacementIds.has(item.id));
+    if(!selected) { return; }
+    scalePanelPlacementId = selected.id;
+    const panel = required("scale-panel", HTMLFormElement);
+    const input = required("scale-value", HTMLInputElement);
+    panel.setAttribute("aria-label", `${selected.definition.name} scale`);
+    scalePanelBase = placementScale(selected);
+    scaleEditMode = "absolute";
+    updateScaleValues(scalePanelBase, false);
+    input.setCustomValidity("");
+    required("scale-percent", HTMLInputElement).setCustomValidity("");
+    panel.hidden = false;
+    positionScalePanel(client);
+    updatePropControls();
+    if(focusInput)
+    {
+        input.focus({ preventScroll: true });
+        input.select();
+    }
+}
+
+function positionScalePanel(client: Point): void
+{
+    const panel = required("scale-panel", HTMLFormElement);
+    if(panel.hidden) { return; }
+    const bounds = controls.mapViewport.getBoundingClientRect();
+    panel.style.maxWidth = `${Math.max(1, controls.mapViewport.clientWidth - 16)}px`;
+    panel.style.maxHeight = `${Math.max(1, controls.mapViewport.clientHeight - 16)}px`;
+    panel.style.left = `${Math.max(bounds.left + 8, Math.min(client.x + 12,
+        bounds.left + controls.mapViewport.clientWidth - panel.offsetWidth - 8))}px`;
+    panel.style.top = `${Math.max(bounds.top + 8, Math.min(client.y + 12,
+        bounds.top + controls.mapViewport.clientHeight - panel.offsetHeight - 8))}px`;
 }
 
 function renderObjectPalette(id: string, definitions: readonly ObjectDefinition[]): void
@@ -299,6 +367,12 @@ function updateInteraction(event: PointerEvent): void
         }
         break;
     }
+    case "scale":
+        editor.scaleTo(event.pointerId, propPoint(event), clientPoint(event));
+        updatePropControls();
+        positionScalePanel(clientPoint(event));
+        drawPropOverlay();
+        break;
     case "move":
     case "box":
         editor.moveSelection(event.pointerId, propPoint(event), clientPoint(event));
@@ -342,7 +416,16 @@ function startInteraction(event: PointerEvent): void
             if(editor.tool === "place") { applyEdit(() => editor.placeObject(propPoint(event))); }
             else
             {
-                editor.beginSelection(event.pointerId, propPoint(event), clientPoint(event), event.shiftKey);
+                if(event.shiftKey || !editor.beginScale(event.pointerId, propPoint(event), clientPoint(event), editor.document.view.zoom))
+                {
+                    editor.beginSelection(event.pointerId, propPoint(event), clientPoint(event), event.shiftKey);
+                }
+                else
+                {
+                    activeScaleCursor = scaleCursorAt(event);
+                    controls.map.style.cursor = activeScaleCursor;
+                    openScalePanel(clientPoint(event), false);
+                }
                 if(editor.activeGesture) { controls.map.setPointerCapture(event.pointerId); }
                 updatePropControls();
             }
@@ -350,6 +433,13 @@ function startInteraction(event: PointerEvent): void
     }
     catch(error) { finishInteraction("cancel"); showError(error); }
     drawPropOverlay();
+}
+
+function scaleCursorAt(event: PointerEvent): string
+{
+    if(editor.tool !== "select" || event.shiftKey || editor.selectedPlacementIds.size !== 1) { return ""; }
+    const selected = editor.document.placements.find((item) => editor.selectedPlacementIds.has(item.id));
+    return selected ? hitScaleHandle(selected, propPoint(event), editor.document.view.zoom)?.cursor ?? "" : "";
 }
 
 function moveInteraction(event: PointerEvent): void
@@ -362,6 +452,7 @@ function moveInteraction(event: PointerEvent): void
         if((event.buttons & (gesture.kind === "pan" ? 4 : 1)) === 0) { finishInteraction("commit"); }
         else { updateInteraction(event); }
     }
+    controls.map.style.cursor = editor.activeGesture?.kind === "scale" ? activeScaleCursor : scaleCursorAt(event);
     if(editor.tool !== "select") { drawPropOverlay(); }
 }
 
@@ -369,22 +460,34 @@ function endInteraction(event: PointerEvent): void
 {
     if(!ready || editor.activeGesture?.pointerId !== event.pointerId) { return; }
     if(event.type === "pointerup") { updateInteraction(event); }
-    finishInteraction(event.type === "pointerup" ? "commit" : "cancel");
+    const clickedScaleHandle = finishInteraction(event.type === "pointerup" ? "commit" : "cancel");
+    if(event.type === "pointerup" && clickedScaleHandle) { openScalePanel(clientPoint(event), true); }
 }
 
 /// All exits clear controller state before releasing capture, which itself emits an event.
-function finishInteraction(outcome: "commit" | "cancel" | "escape"): void
+function finishInteraction(outcome: "commit" | "cancel" | "escape"): boolean
 {
-    if(!ready) { return; }
+    if(!ready) { return false; }
     const gesture = editor.activeGesture;
-    if(!gesture && outcome !== "escape") { return; }
+    if(!gesture && outcome !== "escape") { return false; }
+    let clickedScaleHandle = false;
     const previous = editor.document;
     try
     {
         const result = outcome === "escape" ? editor.escape() : editor.finishGesture(outcome);
         if(result?.changed) { session.changed(); }
+        clickedScaleHandle = result?.clickedScaleHandle ?? false;
+        if(gesture?.kind === "scale")
+        {
+            if(outcome !== "commit") { closeScalePanel(); }
+            else
+            {
+                const selected = editor.document.placements.find((item) => item.id === scalePanelPlacementId);
+                if(selected) { updateScaleValues(placementScale(selected), false); }
+            }
+        }
     }
-    catch(error) { showError(error); }
+    catch(error) { closeScalePanel(); showError(error); }
     finally
     {
         if(gesture)
@@ -393,11 +496,14 @@ function finishInteraction(outcome: "commit" | "cancel" | "escape"): void
             if(target.hasPointerCapture(gesture.pointerId)) { target.releasePointerCapture(gesture.pointerId); }
         }
         controls.mapViewport.classList.remove("panning");
+        controls.map.style.cursor = "";
+        activeScaleCursor = "";
     }
     if(previous !== editor.document) { refreshDocument(previous); }
     else { updatePropControls(); drawPropOverlay(); updateProjectButtons(); }
     if(outcome === "escape") { refreshTool(); }
     collectAssets();
+    return clickedScaleHandle;
 }
 
 /// Retain the map point under the cursor while changing display scale.
@@ -661,6 +767,7 @@ controls.activeMask.addEventListener("change", () => edit("Change mask mode", ()
 required("show-collision-rects", HTMLInputElement).addEventListener("change", drawPropOverlay);
 controls.showGrid.addEventListener("change", () => { updateGrid(); saveView(); });
 controls.mapViewport.addEventListener("scroll", () => {
+    closeScalePanel();
     saveView();
     requestViewportDraw();
 });
@@ -668,11 +775,57 @@ controls.mapViewport.addEventListener("pointerleave", () => {
     hoverClient = null;
     if(ready) { drawPropOverlay(); }
 });
-new ResizeObserver(requestViewportDraw).observe(controls.mapViewport);
+new ResizeObserver(() => { closeScalePanel(); requestViewportDraw(); }).observe(controls.mapViewport);
 new ResizeObserver(requestViewportDraw).observe(controls.coverage.parentElement!);
 globalThis.addEventListener("blur", () => {
     hoverClient = null;
     if(ready) { finishInteraction("cancel"); drawPropOverlay(); }
+});
+document.addEventListener("pointerdown", (event) => {
+    if(scalePanelPlacementId !== null && event.target instanceof Node
+        && !required("scale-panel", HTMLFormElement).contains(event.target)) { closeScalePanel(); }
+}, true);
+globalThis.addEventListener("resize", closeScalePanel);
+for(const mode of ["absolute", "percent"] as const)
+{
+    const input = required(mode === "absolute" ? "scale-value" : "scale-percent", HTMLInputElement);
+    const other = required(mode === "absolute" ? "scale-percent" : "scale-value", HTMLInputElement);
+    input.addEventListener("input", () => {
+        scaleEditMode = mode;
+        input.setCustomValidity("");
+        other.setCustomValidity("");
+        const value = input.valueAsNumber;
+        const converted = mode === "absolute" ? value / scalePanelBase * 100 : scalePanelBase * (value / 100);
+        other.value = Number.isFinite(converted) && converted > 0 ? String(converted) : "";
+    });
+    input.addEventListener("keydown", (event) => {
+        if(event.key !== "Enter") { return; }
+        event.preventDefault();
+        scaleEditMode = mode;
+        required("scale-panel", HTMLFormElement).requestSubmit();
+    });
+}
+required("scale-panel", HTMLFormElement).addEventListener("submit", (event) => {
+    event.preventDefault();
+    if(!ready || fileBusy || dialogOpen() || scalePanelPlacementId === null) { return; }
+    const input = required(scaleEditMode === "absolute" ? "scale-value" : "scale-percent", HTMLInputElement);
+    const value = input.valueAsNumber;
+    input.setCustomValidity(Number.isFinite(value) && value > 0 ? "" : "Enter a finite number greater than zero.");
+    if(!input.reportValidity()) { return; }
+    const scale = scaleEditMode === "absolute" ? value : scalePanelBase * (value / 100);
+    applyEdit(() => {
+        const result = editor.setScale(scale, "absolute");
+        closeScalePanel();
+        return result;
+    });
+});
+required("reset-scale", HTMLButtonElement).addEventListener("click", () => {
+    if(!ready || fileBusy || dialogOpen() || scalePanelPlacementId === null) { return; }
+    applyEdit(() => {
+        const result = editor.resetScale();
+        closeScalePanel();
+        return result;
+    });
 });
 required("reset", HTMLButtonElement).addEventListener("click", resetSample);
 
@@ -844,6 +997,7 @@ function edit(label: string, mutate: () => void): void
 function changeHistory(redo: boolean): void
 {
     if(!ready || fileBusy || dialogOpen()) { return; }
+    closeScalePanel();
     applyEdit(() => editor.changeHistory(redo));
 }
 
@@ -929,6 +1083,7 @@ async function fileAction(action: "open" | "save" | "reload"): Promise<void>
 {
     if(fileBusy || required("resize-dialog", HTMLDialogElement).open || (action === "open" && projectListing)) { return; }
     finishInteraction("commit");
+    closeScalePanel();
     fileBusy = true;
     hoverClient = null;
     if(ready) { drawPropOverlay(); }
@@ -969,9 +1124,16 @@ globalThis.addEventListener("keydown", (event) => {
     if(event.key === "Escape")
     {
         event.preventDefault();
+        if(scalePanelPlacementId !== null)
+        {
+            if(editor.activeGesture) { finishInteraction("escape"); }
+            closeScalePanel();
+            return;
+        }
         finishInteraction("escape");
         return;
     }
+    if(scalePanelPlacementId !== null) { return; }
     const target = event.target;
     if(target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) { return; }
     if((event.key === "Delete" || event.key === "Backspace") && editor.selectedPlacementIds.size > 0

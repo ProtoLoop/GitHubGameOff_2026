@@ -26,7 +26,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 28,'));
+    assert(text.includes('\n  "version": 29,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "sequences", "sprites", "propTypes", "actorTypes", "props", "actors", "layers", "editor"]);
@@ -419,7 +419,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.nextPlacementId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 28);
+        assert.equal(data.version, 29);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);
@@ -760,4 +760,38 @@ Deno.test("explicit object catalogs round-trip by name without promoting discove
         corrupt(invalid);
         await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), [tile, mask, image]));
     }
+});
+
+Deno.test("prop and actor scale overrides preserve omission and reject malformed values", async () => {
+    const image: SpriteSequence = { kind: "prop", id: "assets/props/scale.png", label: "Scale",
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, scale: 0.25, collisionRects: [] };
+    const project = fixture();
+    project.sequences = [image];
+    project.sprites = [{ name: "Scale", sequences: [image] }];
+    project.propTypes = [{ kind: "prop", name: "Prop", sprite: project.sprites[0] }];
+    project.actorTypes = [{ kind: "actor", name: "Actor", class: "Tombstone", sprite: project.sprites[0] }];
+    project.placements = [project.propTypes[0], project.actorTypes[0]].flatMap((definition, index) => [
+        { id: index * 2, definition, x: 0, y: 0, rotation: 0 },
+        { id: index * 2 + 1, definition, x: 1, y: 1, rotation: 90, scale: 0.5 }
+    ]);
+    project.nextPlacementId = 4;
+    const data = JSON.parse(await (await writeProject(project)).text());
+    const available = [tile, mask, image];
+    const loaded = await readProject(new Blob([JSON.stringify(data)]), available);
+    assert.deepEqual(loaded.placements.map((placement) => placement.scale), [undefined, 0.5, undefined, 0.5]);
+    const saved = JSON.parse(await (await writeProject(loaded)).text());
+    for(const kind of ["props", "actors"])
+    {
+        assert(!Object.hasOwn(saved[kind][0], "scale"));
+        assert.equal(saved[kind][1].scale, 0.5);
+        for(const scale of [null, 0, -1, "0.5", {}, false])
+        {
+            const invalid = structuredClone(data);
+            invalid[kind][0].scale = scale;
+            await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), available), /scale/);
+        }
+    }
+    data.version = 28;
+    await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), available), /version/);
 });

@@ -1,7 +1,7 @@
 import { validateDocument, type ProjectDocument, type Layer, type Placement, type ObjectDefinition, type ImageAsset } from "./document.ts";
 import { History } from "./history.ts";
 import { kMinGridSize, kMaxGridSize, validGridSize } from "./grid.ts";
-import { clampPropPoint, hitProp, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
+import { clampPropPoint, hitProp, hitScaleHandle, placementScale, propsInBox, groupMoveDelta, type Point, type SelectionBox } from "./props.ts";
 
 export type Tool = "terrain" | "place" | "select";
 export type GestureOutcome = "commit" | "cancel";
@@ -43,8 +43,20 @@ interface PanGesture
     readonly pointerId: number;
     lastClient: Point;
 }
-type Gesture = PaintGesture | MoveGesture | BoxGesture | PanGesture;
-export interface GestureResult extends EditResult { readonly pointerId: number; readonly kind: Gesture["kind"]; }
+interface ScaleGesture extends SelectionGesture
+{
+    readonly kind: "scale";
+    readonly placement: Placement;
+    readonly vector: Point;
+    readonly originalScale: number;
+}
+type Gesture = PaintGesture | MoveGesture | BoxGesture | PanGesture | ScaleGesture;
+export interface GestureResult extends EditResult
+{
+    readonly pointerId: number;
+    readonly kind: Gesture["kind"];
+    readonly clickedScaleHandle: boolean;
+}
 
 /// Owns editable state and gesture transactions. The caller handles input capture, rendering and saves.
 export class Editor
@@ -311,6 +323,57 @@ export class Editor
         }
     }
 
+    /// Handle picking precedes ordinary selection, but never changes the selected object.
+    beginScale(pointerId: number, point: Point, client: Point, zoom: number): boolean
+    {
+        this.requireIdle();
+        if(this.mode !== "select" || this.selection.size !== 1) { return false; }
+        const placement = this.project.placements.find((item) => this.selection.has(item.id));
+        if(!placement) { return false; }
+        const handle = hitScaleHandle(placement, point, zoom);
+        if(!handle) { return false; }
+        this.history.begin(this.project, "Scale object");
+        this.gesture = { kind: "scale", pointerId, start: point, clientStart: client,
+            beforeSelection: new Set(this.selection), moved: false, placement,
+            vector: { x: handle.x - placement.x, y: handle.y - placement.y }, originalScale: placementScale(placement) };
+        return true;
+    }
+
+    scaleTo(pointerId: number, point: Point, client: Point): void
+    {
+        const gesture = this.gesture;
+        if(gesture?.kind !== "scale" || gesture.pointerId !== pointerId) { return; }
+        gesture.moved ||= Math.hypot(client.x - gesture.clientStart.x, client.y - gesture.clientStart.y) >= 3;
+        if(!gesture.moved) { return; }
+        const { vector } = gesture;
+        // Project displacement onto the original pivot-to-handle direction. Retain the grab offset.
+        const ratio = 1 + ((point.x - gesture.start.x) * vector.x + (point.y - gesture.start.y) * vector.y)
+            / (vector.x * vector.x + vector.y * vector.y);
+        const scale = Math.max(0.001, gesture.originalScale * ratio);
+        if(Number.isFinite(scale)) { gesture.placement.scale = scale; }
+    }
+
+    setScale(value: number, mode: "absolute" | "percent"): EditResult
+    {
+        return this.edit("Set object scale", (project) => {
+            if(this.selection.size !== 1) { throw new Error("Select one prop or actor to set its scale."); }
+            if(!Number.isFinite(value) || value <= 0) { throw new Error("Scale must be a finite number greater than zero."); }
+            const placement = project.placements.find((item) => this.selection.has(item.id))!;
+            const scale = mode === "absolute" ? value : placementScale(placement) * (value / 100);
+            if(!Number.isFinite(scale) || scale <= 0) { throw new Error("The resulting scale must be finite and greater than zero."); }
+            placement.scale = scale;
+        });
+    }
+
+    resetScale(): EditResult
+    {
+        return this.edit("Reset object scale", (project) => {
+            if(this.selection.size !== 1) { return; }
+            const placement = project.placements.find((item) => this.selection.has(item.id));
+            if(placement) { delete placement.scale; }
+        });
+    }
+
     beginPan(pointerId: number, client: Point): void
     {
         this.requireIdle();
@@ -335,7 +398,7 @@ export class Editor
         this.gesture = null;
         let previous = this.project;
         let changed = false;
-        if(gesture.kind === "paint" || gesture.kind === "move")
+        if(gesture.kind === "paint" || gesture.kind === "move" || gesture.kind === "scale")
         {
             if(outcome === "cancel")
             {
@@ -361,7 +424,8 @@ export class Editor
             this.selection = gesture.beforeSelection;
         }
         this.reconcileSelection();
-        return { pointerId: gesture.pointerId, kind: gesture.kind, previous, changed };
+        return { pointerId: gesture.pointerId, kind: gesture.kind, previous, changed,
+            clickedScaleHandle: gesture.kind === "scale" && !gesture.moved && outcome === "commit" };
     }
 
     escape(): GestureResult | null

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { type SpriteSequence, type Placement } from "./document.ts";
-import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelta, propImageRect } from "./props.ts";
+import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelta, propImageRect, placementImageRect, scaleHandles, hitScaleHandle } from "./props.ts";
 
 const asset: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
     blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
@@ -100,4 +100,47 @@ Deno.test("sequence picking and bounds use one frame while omitted size uses the
     assert.equal(hitProp([placed], 10 / 64, 8 / 64), placed);
     assert.equal(hitProp([placed], 13 / 64, 8 / 64), null);
     assert.deepEqual(propImageRect({ ...sequence, size: undefined }), { x: -60, y: -32, width: 120, height: 32 });
+});
+
+Deno.test("absolute overrides drive rotated picking and fixed-screen-size handles", () => {
+    const sequence = { ...asset, scale: 0.25, pivotX: 0, pivotY: 1 };
+    const instance = { ...prop, x: 0, y: 0, scale: 0.5,
+        definition: { ...prop.definition, sprite: { name: "Scaled", sequences: [sequence] } } };
+    assert.deepEqual(placementImageRect(instance), { x: -0, y: -10, width: 40, height: 10 });
+    assert.equal(hitProp([instance], 5 / 64, -30 / 64), instance);
+    assert.equal(hitProp([instance], 11 / 64, -30 / 64), null);
+    const handles = scaleHandles(instance);
+    assert.equal(handles.length, 3);
+    assert(!handles.some((handle) => handle.x === 0 && handle.y === 0));
+    for(const zoom of [0.0625, 1, 4])
+    {
+        const handle = handles[1];
+        assert(hitScaleHandle(instance, { x: handle.x + 6 / (64 * zoom), y: handle.y }, zoom));
+        assert.equal(hitScaleHandle(instance, { x: handle.x + 8 / (64 * zoom), y: handle.y - 8 / (64 * zoom) }, zoom), null);
+    }
+});
+
+Deno.test("scale cursors follow corner bisectors through rotation independently of pivot and aspect ratio", () => {
+    const expected = [
+        [0, ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize"]],
+        [45, ["ns-resize", "ew-resize", "ns-resize", "ew-resize"]],
+        [90, ["nesw-resize", "nwse-resize", "nesw-resize", "nwse-resize"]],
+        [135, ["ew-resize", "ns-resize", "ew-resize", "ns-resize"]],
+        [180, ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize"]],
+        [359, ["nwse-resize", "nesw-resize", "nwse-resize", "nesw-resize"]]
+    ] as const;
+    for(const [rotation, cursors] of expected)
+    {
+        const instance = { ...prop, rotation };
+        const handles = scaleHandles(instance);
+        assert.deepEqual(handles.map((handle) => handle.cursor), cursors);
+        for(const handle of handles)
+        {
+            assert.equal(hitScaleHandle(instance, handle, 4)?.cursor, handle.cursor);
+        }
+        const anchored = { ...instance, definition: { ...instance.definition,
+            sprite: { name: "Anchored", sequences: [{ ...asset, pivotX: 0, pivotY: 0 }] } } };
+        // Removing the pivot corner must not swap the other corners' cursors.
+        assert.deepEqual(scaleHandles(anchored).map((handle) => handle.cursor), cursors.slice(1));
+    }
 });

@@ -4,8 +4,23 @@ import { type Placement, type SpriteSequence } from "./document.ts";
 /// Scaled sprite bounds in Y-down pixels relative to the pivot, before rotation.
 export function propImageRect(asset: SpriteSequence): { x: number; y: number; width: number; height: number }
 {
-    const width = (asset.size?.w ?? asset.srcRect.w) * asset.scale;
-    const height = (asset.size?.h ?? asset.srcRect.h) * asset.scale;
+    return imageRect(asset, asset.scale);
+}
+
+export function placementScale(placement: Placement): number
+{
+    return placement.scale ?? placement.definition.sprite.sequences[0].scale;
+}
+
+export function placementImageRect(placement: Placement): { x: number; y: number; width: number; height: number }
+{
+    return imageRect(placement.definition.sprite.sequences[0], placementScale(placement));
+}
+
+function imageRect(asset: SpriteSequence, scale: number): { x: number; y: number; width: number; height: number }
+{
+    const width = (asset.size?.w ?? asset.srcRect.w) * scale;
+    const height = (asset.size?.h ?? asset.srcRect.h) * scale;
     return { x: -asset.pivotX * width, y: -asset.pivotY * height, width, height };
 }
 
@@ -39,7 +54,7 @@ export function hitProp(props: readonly Placement[], x: number, y: number): Plac
         const dy = (prop.y - y) * kCellSize;
         const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
         const localY = -dx * Math.sin(angle) + dy * Math.cos(angle);
-        const rect = propImageRect(prop.definition.sprite.sequences[0]);
+        const rect = placementImageRect(prop);
         if(localX >= rect.x && localX <= rect.x + rect.width
             && localY >= rect.y && localY <= rect.y + rect.height)
         {
@@ -79,4 +94,35 @@ export function groupMoveDelta(points: readonly Point[], dx: number, dy: number,
     }
     return { x: Math.max(-half - minX, Math.min(half - maxX, dx)),
         y: Math.max(-half - minY, Math.min(half - maxY, dy)) };
+}
+
+export interface ScaleHandle extends Point
+{
+    readonly cursor: "ew-resize" | "nwse-resize" | "ns-resize" | "nesw-resize";
+}
+
+/// Handle centers in centered, Y-up cells. A corner at the pivot cannot scale.
+export function scaleHandles(placement: Placement): ScaleHandle[]
+{
+    const rect = placementImageRect(placement);
+    const angle = placement.rotation * Math.PI / 180;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    return [{ x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y },
+        { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }]
+        .map((point, corner) => ({ ...point,
+            // Quantize the rotated corner bisector to the nearest native resize cursor.
+            cursor: (["ew-resize", "nwse-resize", "ns-resize", "nesw-resize"] as const)[
+                Math.round((placement.rotation + (corner % 2 === 0 ? 45 : 135)) / 45) % 4] }))
+        .filter((point) => point.x !== 0 || point.y !== 0)
+        .map((point) => ({ x: placement.x + (point.x * cos - point.y * sin) / kCellSize,
+            y: placement.y - (point.x * sin + point.y * cos) / kCellSize, cursor: point.cursor }));
+}
+
+/// Hit targets remain fourteen screen pixels wide, independent of zoom.
+export function hitScaleHandle(placement: Placement, point: Point, zoom: number): ScaleHandle | null
+{
+    const radius = 7 / (kCellSize * zoom);
+    return scaleHandles(placement).filter((handle) => Math.abs(handle.x - point.x) <= radius
+        && Math.abs(handle.y - point.y) <= radius)
+        .sort((a, b) => Math.hypot(a.x - point.x, a.y - point.y) - Math.hypot(b.x - point.x, b.y - point.y))[0] ?? null;
 }

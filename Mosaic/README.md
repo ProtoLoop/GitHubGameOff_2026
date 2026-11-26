@@ -27,7 +27,7 @@ project is `project2`. Copy its asset folders to make a new project.
 Project2 contains 48 sequences grouped into 27 sprites: 24 static sprites and
 three directional actor sprites. The referenced actor textures are present in the
 project. There is no fallback to repository-level assets.
-Mosaic reads and writes version 28 only, with no migration support. Existing
+Mosaic reads and writes version 29 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -117,7 +117,8 @@ The app starts in **Select** mode. Later project switches and reloads retain the
 - `sprites` groups sequences by facing direction. Each entry has a unique `name`
   and a nonempty ordered `sequences` array of sequence names. Mosaic
   displays frame zero of each sprite's first sequence. Rotation still rotates
-  that image. Size, pivot, scale, tint, and collision rectangles stay on sequences.
+  that image. Size, pivot, default scale, tint, and collision rectangles stay on sequences.
+  Prop and actor instances can override scale with an absolute positive `scale` value.
   Reordering either top-level catalog does not change references. Edit sprite
   groups in JSON and reload. Newly discovered images each get one sequence and
   one same-named sprite. Name conflicts fail loading.
@@ -146,7 +147,28 @@ The app starts in **Select** mode. Later project switches and reloads retain the
 - Selected objects have outlines and a magenta crosshair with a dark border at each
   pivot. Crosshairs stay upright and the same screen size at every zoom. The sidebar
   shows the selection count. Delete or Backspace removes the group as one undo action.
-  Escape cancels an active move or box selection, otherwise it clears selection.
+  Escape cancels an active move, scale, or box selection, otherwise it clears selection.
+- With exactly one prop or actor selected, drag a yellow corner handle to scale
+  uniformly about its fixed pivot. Position and rotation stay unchanged. A corner
+  at the pivot has no handle. Handles keep a fixed screen size at every zoom.
+  Multiple selected objects cannot be scaled together. Shift-click still toggles selection.
+  Crossing the pivot clamps drag scale to 0.001. A complete drag is one undo action,
+  and cancellation restores the previous override or its absence.
+  A compact row beside the handle shows **Abs** and **%** numeric fields together,
+  both updating continuously while dragging. The percentage is relative to the
+  effective scale when the drag started. Click a handle without dragging to focus
+  the absolute field for typing, with the percentage starting at 100%.
+  Edit either field and the other updates to match. For example, with a starting
+  scale of 0.5, entering 150% sets the absolute field to 0.75.
+  Press Enter to create one undoable edit and dismiss the control.
+  Values must be finite and greater than zero. The result is an absolute override.
+  The **↺** button removes the override and restores the sequence default as one
+  undoable edit. It is beside the value, not in the sidebar.
+  Escape dismisses unapplied input, or cancels an active drag. Clicking outside,
+  changing selection, scrolling the map, or resizing the viewport also dismisses
+  unapplied input. The control stays within the map viewport.
+  The optional instance `scale` replaces sequence scale, rather than multiplying it.
+  Omitted overrides remain omitted on save. C++ runtime support is separate.
   Picking uses scaled, rotated image rectangles, including transparent pixels. Later
   placements within each palette category draw on top.
 - Props and actors move freely in fractional cell coordinates, rounded to three decimal
@@ -169,7 +191,7 @@ Use one editor per project because concurrent saves overwrite each other.
 Run checks with `cmake --build Mosaic/build --target check`.
 See [FILE_FORMATS.md](docs/FILE_FORMATS.md) for the JSON and HTTP contract.
 
-Mosaic reads and writes version 28 only, without migration support. The game loads
+Mosaic reads and writes version 29 only, without migration support. The game loads
 prop and actor placements from their type catalogs. Actors currently support the
 `Tombstone` class. Unsupported classes are logged and skipped. See the
 [runtime boundary](../docs/development.md#runtime-boundary) for details.

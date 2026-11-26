@@ -91,7 +91,7 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
         ["translate", 100, 200], ["rotate", Math.PI / 2], ["image", image.image, 0, 0, 80, 20, -40, -10, 80, 20], ["restore"]]);
     assert.deepEqual(calls[8], ["translate", 300, 400]);
     assert.deepEqual(calls.filter((call) => call[0] === "selection"), [["selection", -40, -10, 80, 20]]);
-    assert.equal(calls.filter((call) => call[0] === "pivot").length, 4);
+    assert.equal(calls.filter((call) => call[0] === "pivot").length, 12);
     calls.length = 0;
     project.placements = [];
     drawObjects(project, canvas, fullView, new Set(), null, null, false);
@@ -553,4 +553,39 @@ Deno.test("actor placement and preview markers stay at their pivots at every zoo
             new Set(), { asset: image, x: 0, y: 0, actor: true }, null, false);
         assert.deepEqual(marks, Array(4).fill([92, 92, 16, 16]));
     }
+});
+
+Deno.test("instance scale controls artwork, collision overlays, selection and handle size", () => {
+    const sequence: SpriteSequence = { kind: "prop", id: "assets/props/scale.png", label: "Scale",
+        blob: new Blob(), url: "", width: 80, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 80, h: 40 }, pivotX: 0, pivotY: 1, scale: 0.25,
+        collisionRects: [{ x: 0, y: 0, w: 1, h: 1 }] };
+    const project = createDocument([material("base", 64, 0)],
+        [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
+    const sprite = { name: "Scale", sequences: [sequence] };
+    project.placements = [{ id: 0, definition: { kind: "prop", name: "Prop", sprite },
+        x: 0, y: 0, rotation: 90, scale: 0.5 }];
+    const images: unknown[][] = [], outlines: number[][] = [], fills: number[][] = [];
+    const context = { setTransform: () => {}, clearRect: () => {}, save: () => {}, restore: () => {},
+        translate: () => {}, rotate: () => {}, drawImage: (...args: unknown[]) => images.push(args),
+        strokeRect: (...args: number[]) => outlines.push(args), fillRect: (...args: number[]) => fills.push(args) };
+    const canvas = { width: 400, height: 400, getContext: () => context } as unknown as HTMLCanvasElement;
+    for(const zoom of [0.25, 1, 4])
+    {
+        images.length = outlines.length = fills.length = 0;
+        drawObjects(project, canvas, { x: 2048 - 100 / zoom, y: 2048 - 100 / zoom, width: 400, height: 400, zoom },
+            new Set([0]), null, null, true);
+        assert.deepEqual(images[0].slice(-4), [-0, -20, 40, 20]);
+        assert.deepEqual(outlines, [[0, -20, 40, 20], [-0, -20, 40, 20]]);
+        assert.equal(fills.filter((rect) => rect[2] === 10 && rect[3] === 10).length, 3);
+        assert.equal(fills.filter((rect) => rect[2] === 6 && rect[3] === 6).length, 3);
+    }
+    // Only the override makes this artwork reach the viewport.
+    images.length = 0;
+    drawObjects(project, canvas, { x: 2062, y: 2070, width: 10, height: 10, zoom: 1 }, new Set(), null, null, false);
+    assert.equal(images.length, 1);
+    delete project.placements[0].scale;
+    images.length = 0;
+    drawObjects(project, canvas, { x: 2062, y: 2070, width: 10, height: 10, zoom: 1 }, new Set(), null, null, false);
+    assert.equal(images.length, 0);
 });

@@ -1,6 +1,6 @@
 {
   "format": "mosaic",
-  "version": 27,
+  "version": 29,
   "gridSize": 64,
   "tileSheets": [
     "/assets/tiles/brown_mud_leaves_01_diff_1k.png",

@@ -7,10 +7,30 @@
     <style>
         :root
         {
+            --background-page: #555555;
+            --background-sidebar: #606060;
+            --background-panel: #606060;
+            --background-control: #707070;
+            --background-selected: #30432f;
+            --background-preview: #464646;
+            --viewport-dot: #273229;
+            --border-subtle: #383838;
+            --border-control: #383838;
+            --text-primary: #e4e8e1;
+            --text-label: #cad3ca;
+            --text-muted: #9ba89e;
+            --accent: #a4c78a;
+            --focus-ring: #e2e9d6;
+            --error: #ff8585;
+            --selection-outline: #ffdc60;
+            --map-grid: rgb(230, 238, 225);
+            --dialog-backdrop: rgb(0 0 0 / 65%);
+            --panel-shadow: #0008;
+
             color-scheme: dark;
             font-family: ui-sans-serif, system-ui, sans-serif;
-            background: #111613;
-            color: #e4e8e1;
+            background: var(--background-page);
+            color: var(--text-primary);
         }
 
         * { box-sizing: border-box; }
@@ -18,7 +38,7 @@
         h1, h2, p { margin-top: 0; }
         h1 { margin: 0; font-size: 22px; letter-spacing: -0.035em; }
         h2 { margin-bottom: 10px; font-size: 15px; }
-        .hint { color: #9ba89e; font-size: 13px; line-height: 1.5; }
+        .hint { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
 
         #mosaic
         {
@@ -34,8 +54,8 @@
             align-items: center;
             gap: 16px;
             padding: 12px 16px;
-            border-bottom: 1px solid #2a352d;
-            background: #171e19;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--background-panel);
         }
 
         .controls, .layer-actions
@@ -50,32 +70,32 @@
         button
         {
             padding: 8px 12px;
-            border: 1px solid #3b4940;
+            border: 1px solid var(--border-control);
             border-radius: 6px;
-            background: #202922;
-            color: #e4e8e1;
+            background: var(--background-control);
+            color: var(--text-primary);
             font: inherit;
             font-size: 13px;
             cursor: pointer;
         }
         button:disabled { opacity: 0.45; cursor: default; }
-        button[aria-pressed="true"] { border-color: #a4c78a; background: #30432f; }
+        button[aria-pressed="true"] { border-color: var(--accent); background: var(--background-selected); }
         button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible
         {
-            outline: 2px solid #e2e9d6;
+            outline: 2px solid var(--focus-ring);
             outline-offset: 3px;
         }
 
-        label { display: flex; align-items: center; gap: 8px; color: #cad3ca; min-width: 0; }
+        label { display: flex; align-items: center; gap: 8px; color: var(--text-label); min-width: 0; }
         select, input[type="number"]
         {
             min-width: 0;
             max-width: 100%;
             padding: 6px 8px;
-            border: 1px solid #3b4940;
+            border: 1px solid var(--border-control);
             border-radius: 6px;
-            background: #202922;
-            color: #e4e8e1;
+            background: var(--background-control);
+            color: var(--text-primary);
             font: inherit;
             font-size: 13px;
         }
@@ -85,19 +105,19 @@
             max-height: calc(100dvh - 32px);
             overflow: auto;
             padding: 24px;
-            border: 1px solid #3b4940;
+            border: 1px solid var(--border-control);
             border-radius: 12px;
-            background: #171e19;
-            color: #e4e8e1;
+            background: var(--background-panel);
+            color: var(--text-primary);
         }
-        #project-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+        #project-dialog::backdrop { background: var(--dialog-backdrop); }
         #project-choice { display: block; width: 100%; margin: 12px 0; }
         #project-choice option { padding: 8px; }
         #project-message { display: block; min-height: 3em; margin-bottom: 12px; }
         .chooser-actions { justify-content: flex-end; }
-        output { color: #a4c78a; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        output { color: var(--accent); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
         #status, #save-status, #project-message { user-select: text; -webkit-user-select: text; cursor: text; }
-        output.error { color: #ff8585; }
+        output.error { color: var(--error); }
         #save-status { padding: 8px 12px; border-left: 2px solid currentColor; font-size: 13px; }
 
         #editor
@@ -114,8 +134,8 @@
             overflow: auto;
             overscroll-behavior: contain;
             padding: 16px;
-            border-right: 1px solid #2a352d;
-            background: #141b16;
+            border-right: 1px solid var(--border-subtle);
+            background: var(--background-sidebar);
         }
         .sidebar > details { margin-bottom: 24px; }
         .sidebar > :last-child { margin-bottom: 0; }
@@ -124,7 +144,7 @@
         summary { cursor: pointer; font-weight: 600; }
         details[open] summary { margin-bottom: 12px; }
         #mask-links { overflow-wrap: anywhere; }
-        a { color: #a4c78a; }
+        a { color: var(--accent); }
 
         #map-size-form { display: grid; gap: 8px; width: 100%; }
         #map-size { width: 100%; min-width: 0; box-sizing: border-box; }
@@ -138,9 +158,9 @@
             align-items: center;
             gap: 10px;
             padding: 12px;
-            border: 1px solid #2a352d;
+            border: 1px solid var(--border-subtle);
             border-radius: 8px;
-            background: #171e19;
+            background: var(--background-panel);
             min-width: 0;
         }
         .layer-card strong, .layer-card label, .sheet-info { flex: 1 1 100%; min-width: 0; }
@@ -155,7 +175,7 @@
         {
             width: 56px;
             height: 56px;
-            background-color: #464646;
+            background-color: var(--background-preview);
             background-position: 0 0;
             image-rendering: pixelated;
             border-radius: 4px;
@@ -183,10 +203,10 @@
         {
             overflow: auto;
             padding: 12px;
-            border: 1px solid #2a352d;
+            border: 1px solid var(--border-subtle);
             border-radius: 8px;
-            background-color: #171e19;
-            background-image: radial-gradient(#273229 1px, transparent 1px);
+            background-color: var(--background-panel);
+            background-image: radial-gradient(var(--viewport-dot) 1px, transparent 1px);
             background-size: 12px 12px;
         }
         canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
@@ -196,20 +216,48 @@
         .map-surface { position: relative; overflow: hidden; }
         #map { position: absolute; }
         .prop-preview { width: 56px; height: 56px; object-fit: contain; image-rendering: pixelated; }
-        #prop-palette button[aria-pressed="true"], #actor-palette button[aria-pressed="true"] { outline: 2px solid #ffdc60; }
+        #prop-palette button[aria-pressed="true"], #actor-palette button[aria-pressed="true"] { outline: 2px solid var(--selection-outline); }
         #prop-overlay { position: absolute; pointer-events: none; }
         #map-grid
         {
             position: absolute;
             pointer-events: none;
             fill: none;
-            stroke: rgb(230, 238, 225);
+            stroke: var(--map-grid);
             stroke-width: 1px;
             shape-rendering: crispEdges;
         }
         #map-viewport { padding: 0; min-height: 0; min-width: 0; touch-action: none; overscroll-behavior: contain; }
         #map-viewport.panning, #map-viewport.panning #map { cursor: grabbing; }
-        .coverage-panel { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+        #scale-panel
+        {
+            position: fixed;
+            z-index: 10;
+            box-sizing: border-box;
+            width: max-content;
+            padding: 4px;
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            background: var(--background-panel);
+            box-shadow: 0 4px 16px var(--panel-shadow);
+            overflow: auto;
+        }
+        #scale-panel:not([hidden]) { display: flex; align-items: center; gap: 4px; }
+        #scale-panel[data-dragging="true"] { pointer-events: none; }
+        #scale-panel input, #scale-panel button { padding: 3px 5px; height: 26px; }
+        #scale-panel label { gap: 3px; font-size: 12px; }
+        #scale-panel input { width: 72px; font-variant-numeric: tabular-nums; appearance: textfield; }
+        #reset-scale { width: 26px; flex-shrink: 0; }
+        #scale-panel input::-webkit-inner-spin-button, #scale-panel input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+        .coverage-panel
+        {
+            min-width: 0;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+            border-left: 1px solid var(--border-subtle);
+            padding-left: 16px;
+        }
         .coverage-panel .canvas-wrap { overflow: hidden; }
         #coverage { width: 100%; height: auto; }
         .map-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
@@ -220,7 +268,17 @@
         @media (max-width: 1100px)
         {
             .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 170px; }
-            .coverage-panel { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 12px; align-items: start; }
+            .coverage-panel
+            {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 150px;
+                gap: 12px;
+                align-items: start;
+                border-left: 0;
+                padding-left: 0;
+                border-top: 1px solid var(--border-subtle);
+                padding-top: 16px;
+            }
         }
 
         @media (max-width: 900px)
@@ -298,7 +356,7 @@
                 <details>
                     <summary>Help</summary>
                     <p class="hint">Select a material to edit its layer. Left-click or drag to fill cells and clear higher layers at those cells. Select the base to reveal the background. Right-click clears only the selected overlay.</p>
-                    <p class="hint">The app starts in Select mode. Later project switches and reloads retain the current tool. Choose a prop or actor to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to object selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to object selection, clearing palette highlights. In Select, Shift-click adds or removes an object. Drag empty space to select object pivots inside a box, or Shift-drag to add them. Drag a selected object to move the group. Delete or Backspace removes the selection. Escape in object selection cancels a drag, or clears selection when idle. Objects use their asset scale and rotate about their pivots. Selected objects show a magenta crosshair with a dark border at each pivot. Crosshairs stay upright and the same screen size at every zoom. Actors have green square markers at their pivots and draw above props. Later placements within each category draw on top. Selection uses image rectangles, including transparent pixels.</p>
+                    <p class="hint">The app starts in Select mode. Later project switches and reloads retain the current tool. Choose a prop or actor to enter Place. A translucent preview follows the cursor. Left-click places copies. Right-click while placing returns to object selection. Choose a terrain swatch to paint terrain with a translucent texture preview. The highlighted swatch indicates the active mode. Escape cancels the active gesture and always returns to object selection, clearing palette highlights. In Select, Shift-click adds or removes an object. Drag empty space to select object pivots inside a box, or Shift-drag to add them. Drag a selected object to move the group. Delete or Backspace removes the selection. Escape in object selection cancels a drag, or clears selection when idle. Drag a corner handle on a single selected prop or actor to scale uniformly about its pivot. Multiple objects cannot be scaled together. The compact scale control shows absolute scale and percentage together, updating live while dragging. Percentage is relative to the scale at handle press. Click a handle without dragging to focus the absolute value. Edit either box and press Enter. The reset arrow restores the sequence default. Escape dismisses the control or cancels an active drag. Objects rotate about their pivots. Selected objects show a magenta crosshair with a dark border at each pivot. Crosshairs stay upright and the same screen size at every zoom. Actors have green square markers at their pivots and draw above props. Later placements within each category draw on top. Selection uses image rectangles, including transparent pixels.</p>
                     <p class="hint">Use the wheel to scroll. Hold Alt (Option on Mac) and use the wheel to zoom around the cursor. Drag with the middle mouse button to pan.</p>
                     <p class="hint">Edits autosave to the project's level.json. Ctrl/Cmd+S saves now. Ctrl/Cmd+Z undoes and Shift+Ctrl/Cmd+Z redoes. Reload Project picks up asset changes.</p>
                     <p class="hint">Layers composite from bottom to top. Terrain textures must be square, have identical dimensions, and be 64–4096 pixels per side in multiples of 64. Each whole texture repeats from the map origin at one texture pixel per world pixel. Texture edges must be seamless. Masks always cover 64×64 pixels.</p>
@@ -317,6 +375,11 @@
                                 <svg id="map-grid" aria-hidden="true" focusable="false"></svg>
                             </div>
                         </div>
+                        <form id="scale-panel" role="dialog" aria-label="Object scale" hidden>
+                            <label>Abs <input id="scale-value" aria-label="Absolute scale" title="Absolute scale. Press Enter to apply." type="number" step="any"></label>
+                            <label>% <input id="scale-percent" aria-label="Scale percentage" title="Percentage of the scale when the handle was pressed. Press Enter to apply." type="number" step="any"></label>
+                            <button id="reset-scale" type="button" aria-label="Reset scale" title="Reset to the sprite sequence scale">↺</button>
+                        </form>
                     </section>
                     <section class="coverage-panel" aria-labelledby="coverage-heading">
                         <div>

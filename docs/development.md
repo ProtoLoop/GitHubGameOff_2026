@@ -466,10 +466,12 @@ borrow sequences from the catalog. Gameplay actors and decorative props hold
 Actors and props are destroyed before the level resources they borrow. Within
 the level, sprites are destroyed before sequences.
 
-Mosaic writes version 28 with explicit `propTypes` and `actorTypes` catalogs. The
+Mosaic writes version 29 with explicit `propTypes` and `actorTypes` catalogs. The
 C++ loader parses both catalogs and their placements. Each placement's `type`
 field identifies an entry in the corresponding catalog. `Game::Create` resolves
-these definitions and applies each placement's position and rotation.
+these definitions and applies each placement's position and rotation. Mosaic also
+supports optional absolute scale overrides on props and actors. The C++ runtime
+does not consume those overrides yet.
 
 Actor definitions identify their runtime implementation through `class`. The
 game currently supports `Tombstone`. Unsupported classes are logged and their

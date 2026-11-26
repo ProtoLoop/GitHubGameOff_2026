@@ -1,5 +1,6 @@
 import { strict as assert } from "node:assert";
 import { Editor } from "./editor.ts";
+import { scaleHandles } from "./props.ts";
 import { History } from "./history.ts";
 import { sequenceName, createDocument, cloneDocument, sameContent, validateDocument, type ImageAsset, type SpriteSequence } from "./document.ts";
 
@@ -426,4 +427,153 @@ Deno.test("new props remain below actors and placement requires a catalog defini
     const noDefinitions = new Editor(empty, new History(100, 64 * 1024 * 1024));
     assert.equal(noDefinitions.selectedDefinition, null);
     assert.throws(() => noDefinitions.placeObject({ x: 0, y: 0 }), /definition/);
+});
+
+Deno.test("single props and actors scale absolutely around rotated pivots with undo, reset and cancellation", () => {
+    for(const kind of ["prop", "actor"] as const)
+    {
+        const editor = fixture();
+        const project = editor.document;
+        const sequence = { ...project.sequences[0], scale: 0.25, pivotX: 0, pivotY: 1 };
+        project.sequences = [sequence];
+        const sprite = { name: "Scaled", sequences: [sequence] };
+        project.sprites = [sprite];
+        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite }
+            : { kind, name: "Prop", sprite };
+        project.propTypes = definition.kind === "prop" ? [definition] : [];
+        project.actorTypes = definition.kind === "actor" ? [definition] : [];
+        project.placements = [{ id: 0, definition, x: 2, y: 2, rotation: 90 }];
+        select(editor, 2, false);
+        const handle = scaleHandles(project.placements[0])[1];
+        assert(editor.beginScale(2, handle, { x: 100, y: 100 }, 4));
+        const twice = { x: 2 + 2 * (handle.x - 2), y: 2 + 2 * (handle.y - 2) };
+        editor.scaleTo(99, twice, { x: 120, y: 120 });
+        assert.equal(editor.document.placements[0].scale, undefined);
+        editor.scaleTo(2, twice, { x: 120, y: 120 });
+        assert.equal(editor.document.placements[0].scale, 0.5);
+        assert.equal(editor.committedDocument.placements[0].scale, undefined);
+        assert(editor.finishGesture("commit")?.changed);
+        assert.deepEqual([editor.document.placements[0].x, editor.document.placements[0].y,
+            editor.document.placements[0].rotation], [2, 2, 90]);
+        editor.changeHistory(false);
+        assert(!Object.hasOwn(editor.document.placements[0], "scale"));
+        editor.changeHistory(true);
+        assert.equal(editor.document.placements[0].scale, 0.5);
+        assert(editor.resetScale().changed);
+        assert(!Object.hasOwn(editor.document.placements[0], "scale"));
+        for(const explicit of [undefined, 0.5])
+        {
+            if(explicit === undefined) { delete editor.document.placements[0].scale; }
+            else { editor.document.placements[0].scale = explicit; }
+            const start = scaleHandles(editor.document.placements[0])[1];
+            assert(editor.beginScale(3, start, { x: 0, y: 0 }, 4));
+            editor.scaleTo(3, { x: 4 - start.x, y: 4 - start.y }, { x: 20, y: 20 });
+            assert.equal(editor.document.placements[0].scale, 0.001);
+            editor.escape();
+            assert.equal(editor.document.placements[0].scale, explicit);
+            assert.equal(Object.hasOwn(editor.document.placements[0], "scale"), explicit !== undefined);
+        }
+    }
+});
+
+Deno.test("scale handles require a single selection and clicks do not create overrides", () => {
+    const editor = fixture();
+    const handle = scaleHandles(editor.document.placements[0])[0];
+    assert(!editor.beginScale(1, handle, handle, 1));
+    select(editor, 2, false);
+    select(editor, 6, true);
+    assert(!editor.beginScale(1, handle, handle, 1));
+    select(editor, 2, false);
+    assert(editor.beginScale(1, handle, handle, 1));
+    editor.scaleTo(1, handle, handle);
+    assert.equal(editor.finishGesture("commit")?.changed, false);
+    assert(!Object.hasOwn(editor.document.placements[0], "scale"));
+    assert.equal(editor.history.undoLabel, null);
+});
+
+Deno.test("numeric absolute and percentage scales apply once to props and actors with undo", () => {
+    for(const kind of ["prop", "actor"] as const)
+    {
+        const editor = fixture();
+        const project = editor.document;
+        const sequence = { ...project.sequences[0], scale: 0.25 };
+        const sprite = { name: "Numeric", sequences: [sequence] };
+        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite }
+            : { kind, name: "Prop", sprite };
+        project.sequences = [sequence];
+        project.sprites = [sprite];
+        project.propTypes = definition.kind === "prop" ? [definition] : [];
+        project.actorTypes = definition.kind === "actor" ? [definition] : [];
+        project.placements = [{ id: 0, definition, x: 2, y: 2, rotation: 45 }];
+        select(editor, 2, false);
+        assert(editor.setScale(150, "percent").changed);
+        assert.equal(editor.document.placements[0].scale, 0.375);
+        assert(editor.setScale(200, "percent").changed);
+        assert.equal(editor.document.placements[0].scale, 0.75);
+        assert(editor.setScale(0.5, "absolute").changed);
+        assert.equal(editor.document.placements[0].scale, 0.5);
+        assert.equal(sequence.scale, 0.25);
+        assert.deepEqual([editor.document.placements[0].x, editor.document.placements[0].y,
+            editor.document.placements[0].rotation], [2, 2, 45]);
+        assert.equal(editor.setScale(0.5, "absolute").changed, false);
+        for(const scale of [0.75, 0.375, undefined])
+        {
+            editor.changeHistory(false);
+            assert.equal(editor.document.placements[0].scale, scale);
+        }
+        assert(!Object.hasOwn(editor.document.placements[0], "scale"));
+        assert.equal(editor.changeHistory(false), null);
+        editor.changeHistory(true);
+        assert.equal(editor.document.placements[0].scale, 0.375);
+        editor.resetScale();
+        assert(!Object.hasOwn(editor.document.placements[0], "scale"));
+        editor.changeHistory(false);
+        assert.equal(editor.document.placements[0].scale, 0.375);
+    }
+});
+
+Deno.test("numeric scale rejects invalid results and non-single selections without edits", () => {
+    const editor = fixture();
+    assert.throws(() => editor.setScale(1, "absolute"), /Select one/);
+    select(editor, 2, false);
+    select(editor, 6, true);
+    assert.throws(() => editor.setScale(150, "percent"), /Select one/);
+    select(editor, 2, false);
+    const before = cloneDocument(editor.document);
+    for(const value of [0, -1, NaN, Infinity, -Infinity])
+    {
+        for(const mode of ["absolute", "percent"] as const)
+        {
+            assert.throws(() => editor.setScale(value, mode), /greater than zero/);
+            assert(sameContent(editor.document, before));
+            assert.equal(editor.history.inTransaction, false);
+            assert.equal(editor.history.undoLabel, null);
+        }
+    }
+    editor.setScale(1000, "absolute");
+    assert.throws(() => editor.setScale(Number.MAX_VALUE, "percent"), /resulting scale/);
+    assert.equal(editor.document.placements[0].scale, 1000);
+    editor.setScale(Number.MIN_VALUE, "absolute");
+    assert.throws(() => editor.setScale(0.001, "percent"), /resulting scale/);
+    assert.equal(editor.document.placements[0].scale, Number.MIN_VALUE);
+});
+
+Deno.test("only committed handle clicks request numeric controls, never cancelled clicks or drags", () => {
+    const editor = fixture();
+    select(editor, 2, false);
+    const handle = scaleHandles(editor.document.placements[0])[0];
+    assert(editor.beginScale(1, handle, { x: 100, y: 100 }, 4));
+    editor.scaleTo(1, handle, { x: 101, y: 101 });
+    const click = editor.finishGesture("commit");
+    assert.equal(click?.clickedScaleHandle, true);
+    assert.equal(click?.changed, false);
+    assert.equal(editor.history.undoLabel, null);
+    assert(editor.beginScale(1, handle, { x: 100, y: 100 }, 4));
+    assert.equal(editor.finishGesture("cancel")?.clickedScaleHandle, false);
+    assert(editor.beginScale(1, handle, { x: 100, y: 100 }, 4));
+    editor.scaleTo(1, { x: handle.x - 1, y: handle.y + 1 }, { x: 80, y: 120 });
+    editor.scaleTo(1, handle, { x: 100, y: 100 });
+    assert.equal(editor.finishGesture("commit")?.clickedScaleHandle, false);
+    assert(editor.beginScale(1, handle, { x: 100, y: 100 }, 4));
+    assert.equal(editor.escape()?.clickedScaleHandle, false);
 });

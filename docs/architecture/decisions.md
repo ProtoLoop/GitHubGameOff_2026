@@ -1132,7 +1132,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-
 
 ## Mosaic non-negative tint multipliers
 
-Date: 2026-11-26. Status: Accepted.
+Date: 2026-11-26. Status: Accepted. Version support is superseded by
+[Mosaic instance scale overrides](#mosaic-instance-scale-overrides).
 
 Version 28 accepts finite, non-negative values for every sequence tint component
 (`r`, `g`, `b`, and `a`), with no upper limit. Values above 1 amplify channels,
@@ -1153,3 +1154,35 @@ and the upper tint bound introduced with [named sprite sequences](#mosaic-named-
 C++ files, dependencies, and build requirements are unchanged.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
+
+
+## Mosaic instance scale overrides
+
+Date: 2026-11-26. Status: Accepted.
+
+Version 29 adds optional absolute `scale` values to prop and actor placements.
+Absent values inherit the sprite sequence scale. Explicit values replace it,
+including when equal to the current default. Values must be finite and positive.
+Preserving absence through snapshots and serialization lets unmodified instances
+continue to follow sequence changes. Shared sequence resources remain immutable.
+
+Mosaic uses the effective scale consistently for artwork, picking, culling,
+selection bounds, and collision overlays. A single selected prop or actor exposes
+corner handles for uniform scaling about its fixed pivot. Multiple selections
+cannot scale. Handle size and hit tolerance stay constant in screen pixels.
+Each drag is one history transaction, cancellation restores value or absence, and
+Reset scale removes the override. Dragging clamps at 0.001 to prevent inversion.
+
+We considered edge dragging, but corner handles communicate proportional scaling
+more clearly and separate it from body dragging. Multiplicative instance scale
+was rejected in favor of an absolute override with explicit inheritance.
+
+Mosaic reads and writes version 29 only, without migration support. Both checked-in
+levels advance their format version while preserving their contents. This supersedes
+version support in [non-negative tint multipliers](#mosaic-non-negative-tint-multipliers)
+and extends the placement contract in [placement types and actor classes](#mosaic-placement-types-and-actor-classes).
+C++ integration remains separate and instance scale overrides are not consumed by
+the runtime. Dependencies, licenses, and build requirements do not change.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements)
+and the [Mosaic guide](../../Mosaic/README.md).
