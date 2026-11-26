@@ -92,13 +92,16 @@ function renderPropOverlay(): void
                     const style = getComputedStyle(thumbnail);
                     const width = rect.width || Number.parseFloat(style.width);
                     const height = rect.height || Number.parseFloat(style.height);
-                    preview = { asset, ...point, size: {
+                    preview = { asset, scale: 1, ...point, size: {
                         width: width * size * kCellSize / bounds.width,
                         height: height * size * kCellSize / bounds.height
                     } };
                 }
             }
-            else { preview = { asset, ...point, actor: editor.selectedDefinition?.kind === "actor" }; }
+            else if(editor.selectedDefinition)
+            {
+                preview = { asset, scale: editor.selectedDefinition.scale, ...point, actor: editor.selectedDefinition.kind === "actor" };
+            }
         }
     }
     drawObjects(editor.document, required("prop-overlay", HTMLCanvasElement), renderedView ?? layoutViewport(), editor.selectedPlacementIds, preview, editor.selectionBox, required("show-collision-rects", HTMLInputElement).checked);

@@ -20,21 +20,20 @@ struct SpriteFrameSequenceDef
     /// The file path to the texture containing the sprite frames.
     FilePath TexturePath;
     // If not present then use the entire texture.
-    std::optional<Rect> SrcRect = std::nullopt;
-    std::optional<Dimension2D> Size = std::nullopt;
+    std::optional<Rect> OptSrcRect = std::nullopt;
+    std::optional<Dimension2D> OptSize = std::nullopt;
     /// Collision rectangles are normalized within the sprite's frame.
     /// 0,0 represents the top-left corner of the frame.
     /// 1,1 represents the bottom-right corner of the frame.
     /// If not present then there is no collision.
     /// Collision rectangles CAN be outside the [0,1] range.
     /// When loaded normalized collision rectangles are converted to the sprite's coordinate space.
-    std::optional<Rectf> ColRect = std::nullopt;
+    std::optional<Rectf> OptColRect = std::nullopt;
     /// Normalized pivot point within the sprite's frame.
     /// 0,0 represents the top-left corner of the frame.
     /// 1,1 represents the bottom-right corner of the frame.
     glm::vec2 Pivot{ 0, 0 };
     glm::vec4 Tint = glm::vec4(1.0f);
-    float Scale = 1.0f;
 };
 
 /// Defines a sprite.
@@ -61,6 +60,8 @@ struct PropTypeDef
     /// Sometimes this sprite is only used as a place holder in the level editor and may not
     /// represent the final in-game appearance.
     ResourceName SpriteName;
+
+    float Scale = 1.0f;
 };
 
 struct ActorTypeDef
@@ -74,6 +75,8 @@ struct ActorTypeDef
     /// Sometimes this sprite is only used as a place holder in the level editor and may not
     /// represent the final in-game appearance.
     ResourceName SpriteName;
+
+    float Scale = 1.0f;
 };
 
 /// Defines a prop within the level.
@@ -83,6 +86,9 @@ struct PropInstanceDef
     ResourceName TypeName;
     /// The transform (location/rotation) of the prop within the level.
     Transform2D Transform;
+    /// Optional scale override.  If not present then
+    /// scale from the prop type definition is used.
+    std::optional<float> OptScale = std::nullopt;
 };
 
 struct ActorInstanceDef
@@ -91,6 +97,9 @@ struct ActorInstanceDef
     ResourceName TypeName;
     /// The transform (location/rotation) of the actor within the level.
     Transform2D Transform;
+    /// Optional scale override.  If not present then
+    /// scale from the actor type definition is used.
+    std::optional<float> OptScale = std::nullopt;
 };
 
 struct CellMapLayerDef

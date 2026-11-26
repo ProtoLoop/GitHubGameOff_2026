@@ -39,9 +39,6 @@ public:
     /// Returns the pivot point within the sprite's rectangle.
     const glm::vec2& GetPivot() const { return m_Pivot; }
 
-    /// Returns the scale factor for the sprite.
-    float GetScale() const { return m_Scale; }
-
     /// Sets the color tint for the sprite.
     /// Overrides whatever tint with which the sprite was configured.
     void SetTint(const glm::vec4& tint) { m_Tint = tint; }
@@ -51,6 +48,7 @@ public:
 
     Rectf GetScreenRect(const Rectf& rect,
         const glm::vec2& cellXY,
+        const float scale,
         const glm::mat2x2 proj,
         const float cellPixPerSide) const;
 
@@ -63,14 +61,12 @@ private:
     /// colRects specifies the collision rectangles of the sprite.
     /// pivot specifies the pivot point within the sprite's rectangle.
     /// tint specifies the color tint for the sprite.
-    /// scale specifies the scale factor for the sprite.
     SpriteFrame(wgpu::BindGroup bindGroup,
         const Rect& srcRect,
         const std::span<const Rectf> colRects,
         const Rectf& collisionBounds,
         const glm::vec2& pivot,
-        const glm::vec4& tint,
-        const float scale);
+        const glm::vec4& tint);
 
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_SrcRect;                     // Source rectangle within the texture atlas.
@@ -81,7 +77,6 @@ private:
     Rectf m_CollisionBounds;
     glm::vec2 m_Pivot;
     glm::vec4 m_Tint;
-    float m_Scale;
 };
 
 class SpriteFrameSequence
@@ -97,7 +92,7 @@ public:
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetTint() const { return m_Tint; }
 
-    float GetScale() const { return m_Scale; }
+    const glm::vec2& GetPivot() const { return m_Pivot; }
 
     /// Returns the sprite frame at the specified index within the sequence.
     Result<SpriteFrame> GetFrame(const uint32_t index) const;
@@ -114,8 +109,7 @@ private:
         const Rect& srcRect,
         const InlineVector<Rectf, 1>& colRects,
         const glm::vec2& pivot,
-        const glm::vec4& tint,
-        const float scale);
+        const glm::vec4& tint);
 
     ResourceName m_Name;
     wgpu::BindGroup m_BindGroup;
@@ -130,7 +124,6 @@ private:
     Rectf m_CollisionBounds;
     glm::vec2 m_Pivot;
     glm::vec4 m_Tint;
-    float m_Scale;
     uint32_t m_FrameCount;
 };
 

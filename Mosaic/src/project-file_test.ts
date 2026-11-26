@@ -26,7 +26,7 @@ Deno.test("sparse occupancy round-trips with identical derived rendering choices
     const blob = await writeProject(project);
     assert.equal(blob.type, "application/json");
     const text = await blob.text();
-    assert(text.includes('\n  "version": 29,'));
+    assert(text.includes('\n  "version": 30,'));
     assert(!text.includes("image bytes"));
     const data = JSON.parse(text);
     assert.deepEqual(Object.keys(data), ["format", "version", "gridSize", "tileSheets", "maskSheets", "maskMode", "sequences", "sprites", "propTypes", "actorTypes", "props", "actors", "layers", "editor"]);
@@ -85,11 +85,11 @@ Deno.test("file asset paths require a project-root slash while discovered IDs re
     const prop: SpriteSequence = { kind: "prop", id: "assets/props/trees #/tree%20.png", label: "trees #/tree%20.png",
         blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 1, scale: 0.25, collisionRects: [] };
+        pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const project = fixture();
     project.sequences = [prop];
     project.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 0.25 }));
     const blob = await writeProject(project);
     const data = JSON.parse(await blob.text());
     assert.deepEqual(data.tileSheets, ["/" + tile.id]);
@@ -249,12 +249,12 @@ Deno.test("props round-trip with catalog order, transforms and placement order i
     const asset: SpriteSequence = { id: "assets/props/stone #1.png", kind: "prop", label: "stone #1.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const extra = { ...asset, id: "assets/props/extra.png", label: "extra.png" };
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 5, definition: project.propTypes[0], x: 2.5, y: 3.25, rotation: 45 },
         { id: 9, definition: project.propTypes[0], x: 1, y: 2, rotation: 270 }];
     project.nextPlacementId = 10;
@@ -300,44 +300,43 @@ Deno.test("prop metadata defaults independently and round-trips without mutating
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const extra = { ...asset, id: "assets/props/new.png", label: "new.png" };
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
     project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
-    for(const fields of [{}, { pivotX: 0 }, { pivotY: 1 }, { scale: 0.25 }, { pivotX: 0.25, pivotY: 1, scale: 2 }])
+    for(const fields of [{}, { pivotX: 0 }, { pivotY: 1 }, { pivotX: 0.25, pivotY: 1 }])
     {
-        data.sequences = [{ texPath: "/" + asset.id, pivot: { x: fields.pivotX, y: fields.pivotY }, scale: fields.scale }];
+        data.sequences = [{ texPath: "/" + asset.id, pivot: { x: fields.pivotX, y: fields.pivotY } }];
         const loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, extra, asset]);
-        const expected = { pivotX: 0.5, pivotY: 0.5, scale: 1, ...fields, collisionRects: [] };
+        const expected = { pivotX: 0.5, pivotY: 0.5, ...fields, collisionRects: [] };
         assert.deepEqual(loaded.sequences[0], { ...asset, name: sequenceName(asset), size: undefined, tint: sequenceTint(asset), ...expected });
         assert.equal(loaded.sequences[1], extra);
         assert.equal(loaded.placements[0].definition.sprite.sequences[0], loaded.sequences[0]);
         assert.equal(loaded.placements[0].definition.sprite.sequences[0].image, asset.image);
-        assert.deepEqual([asset.pivotX, asset.pivotY, asset.scale], [0.5, 0.5, 1]);
+        assert.deepEqual([asset.pivotX, asset.pivotY], [0.5, 0.5]);
         const saved = await writeProject(loaded);
         assert.deepEqual(JSON.parse(await saved.text()).sequences, [
-            { name: sequenceName(asset), tint: sequenceTint(asset), texPath: "/" + asset.id, pivot: { x: expected.pivotX, y: expected.pivotY }, scale: expected.scale, srcRect: {}, collisionRects: [] },
-            { name: sequenceName(extra), tint: sequenceTint(extra), texPath: "/" + extra.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, srcRect: {}, collisionRects: [] }
+            { name: sequenceName(asset), tint: sequenceTint(asset), texPath: "/" + asset.id, pivot: { x: expected.pivotX, y: expected.pivotY }, srcRect: {}, collisionRects: [] },
+            { name: sequenceName(extra), tint: sequenceTint(extra), texPath: "/" + extra.id, pivot: { x: 0.5, y: 0.5 }, srcRect: {}, collisionRects: [] }
         ]);
         const again = await readProject(saved, [tile, mask, extra, asset]);
         assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), JSON.parse(await saved.text()));
     }
     for(const entry of [asset.id, {}, null, { texPath: "/" + tile.id }, { texPath: 42 },
-        ...["x", "y"].flatMap((key) => [-0.01, 1.01, null, "0.5", true].map((value) => ({ texPath: "/" + asset.id, pivot: { [key]: value } }))),
-        ...[0, -1, null, "1", false].map((scale) => ({ texPath: "/" + asset.id, scale }))])
+        ...["x", "y"].flatMap((key) => [-0.01, 1.01, null, "0.5", true].map((value) => ({ texPath: "/" + asset.id, pivot: { [key]: value } })))])
     {
         data.sequences = [entry];
         await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
     }
     // Distinct metadata objects must not allow duplicate sequence names.
-    data.sequences = [{ texPath: "/" + asset.id }, { texPath: "/" + asset.id, scale: 2 }];
+    data.sequences = [{ texPath: "/" + asset.id }, { texPath: "/" + asset.id, pivot: { x: 0 } }];
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]));
-    data.sequences = [{ texPath: "/" + asset.id, scale: "overflow" }];
+    data.sequences = [{ texPath: "/" + asset.id, pivot: { x: "overflow" } }];
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data).replace('"overflow"', "1e400")]), [tile, mask, asset]));
 });
 
@@ -348,12 +347,12 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     const prop: SpriteSequence = { kind: "prop", id: "assets/props/old #/stone%20.png", label: "old #/stone%20.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 40 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const newProp = { ...prop, name: "newStone", id: "assets/props/new/stone%20.png", label: "new/stone%20.png" };
     const project = createDocument([first, second], [mask]);
     project.sequences = [prop];
     project.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 }];
     project.nextPlacementId = 1;
     const blob = await writeProject(project);
@@ -366,7 +365,7 @@ Deno.test("nested paths round-trip and newly discovered catalogs append without 
     const saved = JSON.parse(await (await writeProject(loaded)).text());
     assert.deepEqual(saved.tileSheets, [first, second, extra].map((asset) => "/" + asset.id));
     assert.deepEqual(saved.sequences, [prop, newProp].map((asset) => ({
-        name: sequenceName(asset), tint: sequenceTint(asset), texPath: "/" + asset.id, pivot: { x: 0.5, y: 0.5 }, scale: 1, srcRect: {}, collisionRects: []
+        name: sequenceName(asset), tint: sequenceTint(asset), texPath: "/" + asset.id, pivot: { x: 0.5, y: 0.5 }, srcRect: {}, collisionRects: []
     })));
     const again = await readProject(await writeProject(loaded), [extra, second, first, mask, newProp, prop]);
     assert.deepEqual(JSON.parse(await (await writeProject(again)).text()), saved);
@@ -378,10 +377,10 @@ Deno.test("prop coordinates round on load and save without accepting invalid bou
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 20, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 12.12349, y: 31.9998, rotation: 45 }];
     project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
@@ -405,7 +404,7 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
     const asset: SpriteSequence = { id: "assets/props/a.png", kind: "prop", label: "a",
         blob: new Blob(), url: "", width: 10, height: 10, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 10, h: 10 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     for(const size of [2, 4, 8, 16, 32, 64, 128, 256, 512])
     {
         const project = fixture();
@@ -414,12 +413,12 @@ Deno.test("variable map sizes round-trip and enforce size-specific sparse indice
         project.layers[1].painted[size * size - 1] = true;
         project.sequences = [asset];
         project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
         project.placements = [{ id: 0, definition: project.propTypes[0], x: -size / 2, y: size / 2, rotation: 0 }];
         project.nextPlacementId = 1;
         const blob = await writeProject(project);
         const data = JSON.parse(await blob.text());
-        assert.equal(data.version, 29);
+        assert.equal(data.version, 30);
         assert.deepEqual(data.layers[1].cells, [size * size - 1]);
         const loaded = await readProject(blob, [tile, mask, asset]);
         assert.equal(loaded.gridSize, size);
@@ -449,11 +448,11 @@ Deno.test("collision rectangles default, validate and round-trip independently o
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     const data = JSON.parse(await (await writeProject(project)).text());
     const collisionRects = [{ x: -0.2, y: 0.75, w: 1.5, h: 0.2 }, { x: 0.3, y: 0.8, w: 0.4, h: 0.5 }];
     for(const value of [undefined, [], collisionRects])
@@ -495,11 +494,11 @@ Deno.test("collision rectangles default, validate and round-trip independently o
 Deno.test("source rectangles default to the full texture and round-trip without changing decoded assets", async () => {
     const asset: SpriteSequence = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.25, pivotY: 1, scale: 2, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.25, pivotY: 1, collisionRects: [] };
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 2 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
     project.nextPlacementId = 1;
     const before = cloneDocument(project);
@@ -530,11 +529,11 @@ Deno.test("source rectangles default to the full texture and round-trip without 
 Deno.test("source rectangles reject malformed, fractional and out-of-texture regions on load and save", async () => {
     const asset: SpriteSequence = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 80, h: 20 }, pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const project = fixture();
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     const data = JSON.parse(await (await writeProject(project)).text());
     const rect = { x: 5, y: 2, w: 10, h: 8 };
     const invalid = [null, [], [0, 0, 80, 20], [{}], { unknown: true }, "rectangle", ...["x", "y", "w", "h"].flatMap((key) =>
@@ -558,7 +557,7 @@ Deno.test("source rectangles reject malformed, fractional and out-of-texture reg
 Deno.test("named sequences share textures, preserve optional frame dimensions and tint across saves", async () => {
     const asset: SpriteSequence = { kind: "prop", id: "assets/anims/actor.png", label: "actor",
         blob: new Blob(), url: "blob:actor", width: 128, height: 64, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 128, h: 64 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 128, h: 64 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const project = fixture();
     const data = JSON.parse(await (await writeProject(project)).text());
     const entries = [
@@ -568,7 +567,7 @@ Deno.test("named sequences share textures, preserve optional frame dimensions an
     ];
     data.sequences = entries;
     data.sprites = [{ name: "Actor", sequences: ["Portrait", "Walk"] }];
-    data.propTypes = [{ name: "Actor", sprite: "Actor" }];
+    data.propTypes = [{ name: "Actor", sprite: "Actor", scale: 1 }];
     data.props = [{ type: "Actor", pos: { x: 0, y: 0 }, rot: 0 }];
     data.extensions = { animations: ["Walk"] };
     let loaded = await readProject(new Blob([JSON.stringify(data)]), [tile, mask, asset]);
@@ -596,7 +595,7 @@ Deno.test("named sequences share textures, preserve optional frame dimensions an
 Deno.test("sequence metadata rejects invalid names, frame dimensions and tints", async () => {
     const asset: SpriteSequence = { kind: "prop", id: "assets/actor.png", label: "actor",
         blob: new Blob(), url: "", width: 128, height: 64, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 128, h: 64 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 128, h: 64 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const data = JSON.parse(await (await writeProject(fixture())).text());
     const entry = { name: "Walk", texPath: "/" + asset.id, srcRect: { x: 0, y: 0, w: 32, h: 32 } };
     for(const fields of [
@@ -624,13 +623,13 @@ Deno.test("sprite names resolve independently of catalog order and discovery pre
     const north: SpriteSequence = { kind: "prop", id: "assets/props/actor.png", label: "actor", name: "North",
         blob: new Blob(), url: "blob:actor", image: {} as CanvasImageSource, width: 64, height: 32,
         srcRect: { x: 0, y: 0, w: 64, h: 16 }, size: { w: 16, h: 16 },
-        pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const south = { ...north, name: "South", srcRect: { x: 0, y: 16, w: 64, h: 16 } };
     const extra = { ...north, name: "Tree", id: "assets/props/tree.png" };
     const project = fixture();
     project.sequences = [north, south];
     project.sprites = [{ name: "Actor", sequences: [south, north] }, { name: "Portrait", sequences: [north] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 1, y: 2, rotation: 90 }];
     project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
@@ -659,11 +658,11 @@ Deno.test("sprite names resolve independently of catalog order and discovery pre
 Deno.test("sprite catalogs reject malformed names, empty groups, missing references and old versions", async () => {
     const sequence: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone", name: "Stone",
         blob: new Blob(), url: "", image: {} as CanvasImageSource, width: 16, height: 16,
-        srcRect: { x: 0, y: 0, w: 16, h: 16 }, pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 16, h: 16 }, pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const project = fixture();
     project.sequences = [sequence];
     project.sprites = [{ name: "Stone", sequences: [sequence] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 0, y: 0, rotation: 0 }];
     project.nextPlacementId = 1;
     const data = JSON.parse(await (await writeProject(project)).text());
@@ -692,14 +691,14 @@ Deno.test("sprite catalogs reject malformed names, empty groups, missing referen
 Deno.test("explicit object catalogs round-trip by name without promoting discovered sprites", async () => {
     const image: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const project = fixture();
     project.sequences = [image];
     project.sprites = [{ name: "Stone", sequences: [image] }];
-    project.propTypes = [{ kind: "prop", name: "Decoration", sprite: project.sprites[0] }];
+    project.propTypes = [{ kind: "prop", name: "Decoration", sprite: project.sprites[0], scale: 1 }];
     project.actorTypes = [
-        { kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] },
-        { kind: "actor", name: "Other Grave", class: "Tombstone", sprite: project.sprites[0] }
+        { kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0], scale: 1 },
+        { kind: "actor", name: "Other Grave", class: "Tombstone", sprite: project.sprites[0], scale: 1 }
     ];
     project.placements = [
         { id: 4, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 },
@@ -713,7 +712,7 @@ Deno.test("explicit object catalogs round-trip by name without promoting discove
         { type: "Grave", pos: { x: -1.235, y: 3 }, rot: 45 },
         { type: "Other Grave", pos: { x: 2, y: -3 }, rot: 90 }
     ]);
-    assert.deepEqual(data.actorTypes[0], { name: "Grave", class: "Tombstone", sprite: "Stone" });
+    assert.deepEqual(data.actorTypes[0], { name: "Grave", class: "Tombstone", sprite: "Stone", scale: 1 });
     assert(!Object.hasOwn(data.props[0], "prop"));
     assert(!Object.hasOwn(data.actors[0], "actor"));
     assert(!Object.hasOwn(data.actorTypes[0], "type"));
@@ -765,12 +764,12 @@ Deno.test("explicit object catalogs round-trip by name without promoting discove
 Deno.test("prop and actor scale overrides preserve omission and reject malformed values", async () => {
     const image: SpriteSequence = { kind: "prop", id: "assets/props/scale.png", label: "Scale",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, scale: 0.25, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
     const project = fixture();
     project.sequences = [image];
     project.sprites = [{ name: "Scale", sequences: [image] }];
-    project.propTypes = [{ kind: "prop", name: "Prop", sprite: project.sprites[0] }];
-    project.actorTypes = [{ kind: "actor", name: "Actor", class: "Tombstone", sprite: project.sprites[0] }];
+    project.propTypes = [{ kind: "prop", name: "Prop", sprite: project.sprites[0], scale: 0.25 }];
+    project.actorTypes = [{ kind: "actor", name: "Actor", class: "Tombstone", sprite: project.sprites[0], scale: 0.25 }];
     project.placements = [project.propTypes[0], project.actorTypes[0]].flatMap((definition, index) => [
         { id: index * 2, definition, x: 0, y: 0, rotation: 0 },
         { id: index * 2 + 1, definition, x: 1, y: 1, rotation: 90, scale: 0.5 }
@@ -793,5 +792,38 @@ Deno.test("prop and actor scale overrides preserve omission and reject malformed
         }
     }
     data.version = 28;
+    await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), available), /version/);
+});
+
+Deno.test("type scales are required, independent of shared sequences, and serialized without sequence scale", async () => {
+    const asset: SpriteSequence = { kind: "prop", id: "assets/props/shared.png", label: "Shared",
+        blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
+    const project = fixture();
+    project.sequences = [asset];
+    const sprite = { name: "Shared", sequences: [asset] };
+    project.sprites = [sprite];
+    project.propTypes = [{ kind: "prop", name: "Small", sprite, scale: 0.25 }];
+    project.actorTypes = [{ kind: "actor", name: "Large", class: "Tombstone", sprite, scale: 2 }];
+    const available = [tile, mask, asset];
+    const data = JSON.parse(await (await writeProject(project)).text());
+    assert(!Object.hasOwn(data.sequences[0], "scale"));
+    const loaded = await readProject(new Blob([JSON.stringify(data)]), available);
+    assert.equal(loaded.propTypes[0].scale, 0.25);
+    assert.equal(loaded.actorTypes[0].scale, 2);
+    assert.equal(loaded.propTypes[0].sprite, loaded.actorTypes[0].sprite);
+    for(const kind of ["propTypes", "actorTypes"] as const)
+    {
+        for(const scale of [undefined, null, 0, -1, "1", false, {}, NaN, Infinity, -Infinity])
+        {
+            const invalid = structuredClone(data);
+            invalid[kind][0].scale = scale;
+            await assert.rejects(() => readProject(new Blob([JSON.stringify(invalid)]), available), /scale/);
+            const invalidDocument = cloneDocument(project);
+            Object.assign(invalidDocument, { [kind]: [{ ...project[kind][0], scale }] });
+            assert.throws(() => writeProject(invalidDocument), /scale/);
+        }
+    }
+    data.version = 29;
     await assert.rejects(() => readProject(new Blob([JSON.stringify(data)]), available), /version/);
 });

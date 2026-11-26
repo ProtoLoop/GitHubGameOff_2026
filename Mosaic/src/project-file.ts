@@ -36,21 +36,21 @@ export function writeProject(project: ProjectDocument): Promise<Blob>
 {
     validateDocument(project);
     const blob = new Blob([formatJson({
-        format: "mosaic", version: 29,
+        format: "mosaic", version: 30,
         gridSize: project.gridSize,
         tileSheets: project.tileSheets.map((sheet) => "/" + sheet.id),
         maskSheets: project.masks.map((sheet) => "/" + sheet.id),
         maskMode: project.maskMode,
         sequences: project.sequences.map((asset) => ({
             name: sequenceName(asset), size: asset.size, tint: sequenceTint(asset),
-            texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY }, scale: asset.scale,
+            texPath: "/" + asset.id, pivot: { x: asset.pivotX, y: asset.pivotY },
             srcRect: asset.srcRect.x === 0 && asset.srcRect.y === 0
                 && asset.srcRect.w === asset.width && asset.srcRect.h === asset.height ? {} : { ...asset.srcRect },
             collisionRects: asset.collisionRects.map(({ x, y, w, h }) => ({ x, y, w, h }))
         })),
         sprites: project.sprites.map((sprite) => ({ name: sprite.name, sequences: sprite.sequences.map(sequenceName) })),
-        propTypes: project.propTypes.map((definition) => ({ name: definition.name, sprite: definition.sprite.name })),
-        actorTypes: project.actorTypes.map((definition) => ({ name: definition.name, class: definition.class, sprite: definition.sprite.name })),
+        propTypes: project.propTypes.map((definition) => ({ name: definition.name, sprite: definition.sprite.name, scale: definition.scale })),
+        actorTypes: project.actorTypes.map((definition) => ({ name: definition.name, class: definition.class, sprite: definition.sprite.name, scale: definition.scale })),
         props: project.placements.filter((placement) => placement.definition.kind === "prop").map((placement) => ({
             type: placement.definition.name, ...placementTransform(placement)
         })),
@@ -124,14 +124,14 @@ function numberOrDefault(value: unknown, fallback: number): number
 export async function projectTexturePaths(blob: Blob): Promise<string[]>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 29) { throw new Error("Unsupported Mosaic project format/version"); }
+    if(data.format !== "mosaic" || data.version !== 30) { throw new Error("Unsupported Mosaic project format/version"); }
     return [...new Set(list(data.sequences, 0, 256).map((entry) => assetId(object(entry).texPath)))];
 }
 
 export async function readProject(blob: Blob, available: readonly (ImageAsset | SpriteSequence)[]): Promise<ProjectDocument>
 {
     const data = object(JSON.parse(await blob.text()));
-    if(data.format !== "mosaic" || data.version !== 29)
+    if(data.format !== "mosaic" || data.version !== 30)
     {
         throw new Error("Unsupported Mosaic project format/version");
     }
@@ -192,7 +192,7 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         return { ...asset, name, size: frameSize, tint, srcRect,
             pivotX: numberOrDefault(pivot.x, 0.5),
             pivotY: numberOrDefault(pivot.y, 0.5),
-            scale: numberOrDefault(entry.scale, 1), collisionRects };
+            collisionRects };
     });
     const sequenceNames = new Map(sequences.map((sequence) => [sequence.name, sequence]));
     const sprites = list(data.sprites, 0, 256).map((item) => {
@@ -206,12 +206,16 @@ export async function readProject(blob: Blob, available: readonly (ImageAsset | 
         }) };
     });
     const spriteNames = new Map(sprites.map((sprite) => [sprite.name, sprite]));
-    const readDefinition = (item: unknown): { name: string; sprite: typeof sprites[number] } => {
+    const readDefinition = (item: unknown): { name: string; sprite: typeof sprites[number]; scale: number } => {
         const entry = object(item);
         if(typeof entry.name !== "string" || typeof entry.sprite !== "string") { throw new Error("Invalid object definition"); }
         const sprite = spriteNames.get(entry.sprite);
         if(!sprite) { throw new Error(`Missing sprite: ${entry.sprite}`); }
-        return { name: entry.name, sprite };
+        if(typeof entry.scale !== "number" || !Number.isFinite(entry.scale) || entry.scale <= 0)
+        {
+            throw new Error("Invalid object definition scale");
+        }
+        return { name: entry.name, sprite, scale: entry.scale };
     };
     const propTypes = list(data.propTypes, 0, 256).map((item) => ({ kind: "prop" as const, ...readDefinition(item) }));
     const actorTypes = list(data.actorTypes, 0, 256).map((item) => {

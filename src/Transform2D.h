@@ -4,7 +4,7 @@
 
 #include <glm/vec2.hpp>
 
-/// Represents a 2D transform with position and rotation.
+/// Represents a 2D transform with position, rotation, and uniform scale.
 /// Y-up coordinates with compass bearings.
 /// North: 0 degrees, +Y
 /// East: 90 degrees, +X
@@ -69,16 +69,21 @@ public:
     friend Transform2D operator*(const Transform2D& lhs, const Transform2D& rhs)
     {
         Transform2D result;
-        result.Pos = lhs.Pos + (lhs.GetRight() * rhs.Pos.x + lhs.GetForward() * rhs.Pos.y);
+        result.Pos =
+            lhs.Pos + (lhs.Scale * (lhs.GetRight() * rhs.Pos.x + lhs.GetForward() * rhs.Pos.y));
         result.Rot = lhs.Rot + rhs.Rot;
+        result.Scale = lhs.Scale * rhs.Scale;
         return result;
     }
 
-    /// The position of this transform.
+    /// Position.
     glm::vec2 Pos{};
 
-    /// The rotation of this transform.
+    /// Rotation.
     Angle Rot;
+
+    /// Uniform scale.
+    float Scale{ 1.0f };
 };
 
 template<typename T>
@@ -126,11 +131,26 @@ public:
     /// Returns the rotation.
     const Angle& GetRot() const { return static_cast<const T*>(this)->GetTransform().Rot; }
 
+    /// Returns the uniform scale.
+    float GetScale() const { return static_cast<const T*>(this)->GetTransform().Scale; }
+
+    /// Sets the uniform scale.
+    void SetScale(const float scale) { static_cast<T*>(this)->GetTransform().Scale = scale; }
+
     /// Returns the forward direction vector.
-    glm::vec2 GetForward() const { return static_cast<const T*>(this)->GetTransform().GetForward(); }
+    glm::vec2 GetForward() const
+    {
+        return static_cast<const T*>(this)->GetTransform().GetForward();
+    }
 
     /// Returns the right direction vector.
     glm::vec2 GetRight() const { return static_cast<const T*>(this)->GetTransform().GetRight(); }
+
+    /// Sets the transform.
+    void SetTransform(const Transform2D& transform)
+    {
+        static_cast<T*>(this)->GetTransform() = transform;
+    }
 
 private:
     friend T;

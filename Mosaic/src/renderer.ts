@@ -110,8 +110,9 @@ export function drawCoverageRegion(project: ProjectDocument, canvas: HTMLCanvasE
 export interface ImagePreview
 {
     readonly actor?: boolean;
+    readonly scale: number;
     readonly asset: SpriteSequence | ImageAsset;
-    /// Optional terrain preview dimensions in map pixels. Props use their asset scale.
+    /// Optional terrain preview dimensions in map pixels. Props use their type scale.
     readonly size?: { readonly width: number; readonly height: number };
     /// Prop pivot or terrain preview center in fractional cells.
     readonly x: number;
@@ -250,7 +251,7 @@ export function drawObjects(project: ProjectDocument, canvas: HTMLCanvasElement,
         const asset = preview.asset;
         if(asset.kind === "prop")
         {
-            const rect = propImageRect(asset);
+            const rect = propImageRect(asset, preview.scale);
             const source = propFrameSource(asset);
             context.drawImage(source.image, source.x, source.y, source.w, source.h,
                 point.x + rect.x, point.y + rect.y, rect.width, rect.height);

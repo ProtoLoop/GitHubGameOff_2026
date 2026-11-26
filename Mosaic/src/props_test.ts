@@ -5,8 +5,8 @@ import { clampPropPoint, hitProp, mapPoint, mapPixels, propsInBox, groupMoveDelt
 const asset: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
     blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
-const prop: Placement = { id: 0, definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [asset] } }, x: 100 / 64, y: -200 / 64, rotation: 90 };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
+const prop: Placement = { id: 0, definition: { kind: "prop" as const, name: "Stone", scale: 1, sprite: { name: "Stone", sequences: [asset] } }, x: 100 / 64, y: -200 / 64, rotation: 90 };
 
 Deno.test("prop picking respects rotation, native rectangular bounds and placement order", () => {
     assert.equal(hitProp([prop], 100 / 64, -235 / 64), prop);
@@ -24,13 +24,13 @@ Deno.test("prop picking respects rotation, native rectangular bounds and placeme
 Deno.test("picking follows scaled rectangles rotated about non-center pivots", () => {
     // A bottom-left pivot at (0, 0), scaled to 160 by 40 pixels and rotated clockwise 90 degrees.
     // Its world rectangle extends right by 40 pixels and down by 160 pixels from the fixed pivot.
-    const anchored = { ...prop, x: 0, y: 0, definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 0, pivotY: 1, scale: 2 }] } } };
+    const anchored = { ...prop, x: 0, y: 0, definition: { kind: "prop" as const, name: "Stone", scale: 2, sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 0, pivotY: 1 }] } } };
     assert.equal(hitProp([anchored], 20 / 64, -80 / 64), anchored);
     assert.equal(hitProp([anchored], -1 / 64, -80 / 64), null);
     assert.equal(hitProp([anchored], 41 / 64, -80 / 64), null);
     assert.equal(hitProp([anchored], 20 / 64, 1 / 64), null);
     assert.equal(hitProp([anchored], 20 / 64, -161 / 64), null);
-    const small = { ...anchored, rotation: 0, definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 1, pivotY: 0, scale: 0.25 }] } } };
+    const small = { ...anchored, rotation: 0, definition: { kind: "prop" as const, name: "Stone", scale: 0.25, sprite: { name: "Stone", sequences: [{ ...asset, pivotX: 1, pivotY: 0 }] } } };
     assert.equal(hitProp([small], -10 / 64, -2 / 64), small);
     assert.equal(hitProp([small], 1 / 64, -2 / 64), null);
     assert.equal(hitProp([small], -21 / 64, -2 / 64), null);
@@ -78,8 +78,8 @@ Deno.test("group translations clamp on all four centered boundaries without defo
 
 Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pivots and rotation", () => {
     const cropped = { ...prop, x: 0, y: 0, rotation: 90,
-        definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [{ ...asset, srcRect: { x: 30, y: 4, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2 }] } } };
-    assert.deepEqual(propImageRect(cropped.definition.sprite.sequences[0]), { x: -20, y: -20, width: 80, height: 20 });
+        definition: { kind: "prop" as const, name: "Stone", scale: 2, sprite: { name: "Stone", sequences: [{ ...asset, srcRect: { x: 30, y: 4, w: 40, h: 10 }, pivotX: 0.25, pivotY: 1 }] } } };
+    assert.deepEqual(placementImageRect(cropped), { x: -20, y: -20, width: 80, height: 20 });
     // After rotation, the crop covers X [0, 20] and Y [-20, 60] in Y-down pixels.
     assert.equal(hitProp([cropped], 10 / 64, -30 / 64), cropped);
     for(const [x, y] of [[-1, 30], [21, 30], [10, -21], [10, 61]])
@@ -87,25 +87,25 @@ Deno.test("cropped sprite picking uses crop dimensions with scaled non-center pi
         assert.equal(hitProp([cropped], x / 64, -y / 64), null);
     }
     // Moving the source rectangle within the texture does not move the sprite or its pivot.
-    const moved = { ...cropped, definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [{ ...cropped.definition.sprite.sequences[0], srcRect: { ...cropped.definition.sprite.sequences[0].srcRect, x: 0, y: 0 } }] } } };
-    assert.deepEqual(propImageRect(moved.definition.sprite.sequences[0]), propImageRect(cropped.definition.sprite.sequences[0]));
+    const moved = { ...cropped, definition: { kind: "prop" as const, name: "Stone", scale: 2, sprite: { name: "Stone", sequences: [{ ...cropped.definition.sprite.sequences[0], srcRect: { ...cropped.definition.sprite.sequences[0].srcRect, x: 0, y: 0 } }] } } };
+    assert.deepEqual(placementImageRect(moved), placementImageRect(cropped));
     assert.equal(hitProp([moved], 10 / 64, -30 / 64), moved);
 });
 
 Deno.test("sequence picking and bounds use one frame while omitted size uses the full crop", () => {
     const sequence = { ...asset, srcRect: { x: 8, y: 2, w: 60, h: 16 }, size: { w: 12, h: 8 },
-        pivotX: 0.5, pivotY: 1, scale: 2 };
-    const placed = { ...prop, definition: { kind: "prop" as const, name: "Stone", sprite: { name: "Stone", sequences: [sequence, asset] } }, x: 0, y: 0, rotation: 0 };
-    assert.deepEqual(propImageRect(sequence), { x: -12, y: -16, width: 24, height: 16 });
+        pivotX: 0.5, pivotY: 1 };
+    const placed = { ...prop, definition: { kind: "prop" as const, name: "Stone", scale: 2, sprite: { name: "Stone", sequences: [sequence, asset] } }, x: 0, y: 0, rotation: 0 };
+    assert.deepEqual(propImageRect(sequence, placed.definition.scale), { x: -12, y: -16, width: 24, height: 16 });
     assert.equal(hitProp([placed], 10 / 64, 8 / 64), placed);
     assert.equal(hitProp([placed], 13 / 64, 8 / 64), null);
-    assert.deepEqual(propImageRect({ ...sequence, size: undefined }), { x: -60, y: -32, width: 120, height: 32 });
+    assert.deepEqual(propImageRect({ ...sequence, size: undefined }, placed.definition.scale), { x: -60, y: -32, width: 120, height: 32 });
 });
 
 Deno.test("absolute overrides drive rotated picking and fixed-screen-size handles", () => {
-    const sequence = { ...asset, scale: 0.25, pivotX: 0, pivotY: 1 };
+    const sequence = { ...asset, pivotX: 0, pivotY: 1 };
     const instance = { ...prop, x: 0, y: 0, scale: 0.5,
-        definition: { ...prop.definition, sprite: { name: "Scaled", sequences: [sequence] } } };
+        definition: { ...prop.definition, scale: 0.25, sprite: { name: "Scaled", sequences: [sequence] } } };
     assert.deepEqual(placementImageRect(instance), { x: -0, y: -10, width: 40, height: 10 });
     assert.equal(hitProp([instance], 5 / 64, -30 / 64), instance);
     assert.equal(hitProp([instance], 11 / 64, -30 / 64), null);
@@ -143,4 +143,14 @@ Deno.test("scale cursors follow corner bisectors through rotation independently 
         // Removing the pivot corner must not swap the other corners' cursors.
         assert.deepEqual(scaleHandles(anchored).map((handle) => handle.cursor), cursors.slice(1));
     }
+});
+
+Deno.test("types sharing a sprite have independent inherited scales and absolute overrides", () => {
+    const small = { ...prop, definition: { ...prop.definition, scale: 0.25 } };
+    const large = { ...prop, definition: { kind: "actor" as const, name: "Large", class: "Tombstone",
+        sprite: prop.definition.sprite, scale: 2 } };
+    assert.equal(placementImageRect(small).width, 20);
+    assert.equal(placementImageRect(large).width, 160);
+    assert.equal(placementImageRect({ ...small, scale: 0.5 }).width, 40);
+    assert.equal(placementImageRect({ ...large, scale: 0.5 }).width, 40);
 });

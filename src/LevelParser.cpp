@@ -38,7 +38,6 @@ ParseSpriteSequence(const JsonObject& sequence)
     std::optional<Dimension2D> optSize;
     std::optional<Rectf> optColRect;
     glm::vec2 pivot;
-    float scale = 1;
     glm::vec4 tint;
 
     GG_CHECKB(sequence.TryGetString("texPath", texPathStr) && !texPathStr.empty(),
@@ -187,22 +186,15 @@ ParseSpriteSequence(const JsonObject& sequence)
         }
     }
 
-    if(!sequence.TryGetFloat("scale", scale))
-    {
-        /// Scale is optional - default to 1.0f.
-        scale = 1.0f;
-    }
-
     return SpriteFrameSequenceDef //
         {
             .Name = *optName,
             .TexturePath = texPath,
-            .SrcRect = optSrcRect,
-            .Size = optSize,
-            .ColRect = optColRect,
+            .OptSrcRect = optSrcRect,
+            .OptSize = optSize,
+            .OptColRect = optColRect,
             .Pivot = pivot,
             .Tint = tint,
-            .Scale = scale,
         };
 }
 
@@ -300,16 +292,24 @@ ParseSprites(const JsonObject& jobj)
 Result<PropTypeDef>
 ParsePropType(const JsonObject& propType)
 {
+    // Name, sprite, and scale are required.
+
     GG_TRY(resName, TryParseResourceName(propType, "name"));
     GG_CHECKB(!resName.empty(), "Missing name (line:{})", propType.GetLine());
 
     GG_TRY(spriteName, TryParseResourceName(propType, "sprite"));
     GG_CHECKB(!spriteName.empty(), "Missing sprite name (line:{})", propType.GetLine());
 
+    float scale{};
+    GG_CHECKB(propType.TryGetFloat("scale", scale),
+        "Missing or invalid scale (line:{})",
+        propType.GetLine());
+
     return PropTypeDef //
         {
             .Name = resName,
             .SpriteName = spriteName,
+            .Scale = scale,
         };
 }
 
@@ -344,6 +344,8 @@ ParsePropTypes(const JsonObject& jobj)
 Result<ActorTypeDef>
 ParseActorType(const JsonObject& actorType)
 {
+    // Name, class, sprite, and scale are required.
+
     GG_TRY(resName, TryParseResourceName(actorType, "name"));
     GG_CHECKB(!resName.empty(), "Missing name (line:{})", actorType.GetLine());
 
@@ -353,11 +355,17 @@ ParseActorType(const JsonObject& actorType)
     GG_TRY(spriteName, TryParseResourceName(actorType, "sprite"));
     GG_CHECKB(!spriteName.empty(), "Missing sprite name (line:{})", actorType.GetLine());
 
+    float scale{};
+    GG_CHECKB(actorType.TryGetFloat("scale", scale),
+        "Missing or invalid scale (line:{})",
+        actorType.GetLine());
+
     return ActorTypeDef //
         {
             .Name = resName,
             .ClassName = className,
             .SpriteName = spriteName,
+            .Scale = scale,
         };
 }
 
@@ -392,35 +400,42 @@ ParseActorTypes(const JsonObject& jobj)
 Result<PropInstanceDef>
 ParseProp(const JsonObject& prop)
 {
-    std::optional<glm::vec2> optPos;
-    std::optional<float> optRot;
+    glm::vec2 pos;
+    float rot{};
+    std::optional<float> optScale;
 
     GG_TRY(typeName, TryParseResourceName(prop, "type"));
     GG_CHECKB(!typeName.empty(), "Missing type name (line:{})", prop.GetLine());
 
-    if(JsonObject jsonObj; prop.TryGetObject("pos", jsonObj))
-    {
-        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
-        {
-            optPos = glm::vec2{ x, y };
-        }
-    }
-    GG_CHECKB(optPos.has_value(), "Missing position (line:{})", prop.GetLine());
+    JsonObject jsonObj;
+    GG_CHECKB(prop.TryGetObject("pos", jsonObj),
+        "Missing position object (line:{})",
+        prop.GetLine());
 
-    if(float rot{}; prop.TryGetFloat("rot", rot))
+    GG_CHECKB(jsonObj.TryGetFloat("x", pos.x) && jsonObj.TryGetFloat("y", pos.y),
+        "Missing position coordinates (line:{})",
+        prop.GetLine());
+
+    GG_CHECKB(prop.TryGetFloat("rot", rot), "Missing rotation (line:{})", prop.GetLine());
+
+    // "scale" is optional, but if present it must be a valid float.
+    JsonValue scaleValue;
+    if(prop.TryGetValue("scale", scaleValue))
     {
-        optRot = rot;
+        float scale{};
+        GG_CHECKB(scaleValue.TryGetFloat(scale), "Invalid scale (line:{})", prop.GetLine());
+        optScale = scale;
     }
-    GG_CHECKB(optRot.has_value(), "Missing rotation (line:{})", prop.GetLine());
 
     return PropInstanceDef //
         {
             .TypeName = typeName,
             .Transform //
             {
-                .Pos = *optPos,
-                .Rot = Angle::FromDegrees(*optRot),
+                .Pos = pos,
+                .Rot = Angle::FromDegrees(rot),
             },
+            .OptScale = optScale,
         };
 }
 
@@ -453,35 +468,42 @@ ParseProps(const JsonObject& jobj)
 Result<ActorInstanceDef>
 ParseActor(const JsonObject& actor)
 {
-    std::optional<glm::vec2> optPos;
-    std::optional<float> optRot;
+    glm::vec2 pos;
+    float rot{};
+    std::optional<float> optScale;
 
     GG_TRY(typeName, TryParseResourceName(actor, "type"));
     GG_CHECKB(!typeName.empty(), "Missing type name (line:{})", actor.GetLine());
 
-    if(JsonObject jsonObj; actor.TryGetObject("pos", jsonObj))
-    {
-        if(float x{}, y{}; jsonObj.TryGetFloat("x", x) && jsonObj.TryGetFloat("y", y))
-        {
-            optPos = glm::vec2{ x, y };
-        }
-    }
-    GG_CHECKB(optPos.has_value(), "Missing position (line:{})", actor.GetLine());
+    JsonObject jsonObj;
+    GG_CHECKB(actor.TryGetObject("pos", jsonObj),
+        "Missing position object (line:{})",
+        actor.GetLine());
 
-    if(float rot{}; actor.TryGetFloat("rot", rot))
+    GG_CHECKB(jsonObj.TryGetFloat("x", pos.x) && jsonObj.TryGetFloat("y", pos.y),
+        "Missing position coordinates (line:{})",
+        actor.GetLine());
+
+    GG_CHECKB(actor.TryGetFloat("rot", rot), "Missing rotation (line:{})", actor.GetLine());
+
+    // "scale" is optional, but if present it must be a valid float.
+    JsonValue scaleValue;
+    if(actor.TryGetValue("scale", scaleValue))
     {
-        optRot = rot;
+        float scale{};
+        GG_CHECKB(scaleValue.TryGetFloat(scale), "Invalid scale (line:{})", actor.GetLine());
+        optScale = scale;
     }
-    GG_CHECKB(optRot.has_value(), "Missing rotation (line:{})", actor.GetLine());
 
     return ActorInstanceDef //
         {
             .TypeName = typeName,
             .Transform //
             {
-                .Pos = *optPos,
-                .Rot = Angle::FromDegrees(*optRot),
+                .Pos = pos,
+                .Rot = Angle::FromDegrees(rot),
             },
+            .OptScale = optScale,
         };
 }
 

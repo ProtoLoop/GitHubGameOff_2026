@@ -65,12 +65,12 @@ Deno.test("prop overlay clears stale positions, draws in order and transforms ar
     const image: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [image];
     project.sprites = [{ name: sequenceName(image), sequences: [image] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 },
         { id: 1, definition: project.propTypes[0], x: 300 / 64 - 32, y: 32 - 400 / 64, rotation: 0 }];
     project.nextPlacementId = 2;
@@ -102,12 +102,12 @@ Deno.test("preview and multi-selection render independently of document state an
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 0 }, { id: 1, definition: project.propTypes[0], x: 200 / 64 - 32, y: 32 - 200 / 64, rotation: 45 }];
     project.nextPlacementId = 2;
     const snapshot = cloneDocument(project);
@@ -125,7 +125,7 @@ Deno.test("preview and multi-selection render independently of document state an
         fillRect: (...args: number[]) => calls.push(["fill", ...args])
     };
     const canvas = { width: 4096, height: 4096, getContext: () => context } as unknown as HTMLCanvasElement;
-    drawObjects(project, canvas, fullView, new Set([0, 1]), { asset, x: 400 / 64 - 32, y: 32 - 500 / 64 },
+    drawObjects(project, canvas, fullView, new Set([0, 1]), { asset, scale: project.propTypes[0].scale, x: 400 / 64 - 32, y: 32 - 500 / 64 },
         { start: { x: 300 / 64 - 32, y: 32 - 400 / 64 }, end: { x: 50 / 64 - 32, y: 32 - 60 / 64 } }, false);
     assert.equal(calls.filter((call) => call[0] === "stroke").length, 3);
     assert(calls.some((call) => JSON.stringify(call) === JSON.stringify(["fill", 50, 60, 250, 340])));
@@ -176,7 +176,7 @@ Deno.test("terrain preview keeps thumbnail screen size across zoom levels withou
             for(const zoom of [1 / 16, 0.25, 1, 4])
             {
                 project.view.zoom = zoom;
-                drawObjects(project, canvas, fullView, new Set(), { asset: terrain, x: 400 / 64 - 32, y: 32 - 500 / 64,
+                drawObjects(project, canvas, fullView, new Set(), { asset: terrain, scale: 1, x: 400 / 64 - 32, y: 32 - 500 / 64,
                     size: { width: thumbnailSize / zoom, height: thumbnailSize / zoom } }, null, false);
                 const call = calls.at(-1)!;
                 assert.equal(call.width * zoom, thumbnailSize);
@@ -264,12 +264,12 @@ Deno.test("viewport props cull rotated bounds rather than centers and use a shar
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 110 / 64 - 32, y: 32 - 80 / 64, rotation: 90 },
         { id: 1, definition: project.propTypes[0], x: 500 / 64 - 32, y: 32 - 500 / 64, rotation: 0 }];
     const calls: unknown[][] = [];
@@ -292,12 +292,12 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0, pivotY: 1, scale: 2, collisionRects: [] };
+        pivotX: 0, pivotY: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 2 }));
     // The fixed pivot is at map pixels (100, 100). After rotation the image covers [100, 140] × [100, 260].
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
     project.nextPlacementId = 1;
@@ -321,7 +321,7 @@ Deno.test("scaled props rotate about their pivots and retain visible artwork whe
     drawObjects(project, canvas, { ...view, x: 150 }, new Set([0]), null, null, false);
     assert.deepEqual(calls, []);
     project.placements = [];
-    drawObjects(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
+    drawObjects(project, canvas, fullView, new Set(), { asset, scale: project.propTypes[0].scale, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
     assert.deepEqual(calls, [["image", asset.image, 0, 0, 80, 20, 100, 60, 160, 40]]);
 });
 
@@ -329,12 +329,12 @@ Deno.test("selected pivot markers stay upright at fixed screen size and clear on
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 1, pivotY: 1, scale: 2, collisionRects: [] };
+        pivotX: 1, pivotY: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 2 }));
     project.placements = [0, 1, 2].map((id) => ({ id, definition: project.propTypes[0],
         x: (100 + id * 50) / 64 - 32, y: 32 - (200 + id * 20) / 64, rotation: id * 45 }));
     project.nextPlacementId = 3;
@@ -423,12 +423,12 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.25, pivotY: 1, scale: 2,
+        pivotX: 0.25, pivotY: 1,
         collisionRects: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }, { x: -2, y: -2, w: 1, h: 1 }] };
     const project = createDocument([material("base", 64, 0)], [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 2 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 200 / 64, rotation: 90 }];
     project.nextPlacementId = 1;
     const snapshot = cloneDocument(project);
@@ -454,14 +454,14 @@ Deno.test("collision overlay follows pivot, scale and rotation even when sprite 
 Deno.test("sprite first-sequence frame zero shares geometry across drawing, previews, selection and collision rectangles", () => {
     const asset: SpriteSequence = { kind: "prop", id: "assets/props/atlas.png", label: "atlas",
         blob: new Blob(), url: "", width: 256, height: 128, image: {} as CanvasImageSource,
-        srcRect: { x: 32, y: 16, w: 200, h: 100 }, size: { w: 40, h: 10 }, pivotX: 0.25, pivotY: 1, scale: 2,
+        srcRect: { x: 32, y: 16, w: 200, h: 100 }, size: { w: 40, h: 10 }, pivotX: 0.25, pivotY: 1,
         collisionRects: [{ x: 0, y: 0.5, w: 0.5, h: 0.25 }] };
     const project = createDocument([material("base", 64, 0)],
         [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
-    const other = { ...asset, name: "Other", size: { w: 100, h: 100 }, pivotX: 0, scale: 1, collisionRects: [] };
+    const other = { ...asset, name: "Other", size: { w: 100, h: 100 }, pivotX: 0, collisionRects: [] };
     project.sequences = [other, asset];
     project.sprites = [{ name: "Actor", sequences: [asset, other] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 2 }));
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 100 / 64 - 32, y: 32 - 100 / 64, rotation: 90 }];
     project.nextPlacementId = 1;
     const snapshot = cloneDocument(project);
@@ -488,7 +488,7 @@ Deno.test("sprite first-sequence frame zero shares geometry across drawing, prev
     drawObjects(project, canvas, { ...view, x: 130 }, new Set([0]), null, null, false);
     assert.deepEqual(calls, []);
     project.placements = [];
-    drawObjects(project, canvas, fullView, new Set(), { asset, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
+    drawObjects(project, canvas, fullView, new Set(), { asset, scale: project.propTypes[0].scale, x: 100 / 64 - 32, y: 32 - 100 / 64 }, null, false);
     assert.deepEqual(calls, [["image", asset.image, 32, 16, 40, 10, 80, 80, 80, 20]]);
     project.placements = snapshot.placements;
     assert(sameContent(project, snapshot));
@@ -509,7 +509,7 @@ Deno.test("frame-zero tint multiplies RGBA pixels once and shares the cached pre
         const image = {} as CanvasImageSource;
         const asset: SpriteSequence = { kind: "prop", id: "assets/actor.png", label: "actor", blob: new Blob(), url: "",
             image, width: 32, height: 16, srcRect: { x: 4, y: 2, w: 16, h: 8 }, size: { w: 2, h: 1 },
-            tint: { r: 0.5, g: 0.25, b: 1, a: 0.7 }, pivotX: 0.5, pivotY: 1, scale: 1, collisionRects: [] };
+            tint: { r: 0.5, g: 0.25, b: 1, a: 0.7 }, pivotX: 0.5, pivotY: 1, collisionRects: [] };
         const frame = propFrameSource(asset);
         assert.deepEqual(calls, [[image, 4, 2, 2, 1, 0, 0, 2, 1]]);
         assert.deepEqual(Array.from(result!), [100, 25, 50, 140, 40, 10, 20, 0]);
@@ -531,12 +531,12 @@ Deno.test("frame-zero tint multiplies RGBA pixels once and shares the cached pre
 Deno.test("actor placement and preview markers stay at their pivots at every zoom", () => {
     const image: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0, pivotY: 1, scale: 2, collisionRects: [] };
+        srcRect: { x: 0, y: 0, w: 20, h: 40 }, pivotX: 0, pivotY: 1, collisionRects: [] };
     const mask: ImageAsset = { ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" };
     const project = createDocument([material("base", 64, 0)], [mask]);
     project.sequences = [image];
     project.sprites = [{ name: "Stone", sequences: [image] }];
-    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] }];
+    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0], scale: 2 }];
     project.placements = [{ id: 0, definition: project.actorTypes[0], x: 0, y: 0, rotation: 90 }];
     project.nextPlacementId = 1;
     const marks: number[][] = [];
@@ -550,7 +550,7 @@ Deno.test("actor placement and preview markers stay at their pivots at every zoo
     {
         marks.length = 0;
         drawObjects(project, canvas, { x: 2048 - 100 / zoom, y: 2048 - 100 / zoom, width: 200, height: 200, zoom },
-            new Set(), { asset: image, x: 0, y: 0, actor: true }, null, false);
+            new Set(), { asset: image, scale: project.actorTypes[0].scale, x: 0, y: 0, actor: true }, null, false);
         assert.deepEqual(marks, Array(4).fill([92, 92, 16, 16]));
     }
 });
@@ -558,12 +558,12 @@ Deno.test("actor placement and preview markers stay at their pivots at every zoo
 Deno.test("instance scale controls artwork, collision overlays, selection and handle size", () => {
     const sequence: SpriteSequence = { kind: "prop", id: "assets/props/scale.png", label: "Scale",
         blob: new Blob(), url: "", width: 80, height: 40, image: {} as CanvasImageSource,
-        srcRect: { x: 0, y: 0, w: 80, h: 40 }, pivotX: 0, pivotY: 1, scale: 0.25,
+        srcRect: { x: 0, y: 0, w: 80, h: 40 }, pivotX: 0, pivotY: 1,
         collisionRects: [{ x: 0, y: 0, w: 1, h: 1 }] };
     const project = createDocument([material("base", 64, 0)],
         [{ ...material("mask", 256, 0), id: "assets/masks/mask.png", kind: "mask" }]);
     const sprite = { name: "Scale", sequences: [sequence] };
-    project.placements = [{ id: 0, definition: { kind: "prop", name: "Prop", sprite },
+    project.placements = [{ id: 0, definition: { kind: "prop", name: "Prop", sprite, scale: 0.25 },
         x: 0, y: 0, rotation: 90, scale: 0.5 }];
     const images: unknown[][] = [], outlines: number[][] = [], fills: number[][] = [];
     const context = { setTransform: () => {}, clearRect: () => {}, save: () => {}, restore: () => {},

@@ -86,10 +86,10 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
     const image: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "blob:prop", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     project.sequences = [image];
     project.sprites = [{ name: sequenceName(image), sequences: [image] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     const emptyBytes = documentBytes(project);
     project.placements = [{ id: 0, definition: project.propTypes[0], x: 1.2, y: 2.3, rotation: 45 }];
     project.nextPlacementId = 1;
@@ -106,7 +106,7 @@ Deno.test("prop snapshots share images, isolate transforms, and account for hist
     assert(!sameContent(project, copy));
     assert(documentAssets(copy).includes(image));
     const scaled = cloneDocument(project);
-    scaled.placements[0].scale = image.scale;
+    scaled.placements[0].scale = project.propTypes[0].scale;
     validateDocument(scaled);
     assert(!sameContent(project, scaled));
     assert(sameTerrainContent(project, scaled));
@@ -151,7 +151,7 @@ Deno.test("prop decoding accepts rectangular alpha images and releases temporary
         assert.equal(decoded.width, 80);
         assert.equal(decoded.height, 20);
         assert.deepEqual(decoded.srcRect, { x: 0, y: 0, w: 80, h: 20 });
-        assert.deepEqual([decoded.pivotX, decoded.pivotY, decoded.scale], [0.5, 0.5, 1]);
+        assert.deepEqual([decoded.pivotX, decoded.pivotY], [0.5, 0.5]);
         assert.equal(drawn, 1);
         URL.revokeObjectURL(decoded.url);
         width = 4097;
@@ -165,20 +165,19 @@ Deno.test("prop decoding accepts rectangular alpha images and releases temporary
     }
 });
 
-Deno.test("prop metadata validates normalized pivots and finite positive scale", () => {
+Deno.test("sequence metadata validates normalized pivots", () => {
     const project = createDocument([asset("tile")], [asset("mask")]);
     const image: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     for(const pivot of [0, 0.5, 1])
     {
-        project.sequences = [{ ...image, pivotX: pivot, pivotY: pivot, scale: 0.25 }];
+        project.sequences = [{ ...image, pivotX: pivot, pivotY: pivot }];
         validateDocument(project);
     }
     for(const fields of [
-        ...["pivotX", "pivotY"].flatMap((key) => [-0.01, 1.01, NaN, Infinity, -Infinity].map((value) => ({ [key]: value }))),
-        ...[0, -1, NaN, Infinity, -Infinity].map((scale) => ({ scale }))
+        ...["pivotX", "pivotY"].flatMap((key) => [-0.01, 1.01, NaN, Infinity, -Infinity].map((value) => ({ [key]: value })))
     ])
     {
         project.sequences = [{ ...image, ...fields }];
@@ -191,7 +190,7 @@ Deno.test("nested tile and prop paths validate, but traversal, mismatched roots 
     const prop: SpriteSequence = { kind: "prop", id: "assets/props/graveyard/stone.png", label: "graveyard/stone.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 40 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     original.sequences = [prop];
     validateDocument(original);
     for(const path of ["one/two/ground.png", "space #/100%.png", "literal%2F/stone.png"])
@@ -236,11 +235,11 @@ Deno.test("terrain comparison detects rendering inputs but ignores prop and edit
     const prop: SpriteSequence = { kind: "prop", id: "assets/props/stone.png", label: "stone.png",
         blob: new Blob(), url: "", width: 20, height: 40, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 40 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     const changed = cloneDocument(original);
     changed.sequences = [prop];
     changed.sprites = [{ name: sequenceName(prop), sequences: [prop] }];
-    changed.propTypes = changed.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    changed.propTypes = changed.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     changed.placements = [{ id: 0, definition: changed.propTypes[0], x: 1, y: 2, rotation: 90 }];
     changed.nextPlacementId = 1;
     changed.view.zoom = 0.5;
@@ -270,10 +269,10 @@ Deno.test("map size controls occupancy lengths and prop bounds, and participates
         const image: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a", blob: new Blob(),
             url: "", width: 10, height: 10, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 10, h: 10 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
         project.sequences = [image];
         project.sprites = [{ name: sequenceName(image), sequences: [image] }];
-        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+        project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
         project.placements = [{ id: 0, definition: project.propTypes[0], x: size / 2, y: -size / 2, rotation: 0 }];
         project.nextPlacementId = 1;
         validateDocument(project);
@@ -295,7 +294,7 @@ Deno.test("sequence tint accepts non-negative multipliers and rejects nonfinite 
     const image: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     for(const key of ["r", "g", "b", "a"])
     {
         for(const value of [0, 0.5, 1, 2, Number.MAX_VALUE])

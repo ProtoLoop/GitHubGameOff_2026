@@ -19,7 +19,7 @@ overlay. Save creates the JSON file. Images are never written by the editor.
 
 ## Level JSON
 
-The container has `format: "mosaic"` and `version: 29`. Only version 29 is supported.
+The container has `format: "mosaic"` and `version: 30`. Only version 30 is supported.
 Older versions are rejected. There is no migration loader.
 
 Saves use two-space indentation, with small objects containing only scalar values
@@ -37,10 +37,10 @@ algorithms below are part of the versioned format contract.
 | `maskSheets` | Ordered project-root mask-sheet paths starting with `/assets/masks/` |
 | `maskMode` | `"random"` or an index into `maskSheets` |
 | `layers` | Bottom-to-top objects with `sheet` and `cells` |
-| `sequences` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `scale`, `tint`, and `collisionRects` |
+| `sequences` | Ordered named sprite sequences with `texPath`, `srcRect`, optional frame `size`, `pivot`, `tint`, and `collisionRects` |
 | `sprites` | Named sprites with ordered sequence-name references, one per facing direction |
-| `propTypes` | Named prop definitions with a `sprite` name reference |
-| `actorTypes` | Named actor definitions with a runtime `class` and a `sprite` name reference |
+| `propTypes` | Named prop definitions with a `sprite` name reference and required positive `scale` |
+| `actorTypes` | Named actor definitions with a runtime `class`, a `sprite` name reference, and required positive `scale` |
 | `props` | Decorative placements referencing prop definitions through `type` |
 | `actors` | Actor placements referencing actor definitions through `type` |
 | `editor` | Editor settings described below |
@@ -52,7 +52,7 @@ the key remains absent on save, including for new projects. History and save
 snapshots share this immutable data, so edits, undo, redo, and autosave retain it.
 Preservation applies to parsed JSON values, not whitespace or original formatting,
 and numbers use JavaScript's numeric precision. Other unknown fields are not preserved.
-Extension preservation was introduced in version 21 and continues in version 29.
+Extension preservation was introduced in version 21 and continues in version 30.
 
 Layer `sheet` indexes `tileSheets`. Catalog indices are zero-based. The zero-based
 layer array index participates in mask selection.
@@ -213,8 +213,8 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
     { "name": "tree", "sequences": ["tree"] },
     { "name": "headstone", "sequences": ["headstone"] }
   ],
-  "propTypes": [{ "name": "tree", "sprite": "tree" }],
-  "actorTypes": [{ "name": "headstone", "class": "Tombstone", "sprite": "headstone" }],
+  "propTypes": [{ "name": "tree", "sprite": "tree", "scale": 1 }],
+  "actorTypes": [{ "name": "headstone", "class": "Tombstone", "sprite": "headstone", "scale": 0.25 }],
   "props": [{ "type": "tree", "pos": { "x": 1.5, "y": 2.25 }, "rot": 45 }],
   "actors": [{ "type": "headstone", "pos": { "x": -2, "y": 1 }, "rot": 0 }]
 }
@@ -223,9 +223,8 @@ cell is painted. Clip only at map bounds, not painted-cell boundaries.
 Each sequence entry requires `texPath`, a project-root image path under
 `/assets/`. Automatic discovery remains limited to `/assets/props/`. `pivot.x` and `pivot.y` are finite numbers between 0 and 1, inclusive,
 measured from one frame's upper-left `(0, 0)` to its lower-right `(1, 1)`. Each
-omitted pivot component defaults to `0.5`. `scale` is a finite number greater than
-zero and defaults to `1` when omitted. Explicit `null` values are invalid. Saves
-write `name`, `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects` explicitly. An omitted `pivot`
+omitted pivot component defaults to `0.5`. Explicit `null` values are invalid. Saves
+write `name`, `texPath`, `srcRect`, `pivot`, `tint`, and `collisionRects` explicitly. An omitted `pivot`
 uses both default components. Newly discovered prop images use the same defaults.
 
 `srcRect` is optional. An empty object `{}` selects the full texture. A rectangle
@@ -292,15 +291,17 @@ Names follow the sequence-name rules, but sprite names are required and unique
 within their own catalog. A sprite may have the same name as a sequence. Each
 sequence reference identifies a facing direction, in the saved array order.
 Sequences may be shared between sprites. Mosaic displays frame zero of the first
-sequence, including its geometry, tint, pivot, scale, and collision rectangles.
+sequence, including its geometry, tint, pivot, and collision rectangles.
 Rotation transforms that image and does not select another facing direction.
 There is no animation playback or sprite-level metadata inheritance yet.
 
 ### Prop and actor definitions and placements
 
 The required `propTypes` and `actorTypes` arrays explicitly determine the two palettes.
-Both may be empty and support at most 256 definitions each. A prop definition has
-`name` and `sprite`. An actor definition additionally requires `class`, a runtime
+Both may be empty and support at most 256 definitions each. Each definition requires
+a finite numeric `scale` greater than zero, with no implicit default. Definitions
+may share a sprite while using different scales. A prop definition has
+`name`, `sprite`, and required `scale`. An actor definition additionally requires `class`, a runtime
 implementation name. Mosaic stores that string without interpreting it or restricting
 it to a built-in list. Spawning policies, brains, and multi-sprite actor bindings
 are outside this version's editor contract.
@@ -331,12 +332,11 @@ Placement coordinates are rounded to the nearest 0.001 cells during placement,
 movement, loading, and saving. Placement coordinates use at most three decimal
 places without padded trailing zeros. Scale overrides retain their numeric precision.
 Instance `scale`, when present, is a finite number greater than zero. It is an
-absolute replacement for the displayed sequence scale, not a multiplier of it.
-Omission inherits the scale of the sprite's first sequence, matching Mosaic's
-frame-zero preview. Loading and saving preserve omission, including when an
-explicit override equals the sequence default. Newly placed objects inherit.
+absolute replacement for the displayed type scale, not a multiplier of it.
+Omission inherits the referenced type's scale, matching Mosaic's placement preview. Loading and saving preserve omission, including when an
+explicit override equals the type default. Newly placed objects inherit.
 Drawing, picking, culling, selection bounds, and collision overlays all use this
-same effective scale. Palette and placement previews use sequence defaults.
+same effective scale. Placement previews use type defaults. Palette thumbnails fit the frame to the swatch.
 
 `rot` is a finite clockwise angle in degrees, at least 0 and less than 360.
 For top-left, Y-down map pixels used by the editor renderer, convert with
@@ -366,7 +366,7 @@ immutable prop and actor definitions, sprite definitions, sequence definitions, 
 with a complete drag forming one action. Escape or pointer cancellation rolls back
 a drag. Terrain strokes also roll back on Escape, pointer cancellation, or lost
 pointer capture. Losing window focus cancels an active edit. Panning stops and
-retains the current view. Saved rotation and sequence source rectangles, pivots, and scale remain JSON-authored.
+retains the current view. Saved rotation, sequence source rectangles and pivots, and type scales remain JSON-authored.
 When exactly one prop or actor is selected, corner handles start uniform scaling
 about its fixed pivot. A corner coinciding with the pivot has no handle. Handles
 are ten screen pixels wide with fourteen-pixel hit targets, independent of zoom.
@@ -389,7 +389,7 @@ The row contains only the Abs and % fields and a reset arrow. Reset scale lives 
 the sidebar. Escape cancels an active drag or dismisses unapplied numeric input.
 Outside clicks, selection changes, map scrolling, and viewport resizing dismiss
 unapplied input.
-The numeric control does not change the version-29 serialization contract.
+The numeric control does not change the version-30 serialization contract.
 Multi-selection never permits scaling. Reset scale deletes the override as one
 undoable action. Cancellation restores the prior value or absence.
 Object selection, tool mode, and palette selection are transient editor state
@@ -399,9 +399,8 @@ from front to back, including transparent pixels.
 
 The C++ loader parses `propTypes` and `actorTypes`. Prop placements reference
 `propTypes` through their `type` field, and the game resolves these definitions
-to create props. Actor placements remain editor-only: the runtime does not yet
-parse or instantiate them.
-The C++ runtime does not consume instance scale overrides yet.
+to create props. The runtime also parses actor placements and instantiates supported
+classes. Both use the type scale unless an absolute instance override is present.
 The paths are rooted at the project directory, which is the game's root.
 
 ### Editor settings and editing
@@ -474,13 +473,13 @@ read or write.
 
 Catalog order is preserved on load. Discovered images are sorted by their full
 encoded resource URLs. Newly discovered images append in that deterministic order,
-without changing existing references or placement order. Saved sequence names, source rectangles, optional dimensions, tints, pivots,
-and scales are preserved. Textures already referenced by any saved sequence are
+without changing existing references or placement order. Saved sequence names, source rectangles, optional dimensions, tints, and pivots
+are preserved. Type scales are preserved independently. Textures already referenced by any saved sequence are
 not appended as new entries. Each new sequence also gets a same-named sprite
 containing only that sequence. Existing sprite groups are preserved. A generated
 name conflicting with either catalog fails loading rather than silently renaming
 or merging definitions. New entries use the filename stem as name, the full
-texture, omitted `size`, white tint, pivot `(0.5, 0.5)`, and scale `1`. Newly discovered terrain textures
+texture, omitted `size`, white tint, and pivot `(0.5, 0.5)`. Newly discovered terrain textures
 must match the shared dimensions. Compatible sheets append without
 changing existing indices or occupancy. Adding mask sheets changes random
 selection because the sheet count participates in the algorithm. Fixed mask

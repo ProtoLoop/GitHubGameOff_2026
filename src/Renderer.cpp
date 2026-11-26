@@ -543,7 +543,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         spriteState.srcRect[2] = static_cast<float>(rect.w);
         spriteState.srcRect[3] = static_cast<float>(rect.h);
 
-        spriteState.scale = spriteFrame.GetScale();
+        spriteState.scale = rec.Transform.Scale;
     }
 
     GG_CHECK(EnsureSpriteStateBuffer(sizeof(GpuSpriteState) * m_SpriteStates.size()),

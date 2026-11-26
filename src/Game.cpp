@@ -34,7 +34,13 @@ Game::Create(Input& input,
         const auto propTypeDefResult = levelDef.GetPropTypeDef(propDef.TypeName);
         GG_CHECK(propTypeDefResult, "Failed to get prop type definition for {}", propDef.TypeName);
 
-        GG_CHECK(game.SpawnProp(propTypeDefResult->SpriteName, propDef.Transform),
+        Transform2D transform = propDef.Transform;
+
+        // Default scale is set on the type definition.
+        // It can be overridden by the instance definition.
+        transform.Scale = propDef.OptScale.value_or(propTypeDefResult->Scale);
+
+        GG_CHECK(game.SpawnProp(propTypeDefResult->SpriteName, transform),
             "Failed to spawn prop: {}",
             propTypeDefResult->SpriteName);
     }
@@ -48,7 +54,13 @@ Game::Create(Input& input,
                "Unknown actor class: {}",
                actorTypeDefResult->ClassName))
         {
-            GG_CHECK(game.SpawnTombstone(actorTypeDefResult->SpriteName, actorDef.Transform),
+            Transform2D transform = actorDef.Transform;
+
+            // Default scale is set on the type definition.
+            // It can be overridden by the instance definition.
+            transform.Scale = actorDef.OptScale.value_or(actorTypeDefResult->Scale);
+
+            GG_CHECK(game.SpawnTombstone(actorTypeDefResult->SpriteName, transform),
                 "Failed to spawn tombstone: {}",
                 actorTypeDefResult->SpriteName);
         }
@@ -94,8 +106,7 @@ Game::SpawnTombstone(const std::string_view spriteName, const Transform2D& trans
         Tombstone::Create(*this, spriteName),
         "Failed to create tombstone: {}",
         spriteName);
-    tombstone.MoveTo(transform.Pos.x, transform.Pos.y);
-    tombstone.RotateTo(transform.Rot);
+    tombstone.SetTransform(transform);
     return m_Tombstones.emplace_back(std::move(tombstone)).GetEntityId();
 }
 
@@ -105,8 +116,7 @@ Game::SpawnLostSoul(const Transform2D& transform)
     GG_CHECKB(m_LostSouls.size() < m_LostSouls.capacity(), "Maximum number of lost souls reached");
 
     GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
-    lostSoul.MoveTo(transform.Pos.x, transform.Pos.y);
-    lostSoul.RotateTo(transform.Rot);
+    lostSoul.SetTransform(transform);
     return m_LostSouls.emplace_back(std::move(lostSoul)).GetEntityId();
 }
 
@@ -267,7 +277,7 @@ Game::QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transfor
 
     Rectf drawRect{ spriteFrame.GetSize() };
     drawRect -= drawRect.Size() * spriteFrame.GetPivot();
-    drawRect *= spriteFrame.GetScale();
+    drawRect *= transform.Scale;
 
     if(!renderer.QueueRectangle(drawRect, transform, kYellow))
     {
@@ -288,7 +298,7 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
     {
         Rectf drawRect = colRect - (spriteFrame.GetPivot() * rectSize);
 
-        drawRect *= spriteFrame.GetScale();
+        drawRect *= transform.Scale;
 
         if(!renderer.QueueRectangle(drawRect, transform, kMagenta))
         {
@@ -314,9 +324,11 @@ Game::CheckPropCollisions()
     const Prop* propHit = nullptr;
 
     const glm::vec2& ctPos = m_Caretaker->GetPos();
+    const float ctScale = m_Caretaker->GetScale();
 
     const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
         ctPos,
+        ctScale,
         proj,
         cellPixPerSide);
 
@@ -325,9 +337,11 @@ Game::CheckPropCollisions()
     for(const Prop& prop : m_Props)
     {
         const glm::vec2& propPos = prop.GetPos();
+        const float propScale = prop.GetTransform().Scale;
         const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
         const Rectf propRect = propSpriteFrame.GetScreenRect(propSpriteFrame.GetCollisionBounds(),
             propPos,
+            propScale,
             proj,
             cellPixPerSide);
 
@@ -340,14 +354,17 @@ Game::CheckPropCollisions()
         for(const Rectf& ctColRect : ctCollisionRects)
         {
             const Rectf ctBounds =
-                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
+                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, ctScale, proj, cellPixPerSide);
 
             const std::span<const Rectf> propCollisionRects = propSpriteFrame.GetCollisionRects();
 
             for(const Rectf& propColRect : propCollisionRects)
             {
-                const Rectf propBounds =
-                    propSpriteFrame.GetScreenRect(propColRect, propPos, proj, cellPixPerSide);
+                const Rectf propBounds = propSpriteFrame.GetScreenRect(propColRect,
+                    propPos,
+                    propScale,
+                    proj,
+                    cellPixPerSide);
 
                 if(ctBounds.Intersects(propBounds))
                 {
@@ -416,9 +433,11 @@ Game::CheckLostSoulCollisions()
     const LostSoul* lostSoulHit = nullptr;
 
     const glm::vec2& ctPos = m_Caretaker->GetPos();
+    const float ctScale = m_Caretaker->GetScale();
 
     const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
         ctPos,
+        ctScale,
         proj,
         cellPixPerSide);
 
@@ -427,10 +446,12 @@ Game::CheckLostSoulCollisions()
     for(const LostSoul& lostSoul : m_LostSouls)
     {
         const glm::vec2& lostSoulPos = lostSoul.GetPos();
+        const float lostSoulScale = lostSoul.GetScale();
         const SpriteFrame& lostSoulSpriteFrame = lostSoul.GetSpriteFrame();
         const Rectf lostSoulRect =
             lostSoulSpriteFrame.GetScreenRect(lostSoulSpriteFrame.GetCollisionBounds(),
                 lostSoulPos,
+                lostSoulScale,
                 proj,
                 cellPixPerSide);
 
@@ -443,7 +464,7 @@ Game::CheckLostSoulCollisions()
         for(const Rectf& ctColRect : ctCollisionRects)
         {
             const Rectf ctBounds =
-                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, proj, cellPixPerSide);
+                ctSpriteFrame.GetScreenRect(ctColRect, ctPos, ctScale, proj, cellPixPerSide);
 
             const std::span<const Rectf> lostSoulCollisionRects =
                 lostSoulSpriteFrame.GetCollisionRects();
@@ -452,6 +473,7 @@ Game::CheckLostSoulCollisions()
             {
                 const Rectf lostSoulBounds = lostSoulSpriteFrame.GetScreenRect(lostSoulColRect,
                     lostSoulPos,
+                    lostSoulScale,
                     proj,
                     cellPixPerSide);
 

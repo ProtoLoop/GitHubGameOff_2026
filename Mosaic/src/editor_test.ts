@@ -15,10 +15,10 @@ function fixture(): Editor
     const asset: SpriteSequence = { kind: "prop", id: "assets/props/a.png", label: "a",
         blob: new Blob(), url: "", width: 20, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 20, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     project.placements = [2, 6, 10].map((x, id) => ({ id, definition: project.propTypes[0], x, y: 2, rotation: 0 }));
     project.nextPlacementId = 3;
     return new Editor(project, new History(100, 64 * 1024 * 1024));
@@ -373,7 +373,7 @@ Deno.test("centered growth and shrink preserve cell alignment and prop coordinat
 Deno.test("actors share selection, drag cancellation, deletion and resize history with props", () => {
     const editor = fixture();
     const project = editor.document;
-    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] }];
+    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0], scale: 1 }];
     const actor = project.actorTypes[0];
     editor.chooseDefinition(actor);
     editor.placeObject({ x: 6, y: 2 });
@@ -406,7 +406,7 @@ Deno.test("actors share selection, drag cancellation, deletion and resize histor
 Deno.test("new props remain below actors and placement requires a catalog definition", () => {
     const editor = fixture();
     const project = editor.document;
-    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0] }];
+    project.actorTypes = [{ kind: "actor", name: "Grave", class: "Tombstone", sprite: project.sprites[0], scale: 1 }];
     editor.chooseDefinition(project.actorTypes[0]);
     editor.placeObject({ x: 2, y: 2 });
     const actorId = project.placements.at(-1)!.id;
@@ -434,12 +434,12 @@ Deno.test("single props and actors scale absolutely around rotated pivots with u
     {
         const editor = fixture();
         const project = editor.document;
-        const sequence = { ...project.sequences[0], scale: 0.25, pivotX: 0, pivotY: 1 };
+        const sequence = { ...project.sequences[0], pivotX: 0, pivotY: 1 };
         project.sequences = [sequence];
         const sprite = { name: "Scaled", sequences: [sequence] };
         project.sprites = [sprite];
-        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite }
-            : { kind, name: "Prop", sprite };
+        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite, scale: 0.25 }
+            : { kind, name: "Prop", sprite, scale: 0.25 };
         project.propTypes = definition.kind === "prop" ? [definition] : [];
         project.actorTypes = definition.kind === "actor" ? [definition] : [];
         project.placements = [{ id: 0, definition, x: 2, y: 2, rotation: 90 }];
@@ -496,10 +496,10 @@ Deno.test("numeric absolute and percentage scales apply once to props and actors
     {
         const editor = fixture();
         const project = editor.document;
-        const sequence = { ...project.sequences[0], scale: 0.25 };
+        const sequence = { ...project.sequences[0] };
         const sprite = { name: "Numeric", sequences: [sequence] };
-        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite }
-            : { kind, name: "Prop", sprite };
+        const definition = kind === "actor" ? { kind, name: "Actor", class: "Tombstone", sprite, scale: 0.25 }
+            : { kind, name: "Prop", sprite, scale: 0.25 };
         project.sequences = [sequence];
         project.sprites = [sprite];
         project.propTypes = definition.kind === "prop" ? [definition] : [];
@@ -512,7 +512,7 @@ Deno.test("numeric absolute and percentage scales apply once to props and actors
         assert.equal(editor.document.placements[0].scale, 0.75);
         assert(editor.setScale(0.5, "absolute").changed);
         assert.equal(editor.document.placements[0].scale, 0.5);
-        assert.equal(sequence.scale, 0.25);
+        assert.equal(definition.scale, 0.25);
         assert.deepEqual([editor.document.placements[0].x, editor.document.placements[0].y,
             editor.document.placements[0].rotation], [2, 2, 45]);
         assert.equal(editor.setScale(0.5, "absolute").changed, false);

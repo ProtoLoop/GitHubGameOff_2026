@@ -85,6 +85,54 @@ CheckForDuplicateActorTypeNames(const std::span<const ActorTypeDef>& actorTypeDe
     return Result<>::Ok;
 }
 
+Result<>
+ValidateScale(const std::span<const PropTypeDef>& propTypeDefs)
+{
+    for(const PropTypeDef& def : propTypeDefs)
+    {
+        GG_CHECKB(std::isfinite(def.Scale) && def.Scale > 0,
+            "Invalid scale for prop type: {}",
+            def.Name);
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+ValidateScale(const std::span<const ActorTypeDef>& actorTypeDefs)
+{
+    for(const ActorTypeDef& def : actorTypeDefs)
+    {
+        GG_CHECKB(std::isfinite(def.Scale) && def.Scale > 0,
+            "Invalid scale for actor type: {}",
+            def.Name);
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+ValidateScale(const std::span<const PropInstanceDef>& propInstDefs)
+{
+    for(const PropInstanceDef& def : propInstDefs)
+    {
+        GG_CHECKB(!def.OptScale.has_value() || (std::isfinite(*def.OptScale) && *def.OptScale > 0),
+            "Invalid scale for prop instance: {}",
+            def.TypeName);
+    }
+    return Result<>::Ok;
+}
+
+Result<>
+ValidateScale(const std::span<const ActorInstanceDef>& actorInstDefs)
+{
+    for(const ActorInstanceDef& def : actorInstDefs)
+    {
+        GG_CHECKB(!def.OptScale.has_value() || (std::isfinite(*def.OptScale) && *def.OptScale > 0),
+            "Invalid scale for actor instance: {}",
+            def.TypeName);
+    }
+    return Result<>::Ok;
+}
+
 /// Prunes the list of sprite frame sequences down to those actually used in the level by
 /// props/actors.
 Result<BoundedVector<SpriteFrameSequenceDef>>
@@ -169,6 +217,11 @@ LevelLoader::Load(const LevelDef& levelDef,
     GG_CHECK(CheckForDuplicatePropTypeNames(levelDef.PropTypeDefs));
     GG_CHECK(CheckForDuplicateActorTypeNames(levelDef.ActorTypeDefs));
     GG_CHECK(CheckForDuplicateAudioClipNames(levelDef.AudioClipDefs));
+
+    GG_CHECK(ValidateScale(levelDef.PropTypeDefs));
+    GG_CHECK(ValidateScale(levelDef.ActorTypeDefs));
+    GG_CHECK(ValidateScale(levelDef.PropInstDefs));
+    GG_CHECK(ValidateScale(levelDef.ActorInstDefs));
 
     BoundedVector<SpriteDef> spriteDefs(levelDef.SpriteDefs.size());
 

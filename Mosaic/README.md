@@ -27,7 +27,7 @@ project is `project2`. Copy its asset folders to make a new project.
 Project2 contains 48 sequences grouped into 27 sprites: 24 static sprites and
 three directional actor sprites. The referenced actor textures are present in the
 project. There is no fallback to repository-level assets.
-Mosaic reads and writes version 29 only, with no migration support. Existing
+Mosaic reads and writes version 30 only, with no migration support. Existing
 level files from earlier versions cannot be opened by this version. A project without `level.json` starts a new level.
 
 Asset paths in `level.json` start with `/assets/`, relative to the game's root—the
@@ -88,13 +88,13 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   disappears outside the map or after Escape. Painting still affects individual
   cells. The preview does not change terrain sampling or brush size.
 - Choose a prop or actor swatch to enter **Place**. A translucent preview follows the cursor
-  at the asset scale, with its pivot under the cursor. Left-click places one copy and stays in Place for repeated
+  at the type scale, with its pivot under the cursor. Left-click places one copy and stays in Place for repeated
   stamping. Escape or right-click returns to Select, keeping the last copy selected.
   Choose a prop or actor swatch again to resume placement. Previewing does not save or create
   undo actions. Add PNG, JPEG, or WebP images anywhere under `assets/props/` and
   reload to add sprite resources. Add definitions in JSON to make them placeable. Rectangular images support 1–4096 pixels per axis.
 - `sequences` is a catalog of named image sequences. Each entry stores `name`,
-  `texPath`, `srcRect`, `pivot`, `scale`, `tint`, and `collisionRects`, with optional
+  `texPath`, `srcRect`, `pivot`, `tint`, and `collisionRects`, with optional
   `size: { w, h }` specifying one frame's pixel dimensions. Omit `size` to use the
   full resolved source rectangle as one frame.
   Sequence names must be unique, nonblank, and at most 63 UTF-8 bytes, without
@@ -111,20 +111,19 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   be integers, dimensions positive, and the rectangle entirely inside the texture.
   Saves write `srcRect: {}` for the full texture and an object for a cropped sprite.
   Pivots are normalized from one frame's upper-left `(0, 0)` to lower-right
-  `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale is finite and positive, defaulting to
-  `1`. Scale and rotation both operate about the pivot. Edit these asset settings
+  `(1, 1)`, defaulting to `(0.5, 0.5)`. Scale and rotation both operate about the pivot. Edit these asset settings
   in JSON and reload the project to apply them.
 - `sprites` groups sequences by facing direction. Each entry has a unique `name`
   and a nonempty ordered `sequences` array of sequence names. Mosaic
   displays frame zero of each sprite's first sequence. Rotation still rotates
-  that image. Size, pivot, default scale, tint, and collision rectangles stay on sequences.
+  that image. Size, pivot, tint, and collision rectangles stay on sequences.
   Prop and actor instances can override scale with an absolute positive `scale` value.
   Reordering either top-level catalog does not change references. Edit sprite
   groups in JSON and reload. Newly discovered images each get one sequence and
   one same-named sprite. Name conflicts fail loading.
-- **Props** lists `propTypes` entries with `name` and `sprite`. **Actors** lists
-  `actorTypes` entries with `name`, `class`, and `sprite`. The sprite reference
-  selects the appearance. The actor class identifies runtime behavior, which Mosaic
+- **Props** lists `propTypes` entries with `name`, `sprite`, and required `scale`. **Actors** lists
+  `actorTypes` entries with `name`, `class`, `sprite`, and required `scale`. The sprite reference
+  selects the appearance. Each type scale must be finite and greater than zero. The actor class identifies runtime behavior, which Mosaic
   does not execute. Both catalogs are explicit and maintained in JSON. Discovered
   sprites are not automatically placeable, and no filename or animation rules
   assign them to a palette. Multiple definitions may share a behavior type.
@@ -162,13 +161,13 @@ The app starts in **Select** mode. Later project switches and reloads retain the
   scale of 0.5, entering 150% sets the absolute field to 0.75.
   Press Enter to create one undoable edit and dismiss the control.
   Values must be finite and greater than zero. The result is an absolute override.
-  The **↺** button removes the override and restores the sequence default as one
+  The **↺** button removes the override and restores the type default as one
   undoable edit. It is beside the value, not in the sidebar.
   Escape dismisses unapplied input, or cancels an active drag. Clicking outside,
   changing selection, scrolling the map, or resizing the viewport also dismisses
   unapplied input. The control stays within the map viewport.
-  The optional instance `scale` replaces sequence scale, rather than multiplying it.
-  Omitted overrides remain omitted on save. C++ runtime support is separate.
+  The optional instance `scale` replaces type scale, rather than multiplying it.
+  Omitted overrides remain omitted on save. The C++ runtime uses the same scale inheritance.
   Picking uses scaled, rotated image rectangles, including transparent pixels. Later
   placements within each palette category draw on top.
 - Props and actors move freely in fractional cell coordinates, rounded to three decimal
@@ -191,7 +190,7 @@ Use one editor per project because concurrent saves overwrite each other.
 Run checks with `cmake --build Mosaic/build --target check`.
 See [FILE_FORMATS.md](docs/FILE_FORMATS.md) for the JSON and HTTP contract.
 
-Mosaic reads and writes version 29 only, without migration support. The game loads
+Mosaic reads and writes version 30 only, without migration support. The game loads
 prop and actor placements from their type catalogs. Actors currently support the
 `Tombstone` class. Unsupported classes are logged and skipped. See the
 [runtime boundary](../docs/development.md#runtime-boundary) for details.

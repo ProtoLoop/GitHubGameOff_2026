@@ -49,29 +49,28 @@ SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
     const std::span<const Rectf> colRects,
     const Rectf& collisionBounds,
     const glm::vec2& pivot,
-    const glm::vec4& tint,
-    const float scale)
+    const glm::vec4& tint)
     : m_TextureBindGroup(std::move(bindGroup)),
       m_SrcRect(srcRect),
       m_ColRects(colRects),
       m_CollisionBounds(collisionBounds),
       m_Pivot(pivot),
-      m_Tint(tint),
-      m_Scale(scale)
+      m_Tint(tint)
 {
 }
 
 Rectf
 SpriteFrame::GetScreenRect(const Rectf& rect,
     const glm::vec2& cellXY,
+    const float scale,
     const glm::mat2x2 proj,
     const float cellPixPerSide) const
 {
     // Y flip when going from map space +Y up/north, to screen space +Y down.
     const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
-    const Rectf rs = rect * GetScale();
-    const glm::vec2 pivot = GetPivot() * glm::vec2(GetSize()) * GetScale();
+    const Rectf rs = rect * scale;
+    const glm::vec2 pivot = GetPivot() * glm::vec2(GetSize()) * scale;
     const glm::vec2 origin = rs.Origin() + ((proj * cellXY * pixelScale) - pivot);
 
     return Rectf(origin, rs.Size());
@@ -85,8 +84,7 @@ SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
     const Rect& srcRect,
     const InlineVector<Rectf, 1>& colRects,
     const glm::vec2& pivot,
-    const glm::vec4& tint,
-    const float scale)
+    const glm::vec4& tint)
     : m_Name(name),
       m_BindGroup(std::move(bindGroup)),
       m_Size(size),
@@ -95,7 +93,6 @@ SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
       m_CollisionBounds(ComputeCollisionBounds(colRects)),
       m_Pivot(pivot),
       m_Tint(tint),
-      m_Scale(scale),
       m_FrameCount(ComputeFrameCount(srcRect, size))
 {
 }
@@ -116,7 +113,12 @@ SpriteFrameSequence::GetFrame(const uint32_t index) const
             m_Size.h,
         };
 
-    return SpriteFrame(m_BindGroup, rect, m_ColRects, m_CollisionBounds, m_Pivot, m_Tint, m_Scale);
+    return SpriteFrame(m_BindGroup,
+        rect,
+        m_ColRects,
+        m_CollisionBounds,
+        GetPivot(),
+        GetTint());
 }
 
 /// Sprite

@@ -1158,7 +1158,8 @@ See [File formats](../../Mosaic/docs/FILE_FORMATS.md#decorative-props).
 
 ## Mosaic instance scale overrides
 
-Date: 2026-11-26. Status: Accepted.
+Date: 2026-11-26. Status: Accepted. Version support and default scale ownership
+are superseded by [Mosaic type-owned scales](#mosaic-type-owned-scales).
 
 Version 29 adds optional absolute `scale` values to prop and actor placements.
 Absent values inherit the sprite sequence scale. Explicit values replace it,
@@ -1186,3 +1187,30 @@ the runtime. Dependencies, licenses, and build requirements do not change.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements)
 and the [Mosaic guide](../../Mosaic/README.md).
+
+
+## Mosaic type-owned scales
+
+Date: 2026-11-26. Status: Accepted.
+
+Version 30 moves default scale from sprite sequences to `propTypes` and
+`actorTypes`. Every definition requires a finite positive numeric `scale`.
+Sequences remain shared visual resources, allowing several types to use the same
+sprite at different sizes. Keeping scale on sequences would couple those types'
+world sizes to their shared artwork.
+
+An absent instance override inherits its type's scale. Explicit overrides remain
+absolute values, and reset removes the override. Placement previews, drawing,
+picking, culling, selection, and collision overlays use the same effective scale.
+Type definitions remain immutable and shared by document snapshots.
+
+Mosaic reads and writes version 30 only, without migration support. Both sample
+levels advance their version and remove sequence scales. Project1 preserves its
+authored type scales, while project2 transfers its previous displayed defaults
+to the type definitions. This supersedes the version support and sequence-owned
+default in [instance scale overrides](#mosaic-instance-scale-overrides).
+The C++ runtime already uses type defaults and absolute instance overrides, and
+requires no changes for this Mosaic update. Dependencies and build requirements
+are unchanged.
+
+See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements).

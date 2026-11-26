@@ -81,18 +81,18 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
         }
 
         InlineVector<Rectf, 1> colRects;
-        if(def.ColRect)
+        if(def.OptColRect)
         {
-            GG_CHECKB(def.ColRect->w > 0 && def.ColRect->h > 0,
+            GG_CHECKB(def.OptColRect->w > 0 && def.OptColRect->h > 0,
                 "Collision rect must have positive width and height: {} : {}",
                 def.Name,
                 def.TexturePath);
 
-            colRects.push_back(*def.ColRect);
+            colRects.push_back(*def.OptColRect);
         }
 
-        const Dimension2D size = def.Size ? *def.Size : kNullSize;
-        const Rect srcRect = def.SrcRect ? *def.SrcRect : kNullRect;
+        const Dimension2D size = def.OptSize ? *def.OptSize : kNullSize;
+        const Rect srcRect = def.OptSrcRect ? *def.OptSrcRect : kNullRect;
 
         GG_CHECKB(size.w > 0 && size.h > 0,
             "Sprite size must be greater than zero: {} : {}",
@@ -113,8 +113,7 @@ SpriteSequenceLoader::Load(const std::span<const SpriteFrameSequenceDef> spriteS
             srcRect,
             colRects,
             def.Pivot,
-            def.Tint,
-            def.Scale);
+            def.Tint);
 
         spriteSequences.push_back(std::move(spriteSeq));
     }
@@ -247,8 +246,7 @@ SpriteSequenceLoader::Take()
             srcRect,
             seq.m_ColRects,
             seq.m_Pivot,
-            seq.GetTint(),
-            seq.GetScale());
+            seq.GetTint());
 
         m_SpriteSequences[i] = std::move(newSeq);
     }

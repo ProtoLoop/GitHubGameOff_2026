@@ -118,10 +118,10 @@ Deno.test("prop placement, multi-event movement, rotation and deletion undo as c
         name: "Stone", size: { w: 20, h: 20 }, tint: { r: 0.5, g: 1, b: 1, a: 0.7 },
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     const history = new History(100, 64 * 1024 * 1024);
     history.begin(project, "Place prop");
     project.placements.push({ id: project.nextPlacementId++, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 });
@@ -164,10 +164,10 @@ Deno.test("terrain comparison skips prop edits through undo and redo but detects
     const asset: SpriteSequence = { id: "assets/props/stone.png", kind: "prop", label: "stone.png",
         blob: new Blob(), url: "", width: 80, height: 20, image: {} as CanvasImageSource,
         srcRect: { x: 0, y: 0, w: 80, h: 20 },
-        pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+        pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     project.sequences = [asset];
     project.sprites = [{ name: sequenceName(asset), sequences: [asset] }];
-    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite }));
+    project.propTypes = project.sprites.map((sprite) => ({ kind: "prop", name: sprite.name, sprite, scale: 1 }));
     const history = new History(100, 64 * 1024 * 1024);
     for(const mutate of [
         () => { project.placements.push({ id: project.nextPlacementId++, definition: project.propTypes[0], x: 1, y: 2, rotation: 0 }); },

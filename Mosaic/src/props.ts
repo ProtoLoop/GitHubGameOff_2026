@@ -2,14 +2,14 @@ import { kCellSize } from "./grid.ts";
 import { type Placement, type SpriteSequence } from "./document.ts";
 
 /// Scaled sprite bounds in Y-down pixels relative to the pivot, before rotation.
-export function propImageRect(asset: SpriteSequence): { x: number; y: number; width: number; height: number }
+export function propImageRect(asset: SpriteSequence, scale: number): { x: number; y: number; width: number; height: number }
 {
-    return imageRect(asset, asset.scale);
+    return imageRect(asset, scale);
 }
 
 export function placementScale(placement: Placement): number
 {
-    return placement.scale ?? placement.definition.sprite.sequences[0].scale;
+    return placement.scale ?? placement.definition.scale;
 }
 
 export function placementImageRect(placement: Placement): { x: number; y: number; width: number; height: number }

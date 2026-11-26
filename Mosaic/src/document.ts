@@ -32,7 +32,6 @@ export interface SpriteSequence extends Asset
     /// Normalized sprite pivot, measured from one frame's upper-left corner.
     readonly pivotX: number;
     readonly pivotY: number;
-    readonly scale: number;
     readonly collisionRects: readonly PropCollisionRect[];
 }
 
@@ -61,6 +60,7 @@ export interface PropType
     readonly kind: "prop";
     readonly name: string;
     readonly sprite: Sprite;
+    readonly scale: number;
 }
 
 export interface ActorType
@@ -69,6 +69,7 @@ export interface ActorType
     readonly name: string;
     readonly class: string;
     readonly sprite: Sprite;
+    readonly scale: number;
 }
 
 export type ObjectDefinition = PropType | ActorType;
@@ -81,7 +82,7 @@ export interface Placement
     x: number;
     y: number;
     rotation: number;
-    /// Absolute override. Absence inherits the displayed sequence scale.
+    /// Absolute override. Absence inherits the type scale.
     scale?: number;
 }
 
@@ -335,8 +336,7 @@ export function validateDocument(project: ProjectDocument): void
             || !Number.isSafeInteger(asset.width) || !Number.isSafeInteger(asset.height)
             || asset.width < 1 || asset.height < 1 || asset.width > 4096 || asset.height > 4096
             || !Number.isFinite(asset.pivotX) || asset.pivotX < 0 || asset.pivotX > 1
-            || !Number.isFinite(asset.pivotY) || asset.pivotY < 0 || asset.pivotY > 1
-            || !Number.isFinite(asset.scale) || asset.scale <= 0)
+            || !Number.isFinite(asset.pivotY) || asset.pivotY < 0 || asset.pivotY > 1)
         {
             fail("invalid prop image");
         }
@@ -381,6 +381,7 @@ export function validateDocument(project: ProjectDocument): void
             if(definition.kind !== kind || !validName(definition.name)) { fail(`invalid ${kind} definition`); }
             if(definitionNames.has(definition.name)) { fail(`duplicate ${kind} name: ${definition.name}`); }
             definitionNames.add(definition.name);
+            if(!Number.isFinite(definition.scale) || definition.scale <= 0) { fail(`invalid ${kind} scale`); }
             if(!project.sprites.includes(definition.sprite)) { fail(`invalid ${kind} sprite reference`); }
             if(definition.kind === "actor" && !validName(definition.class)) { fail("invalid actor class"); }
         }
@@ -486,7 +487,7 @@ export async function decodeSequence(blob: Blob, label: string, id: string): Pro
         if(context === null) { throw new Error("Canvas 2D is unavailable"); }
         context.drawImage(bitmap, 0, 0);
         return { id, label, blob, url: URL.createObjectURL(blob), kind: "prop", width, height, image,
-            srcRect: { x: 0, y: 0, w: width, h: height }, pivotX: 0.5, pivotY: 0.5, scale: 1, collisionRects: [] };
+            srcRect: { x: 0, y: 0, w: width, h: height }, pivotX: 0.5, pivotY: 0.5, collisionRects: [] };
     }
     finally { bitmap.close(); }
 }
