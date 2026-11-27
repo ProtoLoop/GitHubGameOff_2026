@@ -121,6 +121,62 @@ private:
     EntityId (*m_GetEntityIdFunc)(const void* object);
 };
 
+/// Type-erased wrapper for collision objects that provides a uniform interface for
+/// performing collision checks.
+class Collidable
+{
+public:
+    template<typename T>
+    explicit Collidable(const T& object)
+        : m_Object(&object),
+          m_GetCollisionBoundsFunc(GetCollisionBoundsImpl<T>),
+          m_GetTransformFunc(GetTransformImpl<T>),
+          m_GetCollisionRectsFunc(GetCollisionRectsImpl<T>),
+          m_GetEntityIdFunc(GetEntityIdImpl<T>)
+    {
+    }
+
+    Rectf GetCollisionBounds() const { return m_GetCollisionBoundsFunc(m_Object); }
+
+    const Transform2D& GetTransform() const { return m_GetTransformFunc(m_Object); }
+
+    std::span<const Rectf> GetCollisionRects() const { return m_GetCollisionRectsFunc(m_Object); }
+
+    EntityId GetEntityId() const { return m_GetEntityIdFunc(m_Object); }
+
+private:
+    const void* m_Object{ nullptr };
+
+    template<typename T>
+    static Rectf GetCollisionBoundsImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetCollisionBounds();
+    }
+
+    template<typename T>
+    static const Transform2D& GetTransformImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetTransform();
+    }
+
+    template<typename T>
+    static std::span<const Rectf> GetCollisionRectsImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetCollisionRects();
+    }
+
+    template<typename T>
+    static EntityId GetEntityIdImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetEntityId();
+    }
+
+    Rectf (*m_GetCollisionBoundsFunc)(const void* object);
+    const Transform2D& (*m_GetTransformFunc)(const void* object);
+    std::span<const Rectf> (*m_GetCollisionRectsFunc)(const void* object);
+    EntityId (*m_GetEntityIdFunc)(const void* object);
+};
+
 class Game
 {
 public:
@@ -155,6 +211,8 @@ public:
     AudioPlayer& GetAudioPlayer() { return m_AudioPlayer; }
     const AudioPlayer& GetAudioPlayer() const { return m_AudioPlayer; }
 
+    LostSoul* TryGetLostSoul(const EntityId entityId);
+
     Random& GetEntityRng() { return m_EntityRng; }
 
     Result<EntityId> QueueSpawnCaretaker(const Transform2D& transform);
@@ -167,7 +225,7 @@ public:
 
     Result<EntityId> QueueSpawnLostSoul(const Transform2D& transform);
 
-    Result<> QueueDespawn(const LostSoul& lostSoul);
+    Result<> QueueDespawn(const EntityId entityId);
 
     Result<> Tick(const float deltaTime);
 
@@ -203,15 +261,16 @@ private:
     Result<> AddTickable(const Tickable& tickable);
     Result<> RemoveTickable(const EntityId entityId);
 
+    Result<> AddCollidable(const Collidable& collidable);
+    Result<> RemoveCollidable(const EntityId entityId);
+
     Result<> Render();
 
     void QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
     void QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
-    void CheckPropCollisions();
-
-    void CheckLostSoulCollisions();
+    void CheckCollisions();
 
     Result<> CommitSpawnQueue();
 
@@ -237,6 +296,7 @@ private:
 
     BoundedVector<Renderable> m_Renderables{ kMaxEntities };
     BoundedVector<Tickable> m_Tickables{ kMaxEntities };
+    BoundedVector<Collidable> m_Collidables{ kMaxEntities };
 
     float m_TimeAccum{ 0.0f };
 

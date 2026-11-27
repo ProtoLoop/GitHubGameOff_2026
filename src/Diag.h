@@ -104,7 +104,9 @@ private:
     (static_cast<bool>(expr) || (__VA_OPT__(GG_ERROR(__VA_ARGS__), ) false))
 
 #ifndef NDEBUG
+#define GG_ASSERT_ONLY(stmt) stmt
 #define GG_ASSERT(expr, ...) void(GG_VERIFYB(expr __VA_OPT__(, ) __VA_ARGS__))
 #else
+#define GG_ASSERT_ONLY(stmt)
 #define GG_ASSERT(expr, ...) ((void)0)
 #endif

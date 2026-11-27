@@ -82,6 +82,19 @@ Game::Begin()
     return Result<>::Ok;
 }
 
+LostSoul*
+Game::TryGetLostSoul(const EntityId entityId)
+{
+    for(LostSoul& ls : m_LostSouls)
+    {
+        if(ls.GetEntityId() == entityId)
+        {
+            return &ls;
+        }
+    }
+    return nullptr;
+}
+
 Result<EntityId>
 Game::QueueSpawnCaretaker(const Transform2D& transform)
 {
@@ -153,13 +166,13 @@ Game::QueueSpawnLostSoul(const Transform2D& transform)
 }
 
 Result<>
-Game::QueueDespawn(const LostSoul& lostSoul)
+Game::QueueDespawn(const EntityId entityId)
 {
     bool inQueue = false;
 
     for(const EntityId& id : m_DespawnQueue)
     {
-        if(id == lostSoul.GetEntityId())
+        if(id == entityId)
         {
             inQueue = true;
             break;
@@ -174,21 +187,19 @@ Game::QueueDespawn(const LostSoul& lostSoul)
     bool isValid = false;
 
     // Not in the queue - make sure it's valid before adding to the despawn queue
+
     for(const LostSoul& ls : m_LostSouls)
     {
-        if(ls.GetEntityId() == lostSoul.GetEntityId())
+        if(ls.GetEntityId() == entityId)
         {
             isValid = true;
             break;
         }
     }
 
-    GG_CHECKB(isValid, "Lost soul not found");
+    GG_CHECKB(isValid, "Unsupported despawn type");
 
-    if(isValid)
-    {
-        m_DespawnQueue.push_back(lostSoul.GetEntityId());
-    }
+    m_DespawnQueue.push_back(entityId);
 
     return Result<>::Ok;
 }
@@ -216,8 +227,7 @@ Game::Tick(const float deltaTime)
         GG_CHECK(TickEntities(kFrameDuration));
     }
 
-    CheckPropCollisions();
-    CheckLostSoulCollisions();
+    CheckCollisions();
 
     const Caretaker& caretaker = GetCaretaker();
 
@@ -298,6 +308,33 @@ Game::RemoveTickable(const EntityId entityId)
 }
 
 Result<>
+Game::AddCollidable(const Collidable& collidable)
+{
+    GG_CHECKB(m_Collidables.size() < m_Collidables.capacity(), "Max collidables reached");
+    m_Collidables.push_back(collidable);
+    return Result<>::Ok;
+}
+
+Result<>
+Game::RemoveCollidable(const EntityId entityId)
+{
+    const Collidable* found = nullptr;
+    for(Collidable& collidable : m_Collidables)
+    {
+        if(collidable.GetEntityId() == entityId)
+        {
+            collidable = m_Collidables.back();
+            m_Collidables.pop_back();
+            found = &collidable;
+            break;
+        }
+    }
+
+    GG_CHECKB(found, "Collidable not found");
+    return Result<>::Ok;
+}
+
+Result<>
 Game::Render()
 {
     Renderer& renderer = *m_Renderer;
@@ -352,6 +389,7 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
 namespace
 {
 
+/// Projects a rectangle from object space to screen space.
 Rectf
 ProjectRect(const Rectf& rect,
     const Transform2D& transform,
@@ -366,7 +404,7 @@ ProjectRect(const Rectf& rect,
 } // namespace
 
 void
-Game::CheckPropCollisions()
+Game::CheckCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
 
@@ -378,76 +416,78 @@ Game::CheckPropCollisions()
 
     Caretaker& caretaker = GetCaretaker();
 
-    const SpriteFrame& ctSpriteFrame = caretaker.GetSpriteFrame();
+    const Collidable ctCollidable(GetCaretaker());
 
-    float collisionDist = std::numeric_limits<float>::max();
-    glm::vec2 collisionNormal;
-    // Entity that was hit
-    const Prop* propHit = nullptr;
+    // Project collision bounds into screen space
+    const Rectf ctBounds = ProjectRect(ctCollidable.GetCollisionBounds(),
+        ctCollidable.GetTransform(),
+        proj,
+        pixelScale);
 
-    const Rectf ctRect =
-        ProjectRect(ctSpriteFrame.GetCollisionBounds(), caretaker.GetTransform(), proj, pixelScale);
-
-    const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
-
-    for(const Prop& prop : m_Props)
+    for(const Collidable& otherCollidable : m_Collidables)
     {
-        const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
-        const Rectf propRect = ProjectRect(propSpriteFrame.GetCollisionBounds(),
-            prop.GetTransform(),
+        // Project the other collidable's collision bounds into screen space
+        const Rectf otherBounds = ProjectRect(otherCollidable.GetCollisionBounds(),
+            otherCollidable.GetTransform(),
             proj,
             pixelScale);
 
-        // FIXME(KB) - not needed if bot colliders only have one collision rect
-        if(!ctRect.Intersects(propRect))
+        // FIXME(KB) - not needed if both colliders only have one collision rect
+
+        // Check the union of the collision bounds first before checking individual rects
+        if(!ctBounds.Intersects(otherBounds))
         {
             continue;
         }
 
-        for(const Rectf& ctColRect : ctCollisionRects)
+        float penDepth = std::numeric_limits<float>::max();
+        glm::vec2 collisionNormal;
+        // Entity that was hit
+        std::optional<EntityId> otherHitId;
+
+        for(const Rectf& ctColRect : ctCollidable.GetCollisionRects())
         {
-            const Rectf ctBounds =
-                ProjectRect(ctColRect, caretaker.GetTransform(), proj, pixelScale);
+            const Rectf ctRect =
+                ProjectRect(ctColRect, ctCollidable.GetTransform(), proj, pixelScale);
 
-            const std::span<const Rectf> propCollisionRects = propSpriteFrame.GetCollisionRects();
-
-            for(const Rectf& propColRect : propCollisionRects)
+            for(const Rectf& otherColRect : otherCollidable.GetCollisionRects())
             {
-                const Rectf propBounds =
-                    ProjectRect(propColRect, prop.GetTransform(), proj, pixelScale);
+                const Rectf otherRect =
+                    ProjectRect(otherColRect, otherCollidable.GetTransform(), proj, pixelScale);
 
-                if(ctBounds.Intersects(propBounds))
+                if(ctRect.Intersects(otherRect))
                 {
-                    const float distR = propBounds.Right() - ctBounds.Left();
-                    const float distL = ctBounds.Right() - propBounds.Left();
-                    const float distT = ctBounds.Bottom() - propBounds.Top();
-                    const float distB = propBounds.Bottom() - ctBounds.Top();
+                    // Penetration depth for the collision
+                    const float depthR = otherRect.Right() - ctRect.Left();
+                    const float depthL = ctRect.Right() - otherRect.Left();
+                    const float depthT = ctRect.Bottom() - otherRect.Top();
+                    const float depthB = otherRect.Bottom() - ctRect.Top();
 
-                    const float minDist = std::min({ distR, distL, distT, distB });
-                    if(minDist <= 0 || minDist >= collisionDist)
+                    const float minDepth = std::min({ depthR, depthL, depthT, depthB });
+                    if(minDepth <= 0 || minDepth >= penDepth)
                     {
                         // Skip if this is not the closest collision
-                        // or if the collision distance is zero
+                        // or if the penetration depth is zero/negative
                         continue;
                     }
 
-                    collisionDist = minDist;
-                    if(minDist == distR)
+                    penDepth = minDepth;
+                    if(minDepth == depthR)
                     {
                         // Right collision
                         collisionNormal = glm::vec2(1, 0);
                     }
-                    else if(minDist == distL)
+                    else if(minDepth == depthL)
                     {
                         // Left collision
                         collisionNormal = glm::vec2(-1, 0);
                     }
-                    else if(minDist == distT)
+                    else if(minDepth == depthT)
                     {
                         // Top collision
                         collisionNormal = glm::vec2(0, -1);
                     }
-                    else if(minDist == distB)
+                    else if(minDepth == depthB)
                     {
                         // Bottom collision
                         collisionNormal = glm::vec2(0, 1);
@@ -456,120 +496,15 @@ Game::CheckPropCollisions()
                     // Unproject the collision normal.
                     collisionNormal = glm::inverse(proj) * collisionNormal;
 
-                    propHit = &prop;
+                    otherHitId = otherCollidable.GetEntityId();
                 }
             }
         }
-    }
 
-    if(propHit)
-    {
-        caretaker.MoveBy(collisionNormal * collisionDist / pixelScale);
-        caretaker.OnPropHit(*this, *propHit);
-    }
-}
-
-void
-Game::CheckLostSoulCollisions()
-{
-    const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
-
-    // Y flip the projected map coords to convert from map space +Y up/North to screen space +Y
-    // down.
-    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
-
-    const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
-
-    Caretaker& caretaker = GetCaretaker();
-
-    const SpriteFrame& ctSpriteFrame = caretaker.GetSpriteFrame();
-
-    float collisionDist = std::numeric_limits<float>::max();
-    glm::vec2 collisionNormal;
-    // Entity that was hit
-    const LostSoul* lostSoulHit = nullptr;
-
-    const Rectf ctRect =
-        ProjectRect(ctSpriteFrame.GetCollisionBounds(), caretaker.GetTransform(), proj, pixelScale);
-
-    const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
-
-    for(const LostSoul& lostSoul : m_LostSouls)
-    {
-        const SpriteFrame& lostSoulSpriteFrame = lostSoul.GetSpriteFrame();
-        const Rectf lostSoulRect = ProjectRect(lostSoulSpriteFrame.GetCollisionBounds(),
-            lostSoul.GetTransform(),
-            proj,
-            pixelScale);
-
-        // FIXME(KB) - not needed if bot colliders only have one collision rect
-        if(!ctRect.Intersects(lostSoulRect))
+        if(otherHitId)
         {
-            continue;
+            caretaker.OnCollided(*this, *otherHitId, collisionNormal, penDepth);
         }
-
-        for(const Rectf& ctColRect : ctCollisionRects)
-        {
-            const Rectf ctBounds =
-                ProjectRect(ctColRect, caretaker.GetTransform(), proj, pixelScale);
-
-            const std::span<const Rectf> lostSoulCollisionRects =
-                lostSoulSpriteFrame.GetCollisionRects();
-
-            for(const Rectf& lostSoulColRect : lostSoulCollisionRects)
-            {
-                const Rectf lostSoulBounds =
-                    ProjectRect(lostSoulColRect, lostSoul.GetTransform(), proj, pixelScale);
-
-                if(ctBounds.Intersects(lostSoulBounds))
-                {
-                    const float distR = lostSoulBounds.Right() - ctBounds.Left();
-                    const float distL = ctBounds.Right() - lostSoulBounds.Left();
-                    const float distT = ctBounds.Bottom() - lostSoulBounds.Top();
-                    const float distB = lostSoulBounds.Bottom() - ctBounds.Top();
-
-                    const float minDist = std::min({ distR, distL, distT, distB });
-                    if(minDist <= 0 || minDist >= collisionDist)
-                    {
-                        // Skip if this is not the closest collision
-                        // or if the collision distance is zero
-                        continue;
-                    }
-
-                    collisionDist = minDist;
-                    if(minDist == distR)
-                    {
-                        // Right collision
-                        collisionNormal = glm::vec2(1, 0);
-                    }
-                    else if(minDist == distL)
-                    {
-                        // Left collision
-                        collisionNormal = glm::vec2(-1, 0);
-                    }
-                    else if(minDist == distT)
-                    {
-                        // Top collision
-                        collisionNormal = glm::vec2(0, -1);
-                    }
-                    else if(minDist == distB)
-                    {
-                        // Bottom collision
-                        collisionNormal = glm::vec2(0, 1);
-                    }
-
-                    // Unproject the collision normal.
-                    collisionNormal = glm::inverse(proj) * collisionNormal;
-
-                    lostSoulHit = &lostSoul;
-                }
-            }
-        }
-    }
-
-    if(lostSoulHit)
-    {
-        caretaker.OnLostSoulHit(*this, *lostSoulHit);
     }
 }
 
@@ -595,6 +530,8 @@ Game::CommitSpawnQueue()
                     GG_CHECKB(AddTickable(Tickable(newEntity)),
                         "Failed to add caretaker to tickables");
 
+                    // Don't add the caretaker to collidables.
+
                     fail.cancel();
 
                     return newEntity.GetEntityId();
@@ -611,6 +548,8 @@ Game::CommitSpawnQueue()
                     GG_CHECKB(AddRenderable(Renderable(newEntity)),
                         "Failed to add prop to renderables");
                     GG_CHECKB(AddTickable(Tickable(newEntity)), "Failed to add prop to tickables");
+                    GG_CHECKB(AddCollidable(Collidable(newEntity)),
+                        "Failed to add prop to collidables");
 
                     fail.cancel();
 
@@ -629,6 +568,8 @@ Game::CommitSpawnQueue()
                         "Failed to add lost soul to renderables");
                     GG_CHECKB(AddTickable(Tickable(newEntity)),
                         "Failed to add lost soul to tickables");
+                    GG_CHECKB(AddCollidable(Collidable(newEntity)),
+                        "Failed to add lost soul to collidables");
 
                     fail.cancel();
 
@@ -647,6 +588,8 @@ Game::CommitSpawnQueue()
                         "Failed to add tombstone to renderables");
                     GG_CHECKB(AddTickable(Tickable(newEntity)),
                         "Failed to add tombstone to tickables");
+                    GG_CHECKB(AddCollidable(Collidable(newEntity)),
+                        "Failed to add tombstone to collidables");
 
                     fail.cancel();
 
@@ -666,12 +609,19 @@ Game::CommitDespawnQueues()
 {
     for(const EntityId idToDespawn : m_DespawnQueue)
     {
+        GG_ASSERT_ONLY(bool found = false;)
+
+        // Only handle despawning lost souls for now.
         for(LostSoul& lostSoul : m_LostSouls)
         {
             if(lostSoul.GetEntityId() == idToDespawn)
             {
+                GG_ASSERT_ONLY(found = true;);
+
                 GG_VERIFYB(RemoveRenderable(lostSoul.GetEntityId()), "Failed to remove renderable");
                 GG_VERIFYB(RemoveTickable(lostSoul.GetEntityId()), "Failed to remove tickable");
+                GG_VERIFYB(RemoveCollidable(lostSoul.GetEntityId()), "Failed to remove collidable");
+
                 if(idToDespawn != m_LostSouls.back().GetEntityId())
                 {
                     lostSoul = std::move(m_LostSouls.back());
@@ -680,23 +630,39 @@ Game::CommitDespawnQueues()
                         lostSoul.GetEntityId(),
                         &Renderable::GetEntityId);
 
-                    GG_ASSERT(itRenderable != m_Renderables.end(),
-                        "Failed to find renderable for lost soul");
-                    *itRenderable = Renderable(lostSoul);
+                    if(GG_VERIFY(itRenderable != m_Renderables.end(),
+                           "Failed to find renderable for lost soul"))
+                    {
+                        *itRenderable = Renderable(lostSoul);
+                    }
 
                     auto itTickable = std::ranges::find(m_Tickables,
                         lostSoul.GetEntityId(),
                         &Tickable::GetEntityId);
 
-                    GG_ASSERT(itTickable != m_Tickables.end(),
-                        "Failed to find tickable for lost soul");
-                    *itTickable = Tickable(lostSoul);
+                    if(GG_VERIFY(itTickable != m_Tickables.end(),
+                           "Failed to find tickable for lost soul"))
+                    {
+                        *itTickable = Tickable(lostSoul);
+                    }
+
+                    auto itCollidable = std::ranges::find(m_Collidables,
+                        lostSoul.GetEntityId(),
+                        &Collidable::GetEntityId);
+
+                    if(GG_VERIFY(itCollidable != m_Collidables.end(),
+                           "Failed to find collidable for lost soul"))
+                    {
+                        *itCollidable = Collidable(lostSoul);
+                    }
                 }
 
                 m_LostSouls.pop_back();
                 break;
             }
         }
+
+        GG_ASSERT(found, "Failed to find entity to despawn");
     }
     m_DespawnQueue.clear();
 }

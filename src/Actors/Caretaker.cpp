@@ -134,22 +134,25 @@ Caretaker::Render(Renderer& renderer) const
 }
 
 void
-Caretaker::OnPropHit(Game& /*game*/, const Prop& /*prop*/) const
+Caretaker::OnCollided(
+    Game& game, const EntityId entityId, const glm::vec2& /*collisionNormal*/, const float /*penDepth*/)
 {
-}
+    const LostSoul* ls = game.TryGetLostSoul(entityId);
 
-void
-Caretaker::OnLostSoulHit(Game& game, const LostSoul& lostSoul)
-{
-    if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect))
+    if(ls)
     {
-        GG_ERROR("Failed to play audio clip: {} - {}", m_AudioClips.LostSoulCollect->GetName(), SDL_GetError());
-    }
+        if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect))
+        {
+            GG_ERROR("Failed to play audio clip: {} - {}",
+                m_AudioClips.LostSoulCollect->GetName(),
+                SDL_GetError());
+        }
 
-    if(!game.QueueDespawn(lostSoul))
-    {
-        GG_ERROR("Failed to despawn lost soul");
+        if(!game.QueueDespawn(entityId))
+        {
+            GG_ERROR("Failed to despawn lost soul");
+        }
+
+        ++m_LostSoulsCollected;
     }
-    
-    ++m_LostSoulsCollected;
 }

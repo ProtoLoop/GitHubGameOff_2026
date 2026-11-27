@@ -70,7 +70,7 @@ AudioPlayer::GetMixer() const
 Result<>
 AudioPlayer::Play(const AudioClip& clip)
 {
-    GG_CHECK(!m_TrackPool.empty(), "No available tracks to play");
+    GG_CHECKB(!m_TrackPool.empty(), "No available tracks to play");
 
     TrackInfo& trackInfo = m_TrackPool.back();
 

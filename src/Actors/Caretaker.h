@@ -32,12 +32,20 @@ public:
 
     Result<> Render(Renderer& renderer) const;
 
+    Rectf GetCollisionBounds() const { return GetSpriteFrame().GetCollisionBounds(); }
+
+    std::span<const Rectf> GetCollisionRects() const
+    {
+        return GetSpriteFrame().GetCollisionRects();
+    }
+
     Transform2D& GetTransform() { return m_Transform; }
     const Transform2D& GetTransform() const { return m_Transform; }
 
-    void OnPropHit(Game& game, const Prop& prop) const;
-
-    void OnLostSoulHit(Game& game, const LostSoul& lostSoul);
+    void OnCollided(Game& game,
+        const EntityId entityId,
+        const glm::vec2& collisionNormal,
+        const float penDepth);
 
 private:
     struct Sprites
