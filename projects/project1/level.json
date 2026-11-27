@@ -33,7 +33,7 @@
     },
     {
       "name": "Cemetery_Ancient_Tree_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":2,"g":2,"b":2,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -41,7 +41,7 @@
     },
     {
       "name": "Cemetery_Ancient_Tree_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":2,"g":2,"b":2,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -728,6 +728,34 @@
       "pos": {"x":-2.3,"y":-1.369},
       "rot": 0,
       "scale": 0.7893715930558983
+    },
+    {
+      "type": "Cemetery_Ancient_Tree_004",
+      "pos": {"x":5.886,"y":0.406},
+      "rot": 0
+    },
+    {
+      "type": "Cemetery_Ancient_Tree_004",
+      "pos": {"x":-8.287,"y":-0.795},
+      "rot": 0,
+      "scale": 0.8315591898788319
+    },
+    {
+      "type": "Cemetery_Ancient_Tree_002",
+      "pos": {"x":0.662,"y":5.12},
+      "rot": 0,
+      "scale": 0.7883807442478423
+    },
+    {
+      "type": "Cemetery_Ancient_Tree_002",
+      "pos": {"x":2.207,"y":-3.358},
+      "rot": 0,
+      "scale": 0.8519187972860855
+    },
+    {
+      "type": "Cemetery_Ancient_Tree_003",
+      "pos": {"x":-2.825,"y":-5.425},
+      "rot": 0
     }
   ],
   "actors": [
@@ -738,7 +766,7 @@
     },
     {
       "type": "Noble_Family_Tombstone_003",
-      "pos": {"x":-0.388,"y":2.865},
+      "pos": {"x":1.667,"y":1.576},
       "rot": 0
     },
     {
@@ -748,17 +776,17 @@
     },
     {
       "type": "Noble_Family_Tombstone_004",
-      "pos": {"x":-3.285,"y":2.5},
+      "pos": {"x":-3.856,"y":3.574},
       "rot": 0
     },
     {
       "type": "Noble_Family_Tombstone_004",
-      "pos": {"x":3.245,"y":0.234},
+      "pos": {"x":3.305,"y":-0.262},
       "rot": 0
     },
     {
       "type": "Noble_Family_Tombstone_004",
-      "pos": {"x":-0.095,"y":-0.239},
+      "pos": {"x":-0.974,"y":0.122},
       "rot": 0
     },
     {
@@ -768,27 +796,27 @@
     },
     {
       "type": "Forgotten_Headstone_004",
-      "pos": {"x":4.371,"y":3.44},
+      "pos": {"x":4.163,"y":4.939},
       "rot": 0
     },
     {
       "type": "Forgotten_Headstone_002",
-      "pos": {"x":-5.47,"y":3.747},
+      "pos": {"x":-7.377,"y":3.839},
       "rot": 0
     },
     {
       "type": "Forgotten_Headstone_002",
-      "pos": {"x":4.134,"y":-1.615},
+      "pos": {"x":5.381,"y":-2.077},
       "rot": 0
     },
     {
       "type": "Forgotten_Headstone_002",
-      "pos": {"x":-5.143,"y":-2.03},
+      "pos": {"x":-6.301,"y":-2.741},
       "rot": 0
     },
     {
       "type": "Forgotten_Headstone_002",
-      "pos": {"x":0.637,"y":-2.757},
+      "pos": {"x":-0.078,"y":-2.467},
       "rot": 0
     }
   ],
@@ -888,11 +916,21 @@
     "audioClips": [
       {"name":"LostSoulCollect","filePath":"/audio/dragon-studio-christmas-twinkle-effect-451850.mp3"},
       {"name":"LostSoulDropoff","filePath":"/audio/u_jt9vdte8nd-magic-church-bell-293423.mp3"},
-      {"name":"LostSoulSpawn","filePath":"/audio/dragon-studio-simple-whoosh-02-433006.mp3"}
+      {"name":"LostSoulSpawn","filePath":"/audio/dragon-studio-simple-whoosh-02-433006.mp3"},
+      {"name":"Crickets","filePath":"/audio/crickets/blender_abstract-crickets-395138_loop.mp3"},
+      {"name":"Crow1","filePath":"/audio/crows/kave_msri-crow-sfx-318131.mp3"},
+      {"name":"Crow2","filePath":"/audio/crows/poorartistt-crow-sound-effect-no-copyright-410801.mp3"},
+      {"name":"Owl1","filePath":"/audio/owls/bible_images-tawny-owl-hooting-sound-effect-384538.mp3"},
+      {"name":"Owl2","filePath":"/audio/owls/lazychillzone-owl-hooting-1-232347.mp3"},
+      {"name":"Owl3","filePath":"/audio/owls/universfield-owl-hoot-02-139676.mp3"},
+      {"name":"Wolf1","filePath":"/audio/wolves/dragon-studio-howling-in-the-distance-515982.mp3"},
+      {"name":"Wolf2","filePath":"/audio/wolves/dragon-studio-wolf-howl-3-631453.mp3"},
+      {"name":"Wolf3","filePath":"/audio/wolves/dragon-studio-wolf-howl-359873.mp3"},
+      {"name":"Wolf4","filePath":"/audio/wolves/freesound_community-dogs-howling-yelping-distance-far-05-37394.mp3"}
     ]
   },
   "editor": {
     "activeLayer": 1,
-    "view": {"zoom":1.0266431078142266,"scrollLeft":1647.5,"scrollTop":1641.5,"showGrid":false}
+    "view": {"zoom":0.5864278485214021,"scrollLeft":775.5,"scrollTop":796,"showGrid":false}
   }
 }
