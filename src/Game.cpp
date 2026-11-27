@@ -1,6 +1,7 @@
 #include "Game.h"
 
 #include "AudioPlayer.h"
+#include "Defer.h"
 #include "Renderer.h"
 #include "ResourceDefs.h"
 
@@ -40,7 +41,7 @@ Game::Create(Input& input,
         // It can be overridden by the instance definition.
         transform.Scale = propDef.OptScale.value_or(propTypeDefResult->Scale);
 
-        GG_CHECK(game.SpawnProp(propTypeDefResult->SpriteName, transform),
+        GG_CHECK(game.QueueSpawnProp(propTypeDefResult->SpriteName, transform),
             "Failed to spawn prop: {}",
             propTypeDefResult->SpriteName);
     }
@@ -48,7 +49,9 @@ Game::Create(Input& input,
     for(const ActorInstanceDef& actorDef : levelDef.ActorInstDefs)
     {
         const auto actorTypeDefResult = levelDef.GetActorTypeDef(actorDef.TypeName);
-        GG_CHECK(actorTypeDefResult, "Failed to get actor type definition for {}", actorDef.TypeName);
+        GG_CHECK(actorTypeDefResult,
+            "Failed to get actor type definition for {}",
+            actorDef.TypeName);
 
         if(GG_VERIFYB(actorTypeDefResult->ClassName == "Tombstone",
                "Unknown actor class: {}",
@@ -60,7 +63,7 @@ Game::Create(Input& input,
             // It can be overridden by the instance definition.
             transform.Scale = actorDef.OptScale.value_or(actorTypeDefResult->Scale);
 
-            GG_CHECK(game.SpawnTombstone(actorTypeDefResult->SpriteName, transform),
+            GG_CHECK(game.QueueSpawnTombstone(actorTypeDefResult->SpriteName, transform),
                 "Failed to spawn tombstone: {}",
                 actorTypeDefResult->SpriteName);
         }
@@ -73,16 +76,30 @@ Game::Begin()
 {
     GG_CHECKB(m_Stage == Stage::None, "Game has already begun");
 
-    GG_TRYB(caretaker, Caretaker::Create(*this), "Failed to create caretaker");
-
-    m_Caretaker = std::move(caretaker);
+    GG_CHECKB(QueueSpawnCaretaker(Transform2D{}), "Failed to spawn caretaker");
 
     m_Stage = Stage::Running;
     return Result<>::Ok;
 }
 
-Result<>
-Game::SpawnProp(const std::string_view spriteName, const Transform2D& transform)
+Result<EntityId>
+Game::QueueSpawnCaretaker(const Transform2D& transform)
+{
+    GG_CHECKB(m_Caretakers.size() < m_Caretakers.capacity(),
+        "Maximum number of caretakers reached");
+
+    GG_TRYB(caretaker, Caretaker::Create(*this), "Failed to create caretaker");
+    caretaker.SetTransform(transform);
+
+    const EntityId entityId = caretaker.GetEntityId();
+
+    m_SpawnQueue.emplace_back(std::move(caretaker));
+
+    return entityId;
+}
+
+Result<EntityId>
+Game::QueueSpawnProp(const std::string_view spriteName, const Transform2D& transform)
 {
     GG_CHECKB(m_Props.size() < m_Props.capacity(), "Maximum number of props reached");
 
@@ -92,32 +109,47 @@ Game::SpawnProp(const std::string_view spriteName, const Transform2D& transform)
     auto spriteInstanceResult = spriteResult->CreateInstance();
     GG_CHECKB(spriteInstanceResult, "Failed to create sprite instance for {}", spriteName);
 
-    m_Props.emplace_back(*spriteInstanceResult, transform);
+    Prop prop(*spriteInstanceResult, transform);
 
-    return Result<>::Ok;
+    const EntityId entityId = prop.GetEntityId();
+
+    m_SpawnQueue.emplace_back(std::move(prop));
+
+    return entityId;
 }
 
 Result<EntityId>
-Game::SpawnTombstone(const std::string_view spriteName, const Transform2D& transform)
+Game::QueueSpawnTombstone(const std::string_view spriteName, const Transform2D& transform)
 {
-    GG_CHECKB(m_Tombstones.size() < m_Tombstones.capacity(), "Maximum number of tombstones reached");
+    GG_CHECKB(m_Tombstones.size() < m_Tombstones.capacity(),
+        "Maximum number of tombstones reached");
 
     GG_TRYB(tombstone,
         Tombstone::Create(*this, spriteName),
         "Failed to create tombstone: {}",
         spriteName);
     tombstone.SetTransform(transform);
-    return m_Tombstones.emplace_back(std::move(tombstone)).GetEntityId();
+
+    const EntityId entityId = tombstone.GetEntityId();
+
+    m_SpawnQueue.emplace_back(std::move(tombstone));
+
+    return entityId;
 }
 
 Result<EntityId>
-Game::SpawnLostSoul(const Transform2D& transform)
+Game::QueueSpawnLostSoul(const Transform2D& transform)
 {
     GG_CHECKB(m_LostSouls.size() < m_LostSouls.capacity(), "Maximum number of lost souls reached");
 
     GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
     lostSoul.SetTransform(transform);
-    return m_LostSouls.emplace_back(std::move(lostSoul)).GetEntityId();
+
+    const EntityId entityId = lostSoul.GetEntityId();
+
+    m_SpawnQueue.emplace_back(std::move(lostSoul));
+
+    return entityId;
 }
 
 Result<>
@@ -166,6 +198,9 @@ Game::Tick(const float deltaTime)
 {
     GG_CHECKB(m_Stage == Stage::Running, "Game is not running");
 
+    GG_CHECK(CommitSpawnQueue());
+    CommitDespawnQueues();
+
     if(deltaTime > kMaxDeltaTime)
     {
         m_TimeAccum += kMaxDeltaTime;
@@ -184,13 +219,13 @@ Game::Tick(const float deltaTime)
     CheckPropCollisions();
     CheckLostSoulCollisions();
 
-    m_Renderer->SetView(m_Caretaker->GetPos().x, m_Caretaker->GetPos().y);
+    const Caretaker& caretaker = GetCaretaker();
 
-    GG_CHECK(RenderSprites());
+    m_Renderer->SetView(caretaker.GetPos().x, caretaker.GetPos().y);
+
+    GG_CHECK(Render());
 
     GG_CHECK(m_AudioPlayer.Tick(deltaTime));
-
-    CommitDespawnQueues();
 
     return Result<>::Ok;
 }
@@ -200,68 +235,83 @@ Game::Tick(const float deltaTime)
 Result<>
 Game::TickEntities(float deltaTime)
 {
-    GG_CHECK(m_Caretaker->Tick(deltaTime, *this));
-
-    for(Tombstone& tombstone : m_Tombstones)
+    for(Tickable& tickable : m_Tickables)
     {
-        GG_CHECK(tombstone.Tick(deltaTime, *this));
+        GG_CHECK(tickable.Tick(deltaTime, *this));
     }
 
-    for(LostSoul& lostSoul : m_LostSouls)
-    {
-        GG_CHECK(lostSoul.Tick(deltaTime, *this));
-    }
     return Result<>::Ok;
 }
 
 Result<>
-Game::RenderSprites()
+Game::AddRenderable(const Renderable& renderable)
+{
+    GG_CHECKB(m_Renderables.size() < m_Renderables.capacity(), "Max renderables reached");
+    m_Renderables.push_back(renderable);
+    return Result<>::Ok;
+}
+
+Result<>
+Game::RemoveRenderable(const EntityId entityId)
+{
+    const Renderable* found = nullptr;
+    for(Renderable& renderable : m_Renderables)
+    {
+        if(renderable.GetEntityId() == entityId)
+        {
+            renderable = m_Renderables.back();
+            m_Renderables.pop_back();
+            found = &renderable;
+            break;
+        }
+    }
+
+    GG_CHECKB(found, "Renderable not found");
+    return Result<>::Ok;
+}
+
+Result<>
+Game::AddTickable(const Tickable& tickable)
+{
+    GG_CHECKB(m_Tickables.size() < m_Tickables.capacity(), "Max tickables reached");
+    m_Tickables.push_back(tickable);
+    return Result<>::Ok;
+}
+
+Result<>
+Game::RemoveTickable(const EntityId entityId)
+{
+    const Tickable* found = nullptr;
+    for(Tickable& tickable : m_Tickables)
+    {
+        if(tickable.GetEntityId() == entityId)
+        {
+            tickable = m_Tickables.back();
+            m_Tickables.pop_back();
+            found = &tickable;
+            break;
+        }
+    }
+
+    GG_CHECKB(found, "Tickable not found");
+    return Result<>::Ok;
+}
+
+Result<>
+Game::Render()
 {
     Renderer& renderer = *m_Renderer;
 
-    GG_CHECK(m_Caretaker->Render(renderer));
-
-    if(kDrawRectangles)
+    for(Renderable& renderable : m_Renderables)
     {
-        QueueFrameRect(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
-        QueueCollisionRects(m_Caretaker->GetSpriteFrame(), m_Caretaker->GetTransform());
-    }
-
-    for(const LostSoul& lostSoul : m_LostSouls)
-    {
-        GG_CHECK(lostSoul.Render(renderer));
-
-        const SpriteFrame& spriteFrame = lostSoul.GetSpriteFrame();
+        GG_CHECK(renderable.Render(renderer));
 
         if(kDrawRectangles)
         {
-            QueueFrameRect(spriteFrame, lostSoul.GetTransform());
-            QueueCollisionRects(spriteFrame, lostSoul.GetTransform());
-        }
-    }
-
-    for(const Tombstone& tombstone : m_Tombstones)
-    {
-        GG_CHECK(tombstone.Render(renderer));
-
-        const SpriteFrame& spriteFrame = tombstone.GetSpriteFrame();
-
-        if(kDrawRectangles)
-        {
-            QueueFrameRect(spriteFrame, tombstone.GetTransform());
-            QueueCollisionRects(spriteFrame, tombstone.GetTransform());
-        }
-    }
-
-    for(const Prop& prop : m_Props)
-    {
-        GG_CHECK(prop.Render(renderer));
-        const SpriteFrame& spriteFrame = prop.GetSpriteFrame();
-
-        if(kDrawRectangles)
-        {
-            QueueFrameRect(spriteFrame, prop.GetTransform());
-            QueueCollisionRects(spriteFrame, prop.GetTransform());
+            const SpriteFrame& spriteFrame = renderable.GetSpriteFrame();
+            const Transform2D& transform = renderable.GetTransform();
+            QueueFrameRect(spriteFrame, transform);
+            QueueCollisionRects(spriteFrame, transform);
         }
     }
 
@@ -312,19 +362,20 @@ void
 Game::CheckPropCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
-    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
-    const SpriteFrame& ctSpriteFrame = m_Caretaker->GetSpriteFrame();
+    Caretaker& caretaker = GetCaretaker();
+
+    const SpriteFrame& ctSpriteFrame = caretaker.GetSpriteFrame();
 
     float collisionDist = std::numeric_limits<float>::max();
     glm::vec2 collisionNormal;
-    // Prop that was hit
+    // Entity that was hit
     const Prop* propHit = nullptr;
 
-    const glm::vec2& ctPos = m_Caretaker->GetPos();
-    const float ctScale = m_Caretaker->GetScale();
+    const glm::vec2& ctPos = caretaker.GetPos();
+    const float ctScale = caretaker.GetScale();
 
     const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
         ctPos,
@@ -414,8 +465,9 @@ Game::CheckPropCollisions()
 
     if(propHit)
     {
-        m_Caretaker->MoveBy(collisionNormal * collisionDist / pixelScale);
-        m_Caretaker->OnPropHit(*this, *propHit);
+        const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
+        caretaker.MoveBy(collisionNormal * collisionDist / pixelScale);
+        caretaker.OnPropHit(*this, *propHit);
     }
 }
 
@@ -426,14 +478,17 @@ Game::CheckLostSoulCollisions()
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
-    const SpriteFrame& ctSpriteFrame = m_Caretaker->GetSpriteFrame();
+    Caretaker& caretaker = GetCaretaker();
+
+    const SpriteFrame& ctSpriteFrame = caretaker.GetSpriteFrame();
 
     float collisionDist = std::numeric_limits<float>::max();
-    // Prop that was hit
+    glm::vec2 collisionNormal;
+    // Entity that was hit
     const LostSoul* lostSoulHit = nullptr;
 
-    const glm::vec2& ctPos = m_Caretaker->GetPos();
-    const float ctScale = m_Caretaker->GetScale();
+    const glm::vec2& ctPos = caretaker.GetPos();
+    const float ctScale = caretaker.GetScale();
 
     const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
         ctPos,
@@ -493,6 +548,29 @@ Game::CheckLostSoulCollisions()
                     }
 
                     collisionDist = minDist;
+                    if(minDist == distR)
+                    {
+                        // Right collision
+                        collisionNormal = glm::vec2(1, 0);
+                    }
+                    else if(minDist == distL)
+                    {
+                        // Left collision
+                        collisionNormal = glm::vec2(-1, 0);
+                    }
+                    else if(minDist == distT)
+                    {
+                        // Top collision
+                        collisionNormal = glm::vec2(0, -1);
+                    }
+                    else if(minDist == distB)
+                    {
+                        // Bottom collision
+                        collisionNormal = glm::vec2(0, 1);
+                    }
+
+                    // Unproject the collision normal.
+                    collisionNormal = glm::inverse(proj) * collisionNormal;
 
                     lostSoulHit = &lostSoul;
                 }
@@ -502,8 +580,96 @@ Game::CheckLostSoulCollisions()
 
     if(lostSoulHit)
     {
-        m_Caretaker->OnLostSoulHit(*this, *lostSoulHit);
+        caretaker.OnLostSoulHit(*this, *lostSoulHit);
     }
+}
+
+Result<>
+Game::CommitSpawnQueue()
+{
+    for(Spawnable& spawnable : m_SpawnQueue)
+    {
+        auto result = std::visit(
+            [this](auto& entity) -> Result<EntityId>
+            {
+                if constexpr(std::is_same_v<std::decay_t<decltype(entity)>, Caretaker>)
+                {
+                    auto& newEntity = m_Caretakers.emplace_back(std::move(entity));
+
+                    auto fail = GG_DEFER
+                    {
+                        m_Caretakers.pop_back();
+                    };
+
+                    GG_CHECKB(AddRenderable(Renderable(newEntity)),
+                        "Failed to add caretaker to renderables");
+                    GG_CHECKB(AddTickable(Tickable(newEntity)),
+                        "Failed to add caretaker to tickables");
+
+                    fail.cancel();
+
+                    return newEntity.GetEntityId();
+                }
+                else if constexpr(std::is_same_v<std::decay_t<decltype(entity)>, Prop>)
+                {
+                    auto& newEntity = m_Props.emplace_back(std::move(entity));
+
+                    auto fail = GG_DEFER
+                    {
+                        m_Props.pop_back();
+                    };
+
+                    GG_CHECKB(AddRenderable(Renderable(newEntity)),
+                        "Failed to add prop to renderables");
+                    GG_CHECKB(AddTickable(Tickable(newEntity)), "Failed to add prop to tickables");
+
+                    fail.cancel();
+
+                    return newEntity.GetEntityId();
+                }
+                else if constexpr(std::is_same_v<std::decay_t<decltype(entity)>, LostSoul>)
+                {
+                    auto& newEntity = m_LostSouls.emplace_back(std::move(entity));
+
+                    auto fail = GG_DEFER
+                    {
+                        m_LostSouls.pop_back();
+                    };
+
+                    GG_CHECKB(AddRenderable(Renderable(newEntity)),
+                        "Failed to add lost soul to renderables");
+                    GG_CHECKB(AddTickable(Tickable(newEntity)),
+                        "Failed to add lost soul to tickables");
+
+                    fail.cancel();
+
+                    return newEntity.GetEntityId();
+                }
+                else if constexpr(std::is_same_v<std::decay_t<decltype(entity)>, Tombstone>)
+                {
+                    auto& newEntity = m_Tombstones.emplace_back(std::move(entity));
+
+                    auto fail = GG_DEFER
+                    {
+                        m_Tombstones.pop_back();
+                    };
+
+                    GG_CHECKB(AddRenderable(Renderable(newEntity)),
+                        "Failed to add tombstone to renderables");
+                    GG_CHECKB(AddTickable(Tickable(newEntity)),
+                        "Failed to add tombstone to tickables");
+
+                    fail.cancel();
+
+                    return newEntity.GetEntityId();
+                }
+            },
+            spawnable);
+
+        GG_VERIFYB(result, "Failed to spawn entity");
+    }
+    m_SpawnQueue.clear();
+    return Result<>::Ok;
 }
 
 void
@@ -515,7 +681,29 @@ Game::CommitDespawnQueues()
         {
             if(lostSoul.GetEntityId() == idToDespawn)
             {
-                lostSoul = std::move(m_LostSouls.back());
+                GG_VERIFYB(RemoveRenderable(lostSoul.GetEntityId()), "Failed to remove renderable");
+                GG_VERIFYB(RemoveTickable(lostSoul.GetEntityId()), "Failed to remove tickable");
+                if(idToDespawn != m_LostSouls.back().GetEntityId())
+                {
+                    lostSoul = std::move(m_LostSouls.back());
+
+                    auto itRenderable = std::ranges::find(m_Renderables,
+                        lostSoul.GetEntityId(),
+                        &Renderable::GetEntityId);
+
+                    GG_ASSERT(itRenderable != m_Renderables.end(),
+                        "Failed to find renderable for lost soul");
+                    *itRenderable = Renderable(lostSoul);
+
+                    auto itTickable = std::ranges::find(m_Tickables,
+                        lostSoul.GetEntityId(),
+                        &Tickable::GetEntityId);
+
+                    GG_ASSERT(itTickable != m_Tickables.end(),
+                        "Failed to find tickable for lost soul");
+                    *itTickable = Tickable(lostSoul);
+                }
+
                 m_LostSouls.pop_back();
                 break;
             }

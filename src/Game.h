@@ -9,11 +9,117 @@
 #include "Random.h"
 
 #include <memory>
+#include <variant>
 
 class Input;
 class Renderer;
 class AudioPlayer;
 struct LevelDef;
+
+/// Type-erased wrapper for renderable objects that provides a uniform interface for rendering,
+/// allowing objects with a Render method to be managed polymorphically.
+class Renderable
+{
+public:
+    template<typename T>
+    explicit Renderable(T& object)
+        : m_Object(&object),
+          m_RenderFunc(RenderImpl<T>),
+          m_GetEntityIdFunc(GetEntityIdImpl<T>),
+          m_GetSpriteFrameFunc(GetSpriteFrameImpl<T>),
+          m_GetTransformFunc(GetTransformImpl<T>)
+    {
+        static_assert(
+            requires(T& t) { t.Render(std::declval<Renderer&>()); },
+            "Renderable object must have a Render method with signature Result<> Render(Renderer&)");
+    }
+
+    Result<> Render(Renderer& renderer) { return m_RenderFunc(m_Object, renderer); }
+
+    SpriteFrame GetSpriteFrame() const { return m_GetSpriteFrameFunc(m_Object); }
+
+    const Transform2D& GetTransform() const { return m_GetTransformFunc(m_Object); }
+
+    EntityId GetEntityId() const { return m_GetEntityIdFunc(m_Object); }
+
+private:
+    const void* m_Object{ nullptr };
+
+    template<typename T>
+    static Result<> RenderImpl(const void* obj, Renderer& renderer)
+    {
+        return static_cast<const T*>(obj)->Render(renderer);
+    }
+
+    template<typename T>
+    static const Transform2D& GetTransformImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetTransform();
+    }
+
+    template<typename T>
+    static EntityId GetEntityIdImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetEntityId();
+    }
+
+    template<typename T>
+    static SpriteFrame GetSpriteFrameImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetSpriteFrame();
+    }
+
+    Result<> (*m_RenderFunc)(const void* object, Renderer& renderer);
+    EntityId (*m_GetEntityIdFunc)(const void* object);
+    SpriteFrame (*m_GetSpriteFrameFunc)(const void* object);
+    const Transform2D& (*m_GetTransformFunc)(const void* object);
+};
+
+/// Type-erased wrapper for tickable objects that provides a uniform interface for ticking,
+/// allowing objects with a Tick method to be managed polymorphically.
+class Tickable
+{
+public:
+    template<typename T>
+    explicit Tickable(T& object)
+        : m_Object(&object),
+          m_TickFunc(TickImpl<T>),
+          m_GetEntityIdFunc(GetEntityIdImpl<T>)
+    {
+    }
+
+    Result<> Tick(const float deltaTime, Game& game)
+    {
+        return m_TickFunc(m_Object, deltaTime, game);
+    }
+
+    EntityId GetEntityId() const { return m_GetEntityIdFunc(m_Object); }
+
+private:
+    void* m_Object{ nullptr };
+
+    template<typename T>
+    static Result<> TickImpl(void* obj, const float deltaTime, Game& game)
+    {
+        if constexpr(requires(T& object) { object.Tick(deltaTime, game); })
+        {
+            return static_cast<T*>(obj)->Tick(deltaTime, game);
+        }
+        else
+        {
+            return Result<>::Ok;
+        }
+    }
+
+    template<typename T>
+    static EntityId GetEntityIdImpl(const void* obj)
+    {
+        return static_cast<const T*>(obj)->GetEntityId();
+    }
+
+    Result<> (*m_TickFunc)(void* object, const float deltaTime, Game& game);
+    EntityId (*m_GetEntityIdFunc)(const void* object);
+};
 
 class Game
 {
@@ -51,12 +157,15 @@ public:
 
     Random& GetEntityRng() { return m_EntityRng; }
 
-    Result<> SpawnProp(const std::string_view spriteName, const Transform2D& transform);
+    Result<EntityId> QueueSpawnCaretaker(const Transform2D& transform);
 
-    Result<EntityId> SpawnTombstone(const std::string_view spriteName,
+    Result<EntityId> QueueSpawnProp(const std::string_view spriteName,
         const Transform2D& transform);
 
-    Result<EntityId> SpawnLostSoul(const Transform2D& transform);
+    Result<EntityId> QueueSpawnTombstone(const std::string_view spriteName,
+        const Transform2D& transform);
+
+    Result<EntityId> QueueSpawnLostSoul(const Transform2D& transform);
 
     Result<> QueueDespawn(const LostSoul& lostSoul);
 
@@ -65,8 +174,12 @@ public:
     bool IsRunning() const { return m_Stage == Stage::Running; }
 
 private:
-    static constexpr size_t kMaxLostSouls = 64; // Also tombstones
-    static constexpr size_t kMaxProps = 1024;
+    static constexpr size_t kMaxCareTakers = 1;
+    static constexpr size_t kMaxLostSouls = 16;
+    static constexpr size_t kMaxTombstones = kMaxLostSouls;
+    static constexpr size_t kMaxProps = 128;
+    static constexpr size_t kMaxEntities =
+        kMaxCareTakers + kMaxProps + kMaxLostSouls + kMaxTombstones;
 
     enum class Stage
     {
@@ -81,7 +194,16 @@ private:
 
     Result<> TickEntities(float deltaTime);
 
-    Result<> RenderSprites();
+    Caretaker& GetCaretaker() { return m_Caretakers[0]; }
+    const Caretaker& GetCaretaker() const { return m_Caretakers[0]; }
+
+    Result<> AddRenderable(const Renderable& renderable);
+    Result<> RemoveRenderable(const EntityId entityId);
+
+    Result<> AddTickable(const Tickable& tickable);
+    Result<> RemoveTickable(const EntityId entityId);
+
+    Result<> Render();
 
     void QueueFrameRect(const SpriteFrame& spriteFrame, const Transform2D& transform);
 
@@ -90,6 +212,8 @@ private:
     void CheckPropCollisions();
 
     void CheckLostSoulCollisions();
+
+    Result<> CommitSpawnQueue();
 
     void CommitDespawnQueues();
 
@@ -100,14 +224,19 @@ private:
     std::unique_ptr<Renderer> m_Renderer;
     AudioPlayer m_AudioPlayer;
 
-    std::optional<Caretaker> m_Caretaker;
-
+    BoundedVector<Caretaker> m_Caretakers{ kMaxCareTakers };
     BoundedVector<Prop> m_Props{ kMaxProps };
-
     BoundedVector<LostSoul> m_LostSouls{ kMaxLostSouls };
-    BoundedVector<Tombstone> m_Tombstones{ kMaxLostSouls };
+    BoundedVector<Tombstone> m_Tombstones{ kMaxTombstones };
 
-    BoundedVector<EntityId> m_DespawnQueue{ kMaxLostSouls };
+    using Spawnable = std::variant<Caretaker, Prop, LostSoul, Tombstone>;
+
+    BoundedVector<Spawnable> m_SpawnQueue{ kMaxEntities };
+
+    BoundedVector<EntityId> m_DespawnQueue{ kMaxEntities };
+
+    BoundedVector<Renderable> m_Renderables{ kMaxEntities };
+    BoundedVector<Tickable> m_Tickables{ kMaxEntities };
 
     float m_TimeAccum{ 0.0f };
 

@@ -9,7 +9,13 @@ class Renderer;
 class Prop : public Transform2DLike<Prop>
 {
 public:
+    Prop() = delete;
     Prop(Sprite::Instance spriteInstance, const Transform2D& transform);
+    ~Prop() = default;
+    Prop(const Prop&) = delete;
+    Prop& operator=(const Prop&) = delete;
+    Prop(Prop&&) = default;
+    Prop& operator=(Prop&&) = default;
 
     EntityId GetEntityId() const { return m_Id; }
 
@@ -21,7 +27,7 @@ public:
     Result<> Render(Renderer& renderer) const;
 
 private:
-    EntityId m_Id{ EntityId::NextId() };    //DO NOT SUBMIT
+    EntityId m_Id{ EntityId::NextId() };
     Sprite::Instance m_SpriteInstance;
     Transform2D m_Transform;
 };

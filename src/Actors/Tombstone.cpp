@@ -136,7 +136,7 @@ Tombstone::TickWaitingToSpawn(const float /*deltaTime*/, Game& game)
         Transform2D transform = GetTransform();
         transform.Pos.y -= kLostSoulSpawnOffsetY;
         transform.Scale = 1;    //FIXME(KB) - get the scale from the lost soul actor type definition.
-        auto entityIdResult = game.SpawnLostSoul(transform);
+        auto entityIdResult = game.QueueSpawnLostSoul(transform);
         if(!GG_VERIFYB(entityIdResult, "Failed to spawn lost soul"))
         {
             // Try again

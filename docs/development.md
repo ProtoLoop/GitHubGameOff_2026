@@ -453,7 +453,9 @@ Level startup separates parsing from resource loading. `LevelParser` fetches the
 level file and returns a `ParsedLevel` that owns the parsed definitions. Its
 `LevelDef` view borrows that storage. `LoadingState` retains the parsed data while
 `LevelLoader` validates resource references and builds the level. `Game::Create`
-then uses the retained placement definitions to spawn initial props and actors.
+then uses the retained placement definitions to construct and queue initial props
+and actors. `Game::Begin` queues the caretaker. These entities become live when
+the first `Game::Tick` commits the spawn queue.
 The parsed definitions are released when the loading state is replaced by the
 created game.
 
@@ -488,6 +490,11 @@ with `MIX_Quit()`. Final SDL_mixer shutdown also releases any audio resources
 still registered with the library. In the current `Game` member order, that
 happens before the level's clip wrappers are destroyed.
 
+At the start of each `Game::Tick`, `Game` commits queued spawns, then queued
+despawns, before simulation. A successful spawn request returns the queued
+entity's ID before it becomes live. Requests made during simulation take effect
+at the next `Game::Tick`, not between fixed simulation steps in the same frame.
+
 Each frame, `Game` accumulates elapsed time and advances entities in fixed
 1/60-second simulation steps. A frame can run zero or more steps. Elapsed time
 contributed by one frame is capped at 0.25 seconds, discarding excess time
@@ -501,6 +508,7 @@ audio playback bookkeeping once per frame to return finished tracks to the pool.
 The ownership choices are recorded in
 [Entity-owned state and sprite submission](architecture/decisions.md#entity-owned-state-and-sprite-submission),
 [Game-owned props and initial population](architecture/decisions.md#game-owned-props-and-initial-population),
+[Deferred entity changes and borrowed registries](architecture/decisions.md#deferred-entity-changes-and-borrowed-registries),
 and [Level-owned audio resources and game-owned playback](architecture/decisions.md#level-owned-audio-resources-and-game-owned-playback).
 
 Rendering uses an 800×600 logical canvas, scaled to fit the window while

@@ -1214,3 +1214,35 @@ requires no changes for this Mosaic update. Dependencies and build requirements
 are unchanged.
 
 See [File formats](../../Mosaic/docs/FILE_FORMATS.md#prop-and-actor-definitions-and-placements).
+
+## Deferred entity changes and borrowed registries
+
+Date: 2026-11-27. Status: Accepted.
+
+Entities can request spawns while `Game` is advancing other entities. Applying
+those changes immediately would couple iteration to changes in live storage.
+Separate loops for every entity type also repeat ticking and rendering dispatch.
+
+`Game` retains ownership in separate typed containers and queues constructed
+entities until the start of the next `Game::Tick`. It commits spawns, then
+despawns, before running any fixed simulation steps. Initial props and actors
+are queued during `Game::Create`, and the caretaker is queued during `Begin`.
+A successful spawn request returns an ID for a queued entity, before it is live.
+
+Borrowed, type-erased render and tick registries provide uniform iteration over
+the live entities. The typed containers must preserve registered addresses.
+Despawn removes the entity's registry entries before destruction. When removal
+moves the last entity into the vacated slot, its registry entries must be rebound
+to its new address before the old slot is destroyed.
+
+Keeping per-type loops would avoid borrowed registries but repeat dispatch as
+entity types grow. A shared entity base class would provide uniform dispatch
+through inheritance. Borrowed wrappers preserve the separate concrete types and
+their ownership, at the cost of explicit registration and relocation bookkeeping.
+Deferred changes keep iteration stable, but requests made during simulation wait
+until the next frame, even when the current frame runs several simulation steps.
+
+This extends [Game-owned props and initial population](#game-owned-props-and-initial-population)
+with deferred activation and follows [clear responsibility](principles.md#make-it-clear-who-is-responsible).
+See the [runtime boundary](../development.md#runtime-boundary) and
+[Game](../../src/Game.h).

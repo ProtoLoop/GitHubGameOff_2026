@@ -299,12 +299,6 @@ Renderer::GetProjectionMatrix() const
 Result<>
 Renderer::QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transform)
 {
-    return QueueSprite(spriteFrame, transform, QueueSpriteParams{});
-}
-
-Result<>
-Renderer::QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transform, const QueueSpriteParams& params)
-{
     GG_CHECKB(m_SpriteDrawQueue.size() < m_SpriteDrawQueue.capacity(),
         "Exceeded sprite draw queue");
 
@@ -312,7 +306,6 @@ Renderer::QueueSprite(const SpriteFrame& spriteFrame, const Transform2D& transfo
         {
             .Transform = transform,
             .SpriteFrame = spriteFrame,
-            .Params = params,
             .SortTieBreaker = m_SpriteDrawQueue.size(),
         });
 
@@ -535,7 +528,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
         spriteState.pivot.x = spriteFrame.GetPivot().x;
         spriteState.pivot.y = spriteFrame.GetPivot().y;
 
-        spriteState.tint = rec.Params.TintOverride.value_or(spriteFrame.GetTint());
+        spriteState.tint = spriteFrame.GetTint();
 
         const Rect& rect = spriteFrame.GetSrcRect();
         spriteState.srcRect[0] = static_cast<float>(rect.x);
