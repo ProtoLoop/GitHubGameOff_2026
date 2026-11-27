@@ -32,10 +32,15 @@ public:
     const Rect& GetSrcRect() const { return m_SrcRect; }
 
     /// Returns the collision rectangles of the sprite.
-    /// Collision rectangles are in the same coordinate space as the sprite's rectangle.
+    /// Collision rectangles are in "pivot-relative" space.
+    /// Pivot-relative space means that the origin (0,0) is at the sprite's pivot point.
+    /// Do not confuse "origin" with upper-left corner of the rectangle; the origin is at the pivot point.
     std::span<const Rectf> GetCollisionRects() const { return m_ColRects; }
 
     /// Returns the bounding rectangle that encompasses all the collision rectangles.
+    /// The bounding rectangle is in pivot-relative space.
+    /// Pivot-relative space means that the origin (0,0) is at the sprite's pivot point.
+    /// Do not confuse "origin" with upper-left corner of the rectangle; the origin is at the pivot point.
     const Rectf& GetCollisionBounds() const { return m_CollisionBounds; }
 
     /// Returns the pivot point within the sprite's rectangle in frame local pixels.
@@ -48,11 +53,6 @@ public:
 
     /// Returns the color tint for the sprite.
     const glm::vec4& GetTint() const { return m_Tint; }
-
-    Rectf GetScreenRect(const Rectf& rect,
-        const Transform2D& transform,
-        const glm::mat2x2& proj,
-        const float cellPixPerSide) const;
 
 private:
     friend class SpriteFrameSequence;
@@ -73,7 +73,9 @@ private:
     wgpu::BindGroup m_TextureBindGroup; // Bind group for the sprite's texture.
     Rect m_SrcRect;                     // Source rectangle within the texture atlas.
     // Collection of collision rectangles of the sprite.
-    // Collision rectangles are in the same coordinate space as the sprite's rectangle.
+    // Collision rectangles are in "pivot-relative" space.
+    // Pivot-relative space means that the origin (0,0) is at the sprite's pivot point.
+    // Do not confuse "origin" with upper-left corner of the rectangle; the origin is at the pivot point.
     std::span<const Rectf> m_ColRects;
     // Union of collision rectangles - used for quick collision checks.
     Rectf m_CollisionBounds;
@@ -122,7 +124,9 @@ private:
     // Source rectangle of the sequence within the texture atlas.
     Rect m_SrcRect;
     // Collection of collision rectangles of the sprite.
-    // Collision rectangles are in the same coordinate space as the sprite's rectangle.
+    // Collision rectangles are in "pivot-relative" space.
+    // Pivot-relative space means that the origin (0,0) is at the sprite's pivot point.
+    // Do not confuse "origin" with upper-left corner of the rectangle; the origin is at the pivot point.
     InlineVector<Rectf, 1> m_ColRects;
     // Union of collision rectangles - used for quick collision checks.
     Rectf m_CollisionBounds;

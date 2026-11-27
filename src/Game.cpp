@@ -339,7 +339,7 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
 
     for(const Rectf colRect : spriteFrame.GetCollisionRects())
     {
-        const Rectf drawRect = (colRect - spriteFrame.GetPivot()) * transform.Scale;
+        const Rectf drawRect = colRect * transform.Scale;
 
         if(!m_Renderer->QueueRectangle(drawRect, transform, kMagenta))
         {
@@ -349,10 +349,30 @@ Game::QueueCollisionRects(const SpriteFrame& spriteFrame, const Transform2D& tra
     }
 }
 
+namespace
+{
+
+Rectf
+ProjectRect(const Rectf& rect,
+    const Transform2D& transform,
+    const glm::mat2x2& proj,
+    const glm::vec2 pixelScale)
+{
+    Rectf rs = rect * transform.Scale;
+    rs += proj * transform.Pos * pixelScale;
+    return rs;
+}
+
+} // namespace
+
 void
 Game::CheckPropCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
+
+    // Y flip the projected map coords to convert from map space +Y up/North to screen space +Y
+    // down.
+    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
@@ -365,20 +385,18 @@ Game::CheckPropCollisions()
     // Entity that was hit
     const Prop* propHit = nullptr;
 
-    const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
-        caretaker.GetTransform(),
-        proj,
-        cellPixPerSide);
+    const Rectf ctRect =
+        ProjectRect(ctSpriteFrame.GetCollisionBounds(), caretaker.GetTransform(), proj, pixelScale);
 
     const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
 
     for(const Prop& prop : m_Props)
     {
         const SpriteFrame& propSpriteFrame = prop.GetSpriteFrame();
-        const Rectf propRect = propSpriteFrame.GetScreenRect(propSpriteFrame.GetCollisionBounds(),
+        const Rectf propRect = ProjectRect(propSpriteFrame.GetCollisionBounds(),
             prop.GetTransform(),
             proj,
-            cellPixPerSide);
+            pixelScale);
 
         // FIXME(KB) - not needed if bot colliders only have one collision rect
         if(!ctRect.Intersects(propRect))
@@ -388,19 +406,15 @@ Game::CheckPropCollisions()
 
         for(const Rectf& ctColRect : ctCollisionRects)
         {
-            const Rectf ctBounds = ctSpriteFrame.GetScreenRect(ctColRect,
-                caretaker.GetTransform(),
-                proj,
-                cellPixPerSide);
+            const Rectf ctBounds =
+                ProjectRect(ctColRect, caretaker.GetTransform(), proj, pixelScale);
 
             const std::span<const Rectf> propCollisionRects = propSpriteFrame.GetCollisionRects();
 
             for(const Rectf& propColRect : propCollisionRects)
             {
-                const Rectf propBounds = propSpriteFrame.GetScreenRect(propColRect,
-                    prop.GetTransform(),
-                    proj,
-                    cellPixPerSide);
+                const Rectf propBounds =
+                    ProjectRect(propColRect, prop.GetTransform(), proj, pixelScale);
 
                 if(ctBounds.Intersects(propBounds))
                 {
@@ -450,7 +464,6 @@ Game::CheckPropCollisions()
 
     if(propHit)
     {
-        const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
         caretaker.MoveBy(collisionNormal * collisionDist / pixelScale);
         caretaker.OnPropHit(*this, *propHit);
     }
@@ -460,6 +473,10 @@ void
 Game::CheckLostSoulCollisions()
 {
     const float cellPixPerSide = static_cast<float>(m_Renderer->GetCellPixelsPerSide());
+
+    // Y flip the projected map coords to convert from map space +Y up/North to screen space +Y
+    // down.
+    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
     const glm::mat2x2& proj = m_Renderer->GetProjectionMatrix();
 
@@ -472,21 +489,18 @@ Game::CheckLostSoulCollisions()
     // Entity that was hit
     const LostSoul* lostSoulHit = nullptr;
 
-    const Rectf ctRect = ctSpriteFrame.GetScreenRect(ctSpriteFrame.GetCollisionBounds(),
-        caretaker.GetTransform(),
-        proj,
-        cellPixPerSide);
+    const Rectf ctRect =
+        ProjectRect(ctSpriteFrame.GetCollisionBounds(), caretaker.GetTransform(), proj, pixelScale);
 
     const std::span<const Rectf> ctCollisionRects = ctSpriteFrame.GetCollisionRects();
 
     for(const LostSoul& lostSoul : m_LostSouls)
     {
         const SpriteFrame& lostSoulSpriteFrame = lostSoul.GetSpriteFrame();
-        const Rectf lostSoulRect =
-            lostSoulSpriteFrame.GetScreenRect(lostSoulSpriteFrame.GetCollisionBounds(),
-                lostSoul.GetTransform(),
-                proj,
-                cellPixPerSide);
+        const Rectf lostSoulRect = ProjectRect(lostSoulSpriteFrame.GetCollisionBounds(),
+            lostSoul.GetTransform(),
+            proj,
+            pixelScale);
 
         // FIXME(KB) - not needed if bot colliders only have one collision rect
         if(!ctRect.Intersects(lostSoulRect))
@@ -496,20 +510,16 @@ Game::CheckLostSoulCollisions()
 
         for(const Rectf& ctColRect : ctCollisionRects)
         {
-            const Rectf ctBounds = ctSpriteFrame.GetScreenRect(ctColRect,
-                caretaker.GetTransform(),
-                proj,
-                cellPixPerSide);
+            const Rectf ctBounds =
+                ProjectRect(ctColRect, caretaker.GetTransform(), proj, pixelScale);
 
             const std::span<const Rectf> lostSoulCollisionRects =
                 lostSoulSpriteFrame.GetCollisionRects();
 
             for(const Rectf& lostSoulColRect : lostSoulCollisionRects)
             {
-                const Rectf lostSoulBounds = lostSoulSpriteFrame.GetScreenRect(lostSoulColRect,
-                    lostSoul.GetTransform(),
-                    proj,
-                    cellPixPerSide);
+                const Rectf lostSoulBounds =
+                    ProjectRect(lostSoulColRect, lostSoul.GetTransform(), proj, pixelScale);
 
                 if(ctBounds.Intersects(lostSoulBounds))
                 {

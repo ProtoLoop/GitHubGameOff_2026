@@ -60,20 +60,6 @@ SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
 {
 }
 
-Rectf
-SpriteFrame::GetScreenRect(const Rectf& rect,
-    const Transform2D& transform,
-    const glm::mat2x2& proj,
-    const float cellPixPerSide) const
-{
-    // Y flip when going from map space +Y up/north, to screen space +Y down.
-    const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
-
-    Rectf rs = (rect - GetPivot()) * transform.Scale;
-    rs += proj * transform.Pos * pixelScale;
-    return rs;
-}
-
 /// SpriteSequence
 
 SpriteFrameSequence::SpriteFrameSequence(const ResourceName& name,
