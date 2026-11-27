@@ -210,8 +210,6 @@ App::Update()
         m_Stage = Stage::Stopped;
     };
 
-    Input.Update();
-
     float value{};
     if(Input.IsTriggered(Input::ActionId::Quit, value))
     {
@@ -328,8 +326,6 @@ App::Run()
     const float deltaSec = static_cast<float>(deltaMs) / 1000.0f;
 
     GG_CHECKB(game.Tick(deltaSec), "Failed to tick game");
-
-    Input.Reset();
 
     GG_CHECKB(game.GetRenderer().Render(game.GetLevel()), "Failed to render level");
 

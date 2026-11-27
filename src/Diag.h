@@ -31,6 +31,9 @@ public:
     static void Log(
         const char* file, const int line, std::format_string<Args...> pattern, Args&&... args)
     {
+        static_assert((std::formattable<Args, char> && ...),
+            "All arguments must be formattable with std::format");
+
         using LogFunc = void (*)(int, const char*, ...);
 
         InstallLogOutputInterceptor();

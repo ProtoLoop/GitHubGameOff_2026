@@ -59,6 +59,9 @@ Tombstone::Tick(const float deltaTime, Game& game)
         case State::WaitingToSpawn:
             TickWaitingToSpawn(deltaTime, game);
             break;
+        case State::WaitingForCollection:
+            TickWaitingForCollection(deltaTime, game);
+            break;
         case State::WaitingForDropoff:
             TickWaitingForDropoff(deltaTime, game);
             break;
@@ -82,17 +85,45 @@ Tombstone::Render(Renderer& renderer) const
     SpriteFrame spriteFrame =
         m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle());
 
-    const float shimmer =
-        (std::cos(m_ShimmerCycle * 2.0f * std::numbers::pi_v<float> / kShimmerPeriod) + 1)
-        * 0.5f;
+    if(m_State == State::WaitingForCollection)
+    {
+        // Glow while waiting for collection
+        const glm::vec4 tint = spriteFrame.GetTint() + Colors::kEctoplasmGreen * 5.0f;
 
-    const glm::vec4 tint = spriteFrame.GetTint() + (Colors::kEctoplasmGreen * 5.0f * shimmer);
+        spriteFrame.SetTint(tint);
+    }
+    else if(m_State == State::WaitingForDropoff)
+    {
+        // Shimmer while waiting for dropoff
+        const float shimmer =
+            (std::cos(m_ShimmerCycle * 2.0f * std::numbers::pi_v<float> / kShimmerPeriod) + 1)
+            * 0.5f;
 
-    spriteFrame.SetTint(tint);
+        const glm::vec4 tint = spriteFrame.GetTint() + (Colors::kEctoplasmGreen * 5.0f * shimmer);
+
+        spriteFrame.SetTint(tint);
+    }
 
     GG_CHECKB(renderer.QueueSprite(spriteFrame, GetTransform()), "Failed to queue sprite");
 
     return Result<>::Ok;
+}
+
+void
+Tombstone::OnLostSoulCollected(Game& game,const EntityId GG_ASSERT_ONLY(lostSoulId))
+{
+    GG_ASSERT(State::WaitingForCollection == m_State);
+    GG_ASSERT(m_LostSoulId.has_value() && m_LostSoulId.value() == lostSoulId);
+
+    EnterWaitingForDropoff(game);
+}
+void
+Tombstone::OnLostSoulDroppedOff(Game& game, const EntityId GG_ASSERT_ONLY(lostSoulId))
+{
+    GG_ASSERT(State::WaitingForDropoff == m_State);
+    GG_ASSERT(m_LostSoulId.has_value() && *m_LostSoulId == lostSoulId);
+
+    EnterDormant(game);
 }
 
 // private:
@@ -116,6 +147,12 @@ Tombstone::EnterWaitingToSpawn(Game& game)
 }
 
 void
+Tombstone::EnterWaitingForCollection(Game& /*game*/)
+{
+    m_State = State::WaitingForCollection;
+}
+
+void
 Tombstone::EnterWaitingForDropoff(Game& /*game*/)
 {
     m_State = State::WaitingForDropoff;
@@ -135,8 +172,8 @@ Tombstone::TickWaitingToSpawn(const float /*deltaTime*/, Game& game)
     {
         Transform2D transform = GetTransform();
         transform.Pos.y -= kLostSoulSpawnOffsetY;
-        transform.Scale = 1;    //FIXME(KB) - get the scale from the lost soul actor type definition.
-        auto entityIdResult = game.QueueSpawnLostSoul(transform);
+        transform.Scale = 1; // FIXME(KB) - get the scale from the lost soul actor type definition.
+        auto entityIdResult = game.QueueSpawnLostSoul(transform, GetEntityId());
         if(!GG_VERIFYB(entityIdResult, "Failed to spawn lost soul"))
         {
             // Try again
@@ -150,12 +187,17 @@ Tombstone::TickWaitingToSpawn(const float /*deltaTime*/, Game& game)
 
         m_LostSoulId = *entityIdResult;
 
-        EnterWaitingForDropoff(game);
+        EnterWaitingForCollection(game);
     }
 }
 
 void
 Tombstone::TickWaitingForDropoff(const float /*deltaTime*/, Game& /*game*/)
+{
+}
+
+void
+Tombstone::TickWaitingForCollection(const float /*deltaTime*/, Game& /*game*/)
 {
 }
 

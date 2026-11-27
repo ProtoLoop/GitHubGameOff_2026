@@ -17,6 +17,8 @@ public:
         RotateLeft,
         RotateRight,
 
+        DebugDraw,
+
         NumStates
     };
 

@@ -57,6 +57,12 @@ constexpr Input::KeyMapping const KeyMappings[] //
             .Trigger = Input::Trigger::Held,
             .Value = 1,
         },
+        {
+            .Key = SDL_SCANCODE_F1,
+            .Action = Input::ActionId::DebugDraw,
+            .Trigger = Input::Trigger::Pressed,
+            .Value = 1,
+        },
     };
 
 constexpr Input::MouseButtonMapping const MouseButtonMappings[] //

@@ -213,6 +213,8 @@ public:
 
     LostSoul* TryGetLostSoul(const EntityId entityId);
 
+    Tombstone* TryGetTombstone(const EntityId entityId);
+
     Random& GetEntityRng() { return m_EntityRng; }
 
     Result<EntityId> QueueSpawnCaretaker(const Transform2D& transform);
@@ -223,11 +225,15 @@ public:
     Result<EntityId> QueueSpawnTombstone(const std::string_view spriteName,
         const Transform2D& transform);
 
-    Result<EntityId> QueueSpawnLostSoul(const Transform2D& transform);
+    Result<EntityId> QueueSpawnLostSoul(const Transform2D& transform,
+        const EntityId tombstoneEntityId);
 
     Result<> QueueDespawn(const EntityId entityId);
 
     Result<> Tick(const float deltaTime);
+
+    /// Toggle debug drawing.
+    void ToggleDebugDraw();
 
     bool IsRunning() const { return m_Stage == Stage::Running; }
 
@@ -303,4 +309,6 @@ private:
     static constexpr uint64_t EntityRngSeed = 42;
     static constexpr uint64_t EntityRngStream = 54;
     Random m_EntityRng{ EntityRngSeed, EntityRngStream };
+
+    bool m_DebugDraw{ false };
 };

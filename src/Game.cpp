@@ -2,13 +2,9 @@
 
 #include "AudioPlayer.h"
 #include "Defer.h"
+#include "Input.h"
 #include "Renderer.h"
 #include "ResourceDefs.h"
-
-namespace
-{
-constexpr bool kDrawRectangles = false;
-} // namespace
 
 Game::Game(Input& input,
     std::unique_ptr<Level>&& level,
@@ -95,6 +91,19 @@ Game::TryGetLostSoul(const EntityId entityId)
     return nullptr;
 }
 
+Tombstone*
+Game::TryGetTombstone(const EntityId entityId)
+{
+    for(Tombstone& ts : m_Tombstones)
+    {
+        if(ts.GetEntityId() == entityId)
+        {
+            return &ts;
+        }
+    }
+    return nullptr;
+}
+
 Result<EntityId>
 Game::QueueSpawnCaretaker(const Transform2D& transform)
 {
@@ -151,11 +160,11 @@ Game::QueueSpawnTombstone(const std::string_view spriteName, const Transform2D& 
 }
 
 Result<EntityId>
-Game::QueueSpawnLostSoul(const Transform2D& transform)
+Game::QueueSpawnLostSoul(const Transform2D& transform, const EntityId tombstoneEntityId)
 {
     GG_CHECKB(m_LostSouls.size() < m_LostSouls.capacity(), "Maximum number of lost souls reached");
 
-    GG_TRYB(lostSoul, LostSoul::Create(*this), "Failed to create lost soul");
+    GG_TRYB(lostSoul, LostSoul::Create(*this, tombstoneEntityId), "Failed to create lost soul");
     lostSoul.SetTransform(transform);
 
     const EntityId entityId = lostSoul.GetEntityId();
@@ -223,8 +232,10 @@ Game::Tick(const float deltaTime)
 
     while(m_TimeAccum >= kFrameDuration)
     {
+        m_Input->Update();
         m_TimeAccum -= kFrameDuration;
         GG_CHECK(TickEntities(kFrameDuration));
+        m_Input->Reset();
     }
 
     CheckCollisions();
@@ -238,6 +249,12 @@ Game::Tick(const float deltaTime)
     GG_CHECK(m_AudioPlayer.Tick(deltaTime));
 
     return Result<>::Ok;
+}
+
+void
+Game::ToggleDebugDraw()
+{
+    m_DebugDraw = !m_DebugDraw;
 }
 
 // private:
@@ -343,7 +360,7 @@ Game::Render()
     {
         GG_CHECK(renderable.Render(renderer));
 
-        if(kDrawRectangles)
+        if(m_DebugDraw)
         {
             const SpriteFrame& spriteFrame = renderable.GetSpriteFrame();
             const Transform2D& transform = renderable.GetTransform();

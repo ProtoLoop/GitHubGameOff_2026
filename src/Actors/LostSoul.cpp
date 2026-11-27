@@ -23,14 +23,15 @@ constexpr const std::string_view kSpriteName_hover{"SH_Hover"};
 
 } // namespace
 
-LostSoul::LostSoul(const Sprites& sprites)
-    : m_Sprites(sprites),
+LostSoul::LostSoul(const Sprites& sprites, const EntityId tombstoneEntityId)
+    : m_TombstoneId(tombstoneEntityId),
+      m_Sprites(sprites),
       m_CurSprite(m_Sprites.Hover)
 {
 }
 
 Result<LostSoul>
-LostSoul::Create(Game& game)
+LostSoul::Create(Game& game, const EntityId tombstoneEntityId)
 {
     const Level& level = game.GetLevel();
 
@@ -39,7 +40,7 @@ LostSoul::Create(Game& game)
         "Failed to create sprite instance for {}",
         kSpriteName_hover);
 
-    return LostSoul(Sprites{ .Hover = hoverSprite });
+    return LostSoul(Sprites{ .Hover = hoverSprite }, tombstoneEntityId);
 }
 
 Result<>

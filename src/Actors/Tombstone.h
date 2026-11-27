@@ -41,10 +41,11 @@ public:
     Transform2D& GetTransform() { return m_Transform; }
     const Transform2D& GetTransform() const { return m_Transform; }
 
-    bool IsTombstoneFor(const EntityId lostSoulId) const
-    {
-        return m_LostSoulId.has_value() && m_LostSoulId.value() == lostSoulId;
-    }
+    /// Called by the caretaker when a lost soul associated with this tombstone is collected.
+    void OnLostSoulCollected(Game& game, const EntityId lostSoulId);
+
+    /// Called by the caretaker when a lost soul associated with this tombstone is dropped off.
+    void OnLostSoulDroppedOff(Game& game, const EntityId lostSoulId);
 
 private:
 
@@ -52,6 +53,7 @@ private:
     {
         Init,
         WaitingToSpawn,
+        WaitingForCollection,
         WaitingForDropoff,
         Dormant,
     };
@@ -64,10 +66,12 @@ private:
     explicit Tombstone(const Sprite::Instance& curSprite, const AudioClips& audioClips);
 
     void EnterWaitingToSpawn(Game& game);
+    void EnterWaitingForCollection(Game& game);
     void EnterWaitingForDropoff(Game& game);
     void EnterDormant(Game& game);
 
     void TickWaitingToSpawn(const float deltaTime, Game& game);
+    void TickWaitingForCollection(const float deltaTime, Game& game);
     void TickWaitingForDropoff(const float deltaTime, Game& game);
     void TickDormant(const float deltaTime, Game& game);
 

@@ -1,5 +1,6 @@
 #include "Caretaker.h"
 
+#include "Actors/Tombstone.h"
 #include "AudioPlayer.h"
 #include "Game.h"
 #include "Input.h"
@@ -21,7 +22,7 @@ constexpr const std::string_view kSpriteName_Idle{ "Warrior_Idle" };
 constexpr const std::string_view kSpriteName_Run{ "Warrior_Run" };
 
 constexpr const std::string_view kAudioClipName_LostSoulCollect{ "LostSoulCollect" };
-
+constexpr const std::string_view kAudioClipName_LostSoulDropoff{ "LostSoulDropoff" };
 } // namespace
 
 Caretaker::Caretaker(const Sprites& sprites, const AudioClips& audioClips)
@@ -49,11 +50,18 @@ Caretaker::Create(Game& game)
 
     GG_TRY(clipLostSoulCollect,
         level.GetAudioClip(kAudioClipName_LostSoulCollect),
-        "Failed to load audio clip: {}", kAudioClipName_LostSoulCollect);
+        "Failed to load audio clip: {}",
+        kAudioClipName_LostSoulCollect);
+
+    GG_TRY(clipLostSoulDropoff,
+        level.GetAudioClip(kAudioClipName_LostSoulDropoff),
+        "Failed to load audio clip: {}",
+        kAudioClipName_LostSoulDropoff);
 
     const AudioClips audioClips //
         {
             .LostSoulCollect = &clipLostSoulCollect,
+            .LostSoulDropoff = &clipLostSoulDropoff,
         };
 
     return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite }, audioClips);
@@ -99,6 +107,10 @@ Caretaker::Tick(const float deltaTime, Game& game)
         m_Velocity -= forward * value * kMoveSpeed;
         isMoving = true;
     }
+    if(input.IsTriggered(Input::ActionId::DebugDraw, value))
+    {
+        game.ToggleDebugDraw();
+    }
 
     MoveBy(m_Velocity * deltaTime);
 
@@ -134,13 +146,43 @@ Caretaker::Render(Renderer& renderer) const
 }
 
 void
-Caretaker::OnCollided(
-    Game& game, const EntityId entityId, const glm::vec2& /*collisionNormal*/, const float /*penDepth*/)
+Caretaker::OnCollided(Game& game,
+    const EntityId entityId,
+    const glm::vec2& /*collisionNormal*/,
+    const float /*penDepth*/)
 {
-    const LostSoul* ls = game.TryGetLostSoul(entityId);
-
-    if(ls)
+    // If collided with the tombstone that owns our lost soul then drop it off.
+    if(m_TombstoneId.has_value() && entityId == m_TombstoneId.value())
     {
+        // Notify the tombstone that its lost soul has been dropped off.
+        Tombstone* ts = game.TryGetTombstone(entityId);
+        if(GG_VERIFYB(ts, "Failed to get tombstone for lost soul"))
+        {
+            ts->OnLostSoulDroppedOff(game, *m_LostSoulId);
+        }
+
+        // Play the dropoff sound.
+        if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulDropoff))
+        {
+            GG_ERROR("Failed to play audio clip: {} - {}",
+                m_AudioClips.LostSoulDropoff->GetName(),
+                SDL_GetError());
+        }
+        m_LostSoulId.reset();
+        m_TombstoneId.reset();
+    }
+    else if(!m_LostSoulId.has_value())
+    {
+        // If collided with a lost soul and we are not already carrying one, attempt to collect it.
+
+        const LostSoul* ls = game.TryGetLostSoul(entityId);
+
+        if(!ls)
+        {
+            return;
+        }
+
+        // Play the collection sound.
         if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect))
         {
             GG_ERROR("Failed to play audio clip: {} - {}",
@@ -148,11 +190,21 @@ Caretaker::OnCollided(
                 SDL_GetError());
         }
 
-        if(!game.QueueDespawn(entityId))
+        // Despawn the lost soul.
+        if(!GG_VERIFYB(game.QueueDespawn(entityId), "Failed to queue despawn for lost soul"))
         {
-            GG_ERROR("Failed to despawn lost soul");
+            return;
         }
 
-        ++m_LostSoulsCollected;
+        // Notify the tombstone that its lost soul has been collected.
+        Tombstone* ts = game.TryGetTombstone(ls->GetTombstoneId());
+        if(!GG_VERIFYB(ts, "Failed to get tombstone for lost soul"))
+        {
+            return;
+        }
+
+        m_LostSoulId = entityId;
+        m_TombstoneId = ts->GetEntityId();
+        ts->OnLostSoulCollected(game, *m_LostSoulId);
     }
 }

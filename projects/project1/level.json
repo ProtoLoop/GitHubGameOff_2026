@@ -126,7 +126,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -136,7 +136,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -146,7 +146,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -156,7 +156,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -206,7 +206,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -216,7 +216,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -226,7 +226,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0.75,"w":1,"h":0.25}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -236,7 +236,7 @@
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
       "collisionRects": [
-        {"x":0,"y":0,"w":1,"h":1}
+        {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
@@ -886,12 +886,13 @@
   ],
   "extensions": {
     "audioClips": [
-      {"name":"LostSoulCollect","filePath":"/audio/dragon-studio-whoosh-09-410876.mp3"},
+      {"name":"LostSoulCollect","filePath":"/audio/dragon-studio-christmas-twinkle-effect-451850.mp3"},
+      {"name":"LostSoulDropoff","filePath":"/audio/u_jt9vdte8nd-magic-church-bell-293423.mp3"},
       {"name":"LostSoulSpawn","filePath":"/audio/dragon-studio-simple-whoosh-02-433006.mp3"}
     ]
   },
   "editor": {
     "activeLayer": 1,
-    "view": {"zoom":1.0266431078142266,"scrollLeft":1552,"scrollTop":1760,"showGrid":false}
+    "view": {"zoom":1.0266431078142266,"scrollLeft":1647.5,"scrollTop":1641.5,"showGrid":false}
   }
 }

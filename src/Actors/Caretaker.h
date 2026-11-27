@@ -57,6 +57,7 @@ private:
     struct AudioClips
     {
         const AudioClip* LostSoulCollect;
+        const AudioClip* LostSoulDropoff;
     };
 
     Caretaker(const Sprites& sprites, const AudioClips& audioClips);
@@ -71,5 +72,8 @@ private:
     Sprite::Instance m_CurSprite;
     float m_CurSpritePeriod;
 
-    uint32_t m_LostSoulsCollected{ 0 };
+    // The ID of the lost soul currently being carried by the caretaker, if any.
+    std::optional<EntityId> m_LostSoulId;
+    // The ID of the tombstone associated with the lost soul being carried, if any.
+    std::optional<EntityId> m_TombstoneId;
 };
