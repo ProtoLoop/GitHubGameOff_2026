@@ -239,6 +239,9 @@ SpriteSequenceLoader::Take()
             colRect = Rectf(colRect.Origin() * spriteSizeVec, colRect.Size() * spriteSizeVec);
         }
 
+        // Convert pivot from normalized coordinates to pixel coordinates based on the sprite size.
+        seq.m_Pivot *= spriteSizeVec;
+
         // Create a new sequence and replace the old one.
         SpriteFrameSequence newSeq(seq.GetName(),
             bindGroup,

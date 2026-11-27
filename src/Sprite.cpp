@@ -1,6 +1,7 @@
 #include "Sprite.h"
 
 #include "Angle.h"
+#include "Transform2D.h"
 
 namespace
 {
@@ -61,19 +62,16 @@ SpriteFrame::SpriteFrame(wgpu::BindGroup bindGroup,
 
 Rectf
 SpriteFrame::GetScreenRect(const Rectf& rect,
-    const glm::vec2& cellXY,
-    const float scale,
-    const glm::mat2x2 proj,
+    const Transform2D& transform,
+    const glm::mat2x2& proj,
     const float cellPixPerSide) const
 {
     // Y flip when going from map space +Y up/north, to screen space +Y down.
     const glm::vec2 pixelScale = glm::vec2(1, -1) * cellPixPerSide;
 
-    const Rectf rs = rect * scale;
-    const glm::vec2 pivot = GetPivot() * glm::vec2(GetSize()) * scale;
-    const glm::vec2 origin = rs.Origin() + ((proj * cellXY * pixelScale) - pivot);
-
-    return Rectf(origin, rs.Size());
+    Rectf rs = (rect - GetPivot()) * transform.Scale;
+    rs += proj * transform.Pos * pixelScale;
+    return rs;
 }
 
 /// SpriteSequence

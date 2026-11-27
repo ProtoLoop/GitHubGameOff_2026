@@ -525,8 +525,7 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
         spriteState.cellXY = rec.Transform.Pos;
 
-        spriteState.pivot.x = spriteFrame.GetPivot().x;
-        spriteState.pivot.y = spriteFrame.GetPivot().y;
+        spriteState.pivot = spriteFrame.GetPivot();
 
         spriteState.tint = spriteFrame.GetTint();
 

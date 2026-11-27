@@ -5,7 +5,7 @@ struct VSOut
     @location(0)       uv  : vec2<f32>,
     @location(1)       brectUV : vec2f, // Used to draw bounding rectangle
     @location(2)       tint : vec4<f32>,
-    @location(3)       pivot : vec2<f32>,
+    @location(3)       normPivot : vec2<f32>,   // Normalized pivot within the sprite frame (0,0) top-left, (1,1) bottom-right.
 };
 
 struct CellMapParams
@@ -19,7 +19,7 @@ struct CellMapParams
 struct SpriteState
 {
     cellXY: vec2f,  // World-cell position of the sprite’s pivot.
-    pivot: vec2f,   // Normalized position within the sprite frame, with (0,0) top-left and (1,1) bottom-right.
+    pivot: vec2f,   // Pivot point within the sprite frame in frame local pixels.  0,0 is top-left.
     tint : vec4f,   // Linear RGBA tint.
     srcRect: vec4f, // Source rectangle in texture pixels, before scaling.
     scale : f32,    // Uniform scale applied to image offsets and dimensions.
@@ -57,7 +57,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let sprite = spriteStates[spriteId];
 
     // Apply the pivot in Y-down sprite coordinates, then convert the offset to Y-up screen space.
-    let spriteVtx = (spriteVerts[vid] - sprite.pivot) * vec2f(1.0, -1.0);
+    let spriteVtx = ((spriteVerts[vid] * sprite.srcRect.zw) - sprite.pivot) * vec2f(1.0, -1.0);
 
     // The camera is rounded in projected logical pixels.
     // Matching this in the tile map shader keeps camera movement consistent across shaders
@@ -68,7 +68,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let worldPixels = cellMapParams.proj * sprite.cellXY * f32(cellPixelsPerSide);
 
     // Position of the vertex (corner of the sprite) in screen space.
-    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.srcRect.zw * sprite.scale;
+    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.scale;
     
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 
@@ -83,7 +83,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
         uv,             // uv
         spriteVerts[vid],  // brectUV
         sprite.tint,   // tint
-        sprite.pivot    // pivot
+        sprite.pivot / sprite.srcRect.zw    // normalized pivot
     );
 }
 
@@ -107,7 +107,7 @@ fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
 fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 {
     let pixelUV = max(fwidth(i.brectUV), vec2f(0.000001));
-    let distance = abs(i.brectUV - i.pivot) / pixelUV;
+    let distance = abs(i.brectUV - i.normPivot) / pixelUV;
 
     let onCross =
         (distance.x < 6.0 && distance.y < 1.0) ||

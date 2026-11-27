@@ -13,6 +13,8 @@
 #include <span>
 #include <webgpu/webgpu_cpp.h>
 
+class Transform2D;
+
 /// A lightweight representation of a sprite frame within a texture atlas.
 /// Intended to be constructed on the fly and returned by value.
 class SpriteFrame
@@ -36,7 +38,8 @@ public:
     /// Returns the bounding rectangle that encompasses all the collision rectangles.
     const Rectf& GetCollisionBounds() const { return m_CollisionBounds; }
 
-    /// Returns the pivot point within the sprite's rectangle.
+    /// Returns the pivot point within the sprite's rectangle in frame local pixels.
+    /// 0,0 is the top-left corner of the sprite frame.
     const glm::vec2& GetPivot() const { return m_Pivot; }
 
     /// Sets the color tint for the sprite.
@@ -47,9 +50,8 @@ public:
     const glm::vec4& GetTint() const { return m_Tint; }
 
     Rectf GetScreenRect(const Rectf& rect,
-        const glm::vec2& cellXY,
-        const float scale,
-        const glm::mat2x2 proj,
+        const Transform2D& transform,
+        const glm::mat2x2& proj,
         const float cellPixPerSide) const;
 
 private:
@@ -92,6 +94,8 @@ public:
     /// Returns the color tint for the sprite sequence.
     const glm::vec4& GetTint() const { return m_Tint; }
 
+    /// Returns the pivot point within the sprite's rectangle in frame local pixels.
+    /// 0,0 is the top-left corner of the sprite frame.
     const glm::vec2& GetPivot() const { return m_Pivot; }
 
     /// Returns the sprite frame at the specified index within the sequence.
