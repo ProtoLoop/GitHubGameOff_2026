@@ -511,8 +511,9 @@ The ownership choices are recorded in
 [Deferred entity changes and borrowed registries](architecture/decisions.md#deferred-entity-changes-and-borrowed-registries),
 and [Level-owned audio resources and game-owned playback](architecture/decisions.md#level-owned-audio-resources-and-game-owned-playback).
 
-Rendering uses an 800×600 logical canvas, scaled to fit the window while
-preserving its aspect ratio. Unused space forms black borders.
+Rendering uses a 1536×1152 logical canvas and a default 1024×768 window. The
+canvas scales to fit the window while preserving its aspect ratio. Unused space
+forms black borders.
 
 The browser build is single-threaded, with SDL pthread support disabled and
 WebAssembly memory growth enabled.

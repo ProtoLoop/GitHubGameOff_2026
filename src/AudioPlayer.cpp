@@ -67,26 +67,81 @@ AudioPlayer::GetMixer() const
     return *m_Mixer;
 }
 
-Result<>
-AudioPlayer::Play(const AudioClip& clip)
+Result<AudioPlayer::TrackId>
+AudioPlayer::Play(const AudioClip& clip, const PlayParams& params)
 {
     GG_CHECKB(!m_TrackPool.empty(), "No available tracks to play");
 
-    TrackInfo& trackInfo = m_TrackPool.back();
+    TrackInfo* trackInfo = &m_TrackPool.back();
 
-    GG_CHECKB(MIX_SetTrackAudio(trackInfo.m_TrackPtr.get(), clip.GetAudio()),
+    GG_CHECKB(MIX_SetTrackAudio(trackInfo->m_TrackPtr.get(), clip.GetAudio()),
         "Error setting track audio: {}",
         SDL_GetError());
 
-    GG_CHECKB(MIX_PlayTrack(trackInfo.m_TrackPtr.get(), 0),
+    GG_CHECKB(MIX_SetTrackGain(trackInfo->m_TrackPtr.get(), params.Gain),
+        "Error setting track gain: {}", SDL_GetError());
+
+    GG_CHECKB(MIX_PlayTrack(trackInfo->m_TrackPtr.get(), 0),
         "Error playing track: {}",
         SDL_GetError());
 
-    m_Playing.emplace_back(std::move(trackInfo));
+    ++trackInfo->m_TrackId.m_Generation;
+
+    trackInfo = &m_Playing.emplace_back(std::move(*trackInfo));
 
     m_TrackPool.pop_back();
 
-    return Result<>::Ok;
+    return trackInfo->m_TrackId;
+}
+
+Result<AudioPlayer::TrackId>
+AudioPlayer::Loop(const AudioClip& clip, const PlayParams& params)
+{
+    GG_CHECKB(!m_TrackPool.empty(), "No available tracks to play");
+
+    TrackInfo* trackInfo = &m_TrackPool.back();
+
+    GG_CHECKB(MIX_SetTrackAudio(trackInfo->m_TrackPtr.get(), clip.GetAudio()),
+        "Error setting track audio: {}",
+        SDL_GetError());
+
+    const SDL_PropertiesID options = SDL_CreateProperties();
+    GG_CHECKB(options, "Error creating SDL properties: {}", SDL_GetError());
+
+    auto cleanup = GG_DEFER
+    {
+        SDL_DestroyProperties(options);
+    };
+
+    GG_CHECKB(SDL_SetNumberProperty(options, MIX_PROP_PLAY_LOOPS_NUMBER, -1),
+        "Error setting loop property: {}", SDL_GetError());
+
+    GG_CHECKB(MIX_SetTrackGain(trackInfo->m_TrackPtr.get(), params.Gain),
+        "Error setting track gain: {}", SDL_GetError());
+
+    GG_CHECKB(MIX_PlayTrack(trackInfo->m_TrackPtr.get(), options),
+        "Error playing track: {}", SDL_GetError());
+
+    ++trackInfo->m_TrackId.m_Generation;
+
+    trackInfo = &m_Playing.emplace_back(std::move(*trackInfo));
+
+    m_TrackPool.pop_back();
+
+    return trackInfo->m_TrackId;
+}
+
+void
+AudioPlayer::Stop(const TrackId trackId)
+{
+    for(const TrackInfo& trackInfo : m_Playing)
+    {
+        if(trackInfo.m_TrackId == trackId)
+        {
+            MIX_StopTrack(trackInfo.m_TrackPtr.get(), 0);
+            break;
+        }
+    }
 }
 
 Result<>

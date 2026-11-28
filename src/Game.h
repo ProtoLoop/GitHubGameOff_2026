@@ -14,6 +14,7 @@
 class Input;
 class Renderer;
 class AudioPlayer;
+class AmbientAudio;
 struct LevelDef;
 
 /// Type-erased wrapper for renderable objects that provides a uniform interface for rendering,
@@ -185,11 +186,11 @@ public:
     static constexpr float kMaxDeltaTime = 0.25f;
 
     Game() = delete;
-    ~Game() = default;
+    ~Game();
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
-    Game(Game&&) = default;
-    Game& operator=(Game&&) = default;
+    Game(Game&&) noexcept;
+    Game& operator=(Game&&) noexcept;
 
     static Result<Game> Create(Input& input,
         const LevelDef& levelDef,
@@ -289,7 +290,11 @@ private:
     std::unique_ptr<Renderer> m_Renderer;
     AudioPlayer m_AudioPlayer;
 
+    // Keep the single caretaker in stable storage so move operations do not invalidate references.
     BoundedVector<Caretaker> m_Caretakers{ kMaxCareTakers };
+
+    std::unique_ptr<AmbientAudio> m_AmbientAudio;
+
     BoundedVector<Prop> m_Props{ kMaxProps };
     BoundedVector<LostSoul> m_LostSouls{ kMaxLostSouls };
     BoundedVector<Tombstone> m_Tombstones{ kMaxTombstones };

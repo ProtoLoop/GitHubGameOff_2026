@@ -50,6 +50,8 @@ const cellUVs = array<vec2f, 6>(
     vec2f(0.0, 1.0)
 );
 
+const ambient : vec4f = vec4f(0.3, 0.3, 0.3, 1);
+
 // lowbias32 hash function for generating pseudo-random numbers from a 32-bit integer input.
 fn hash(value: u32) -> u32
 {
@@ -166,6 +168,7 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4f
     //p = vec4f(vec3f(alpha), 1.0);
     p.a = select(1.0, alpha, i.texLayer > 0u);
     //p = drawBoundingRect(i.brectUV, p);
+    p *= ambient;
     return p;
 }
 
@@ -179,7 +182,9 @@ fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4f
     //p = vec4f(vec3f(alpha), 1.0);
     p.a = select(1.0, alpha, i.texLayer > 0u);
     //p = drawBoundingRect(i.brectUV, p);
-    return linear_to_srgb(p);
+    p *= ambient;
+    p = linear_to_srgb(p);
+    return p;
 }
 
 // Generates repeatable values for the four grid corners.

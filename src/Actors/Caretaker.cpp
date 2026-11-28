@@ -6,6 +6,7 @@
 #include "Input.h"
 #include "Renderer.h"
 
+#include <iterator>
 #include <string_view>
 
 namespace
@@ -23,6 +24,22 @@ constexpr const std::string_view kSpriteName_Run{ "Warrior_Run" };
 
 constexpr const std::string_view kAudioClipName_LostSoulCollect{ "LostSoulCollect" };
 constexpr const std::string_view kAudioClipName_LostSoulDropoff{ "LostSoulDropoff" };
+
+constexpr const std::string_view kAudioClipName_Footsteps[]//
+{
+    "Footstep1",
+    "Footstep2",
+    "Footstep3",
+    "Footstep4",
+    "Footstep5",
+    "Footstep6"
+};
+
+constexpr AudioPlayer::PlayParams kAudioPlayParams //
+    {
+        .Gain = 0.5f,
+    };
+
 } // namespace
 
 Caretaker::Caretaker(const Sprites& sprites, const AudioClips& audioClips)
@@ -58,11 +75,22 @@ Caretaker::Create(Game& game)
         "Failed to load audio clip: {}",
         kAudioClipName_LostSoulDropoff);
 
-    const AudioClips audioClips //
+    AudioClips audioClips //
         {
             .LostSoulCollect = &clipLostSoulCollect,
             .LostSoulDropoff = &clipLostSoulDropoff,
         };
+
+    static_assert(std::size(kAudioClipName_Footsteps) == std::size(audioClips.Footsteps));
+
+    for(size_t i = 0; i < Caretaker::kFootstepAudioClipCount; ++i)
+    {
+        GG_TRY(clipFootstep,
+            level.GetAudioClip(kAudioClipName_Footsteps[i]),
+            "Failed to load audio clip: {}",
+            kAudioClipName_Footsteps[i]);
+        audioClips.Footsteps[i] = &clipFootstep;
+    }
 
     return Caretaker(Sprites{ .Idle = idleSprite, .Run = runSprite }, audioClips);
 }
@@ -123,9 +151,30 @@ Caretaker::Tick(const float deltaTime, Game& game)
         m_CurSpritePeriod = isMoving ? kAnimPeriod_Run : kAnimPeriod_Idle;
     }
 
+    const float phase0 = m_CurSprite.GetPhase();
+
     m_CurSprite.SetPeriod(m_CurSpritePeriod);
     m_CurSprite.SetAngle(GetRot());
     m_CurSprite.Tick(deltaTime);
+
+    const float phase1 = m_CurSprite.GetPhase();
+
+    if(isMoving)
+    {
+        // Play a footstep sound if the animation phase crosses a contact point.
+        for(const float contact : { 0.25f, 0.75f })
+        {
+            const bool crossed = phase1 >= phase0
+                ? (phase0 < contact && contact <= phase1)
+                : (phase0 < contact || contact <= phase1); // Cycle wrapped from 1 to 0
+
+            if(crossed)
+            {
+                PlayFootstep(game);
+                break;
+            }
+        }
+    }
 
     return Result<>::Ok;
 }
@@ -162,12 +211,10 @@ Caretaker::OnCollided(Game& game,
         }
 
         // Play the dropoff sound.
-        if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulDropoff))
-        {
-            GG_ERROR("Failed to play audio clip: {} - {}",
-                m_AudioClips.LostSoulDropoff->GetName(),
-                SDL_GetError());
-        }
+        GG_VERIFYB(game.GetAudioPlayer().Play(*m_AudioClips.LostSoulDropoff, kAudioPlayParams),
+            "Failed to play audio clip: {}",
+            m_AudioClips.LostSoulDropoff->GetName());
+
         m_LostSoulId.reset();
         m_TombstoneId.reset();
     }
@@ -183,12 +230,9 @@ Caretaker::OnCollided(Game& game,
         }
 
         // Play the collection sound.
-        if(!game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect))
-        {
-            GG_ERROR("Failed to play audio clip: {} - {}",
-                m_AudioClips.LostSoulCollect->GetName(),
-                SDL_GetError());
-        }
+        GG_VERIFYB(game.GetAudioPlayer().Play(*m_AudioClips.LostSoulCollect, kAudioPlayParams),
+            "Failed to play audio clip: {}",
+            m_AudioClips.LostSoulCollect->GetName());
 
         // Despawn the lost soul.
         if(!GG_VERIFYB(game.QueueDespawn(entityId), "Failed to queue despawn for lost soul"))
@@ -206,5 +250,42 @@ Caretaker::OnCollided(Game& game,
         m_LostSoulId = entityId;
         m_TombstoneId = ts->GetEntityId();
         ts->OnLostSoulCollected(game, *m_LostSoulId);
+    }
+}
+
+// private:
+
+void
+Caretaker::PlayFootstep(Game& game)
+{
+    game.GetAudioPlayer().Stop(m_FootstepTrackId);
+
+    const uint32_t numClips = static_cast<uint32_t>(std::size(m_AudioClips.Footsteps));
+
+    constexpr int kMaxAttempts = 3;
+
+    // Try to select a footstep audio clip that is different from the last one played.
+    for(int i = 0; i < kMaxAttempts; ++i)
+    {
+        const uint32_t clipIndex = game.GetEntityRng().NextBelow(numClips);
+
+        if(i < kMaxAttempts - 1 && clipIndex == m_LastFootstepIndex)
+        {
+            continue;
+        }
+
+        m_LastFootstepIndex = clipIndex;
+
+        const auto trackIdResult =
+            game.GetAudioPlayer().Play(*m_AudioClips.Footsteps[clipIndex], kAudioPlayParams);
+
+        if(GG_VERIFYB(trackIdResult,
+               "Failed to play audio clip: {}",
+               m_AudioClips.Footsteps[clipIndex]->GetName()))
+        {
+            m_FootstepTrackId = *trackIdResult;
+        }
+
+        break;
     }
 }

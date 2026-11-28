@@ -51,6 +51,7 @@ LostSoul::Tick(const float deltaTime, Game& game)
         case State::Init:
             EnterFlashSpawn(game);
             m_CurSprite.SetPhase(game.GetEntityRng().NextFloat());
+            RotateTo(Angle(game.GetEntityRng().NextFloat()));
             break;
         case State::FlashSpawn:
             TickFlashSpawn(deltaTime, game);
@@ -189,7 +190,7 @@ LostSoul::TickFadingIn(const float /*deltaTime*/, Game& game)
 {
     if(m_Timer.IsExpired())
     {
-        EnterIdle(game);
+        EnterMoving(game);
         return;
     }
 }

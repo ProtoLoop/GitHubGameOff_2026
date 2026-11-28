@@ -29,22 +29,22 @@ public:
     Random(const uint64_t seed, const uint64_t stream);
 
     /// Returns the next 32-bit unsigned integer in the sequence.
-    uint32_t NextU32();
+    [[nodiscard]] uint32_t NextU32();
 
     /// Returns an unbiased integer in [0, bound). bound must be greater than zero.
-    uint32_t NextBelow(const uint32_t bound);
+    [[nodiscard]] uint32_t NextBelow(const uint32_t bound);
 
     /// Returns an integer in [min, max], inclusive.
-    uint32_t NextInRange(const uint32_t min, const uint32_t max);
+    [[nodiscard]] uint32_t NextInRange(const uint32_t min, const uint32_t max);
 
     /// Returns a float in [0, 1).
-    float NextFloat();
+    [[nodiscard]] float NextFloat();
 
     /// Returns a float in [min, max).
-    float NextInRange(const float min, const float max);
+    [[nodiscard]] float NextInRange(const float min, const float max);
 
     /// Returns true with the given probability in [0, 1].
-    bool NextBool(const float probability);
+    [[nodiscard]] bool NextBool(const float probability);
 
 private:
     uint64_t m_State{ 0 };

@@ -624,7 +624,17 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget,
 
     renderPass.SetViewport(vpX, vpY, vpW, vpH, 0.0f, 1.0f);
 
-    renderPass.SetScissorRect(0, 0, renderTarget.GetWidth(), renderTarget.GetHeight());
+    const float fleft = std::floor(vpX);
+    const float ftop = std::floor(vpY);
+    const float fright = std::ceil(vpX + vpW);
+    const float fbottom = std::ceil(vpY + vpH);
+
+    const uint32_t left = static_cast<uint32_t>(std::max(fleft, 0.0f));
+    const uint32_t top = static_cast<uint32_t>(std::max(ftop, 0.0f));
+    const uint32_t right = static_cast<uint32_t>(std::min(fright, rtW));
+    const uint32_t bottom = static_cast<uint32_t>(std::min(fbottom, rtH));
+
+    renderPass.SetScissorRect(left, top, right - left, bottom - top);
 
     return Result<>::Ok;
 }

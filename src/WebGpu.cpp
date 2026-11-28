@@ -306,8 +306,8 @@ CreateSampler(const wgpu::Device& gpuDevice)
             .addressModeU = wgpu::AddressMode::ClampToEdge,
             .addressModeV = wgpu::AddressMode::ClampToEdge,
             .addressModeW = wgpu::AddressMode::ClampToEdge,
-            .magFilter = wgpu::FilterMode::Nearest,
-            .minFilter = wgpu::FilterMode::Nearest,
+            .magFilter = wgpu::FilterMode::Linear,
+            .minFilter = wgpu::FilterMode::Linear,
             .mipmapFilter = wgpu::MipmapFilterMode::Linear,
         };
 

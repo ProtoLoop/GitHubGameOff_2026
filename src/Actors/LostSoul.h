@@ -20,7 +20,7 @@ public:
 
     static Result<LostSoul> Create(Game& game, const EntityId tombstoneEntityId);
 
-    EntityId GetEntityId() const { return m_Id; }
+    EntityId GetEntityId() const { return m_EntityId; }
 
     /// Returns the ID of the tombstone associated with this lost soul.
     EntityId GetTombstoneId() const { return m_TombstoneId; }
@@ -72,7 +72,7 @@ private:
 
     LostSoul(const Sprites& sprites, const EntityId tombstoneEntityId);
 
-    EntityId m_Id{ EntityId::NextId() };
+    EntityId m_EntityId{ EntityId::NextId() };
 
     // The ID of the tombstone associated with this lost soul.
     EntityId m_TombstoneId;

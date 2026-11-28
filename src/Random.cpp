@@ -12,9 +12,14 @@
 Random::Random(const uint64_t seed, const uint64_t stream)
     : m_Increment((stream << 1u) | 1u)
 {
-    NextU32();
+    // Advance from zero to the stream's increment, discarding the output.
+    (void)NextU32();
+
+    // Incorporate the seed into the stream-dependent state.
     m_State += seed;
-    NextU32();
+
+    // Advance once more before producing the first caller-visible value.
+    (void)NextU32();
 }
 
 uint32_t

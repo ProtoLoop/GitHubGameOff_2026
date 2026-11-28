@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AudioPlayer.h"
 #include "EntityId.h"
 #include "Sprite.h"
 #include "Transform2D.h"
@@ -10,11 +11,12 @@ class Game;
 class Prop;
 class LostSoul;
 class Renderer;
-class AudioClip;
 
 class Caretaker : public Transform2DLike<Caretaker>
 {
 public:
+    static constexpr size_t kFootstepAudioClipCount = 6;
+
     Caretaker() = delete;
     ~Caretaker() = default;
     Caretaker(const Caretaker&) = delete;
@@ -24,7 +26,7 @@ public:
 
     static Result<Caretaker> Create(Game& game);
 
-    EntityId GetEntityId() const { return m_Id; }
+    EntityId GetEntityId() const { return m_EntityId; }
 
     SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
@@ -58,11 +60,14 @@ private:
     {
         const AudioClip* LostSoulCollect;
         const AudioClip* LostSoulDropoff;
+        const AudioClip* Footsteps[kFootstepAudioClipCount]{};
     };
 
     Caretaker(const Sprites& sprites, const AudioClips& audioClips);
 
-    EntityId m_Id{ EntityId::NextId() };
+    void PlayFootstep(Game& game);
+
+    EntityId m_EntityId{ EntityId::NextId() };
 
     Transform2D m_Transform;
     glm::vec2 m_Velocity{};
@@ -71,6 +76,10 @@ private:
     AudioClips m_AudioClips;
     Sprite::Instance m_CurSprite;
     float m_CurSpritePeriod;
+
+    // The track ID of the currently playing footstep sound, if any.
+    uint32_t m_LastFootstepIndex{};
+    AudioPlayer::TrackId m_FootstepTrackId;
 
     // The ID of the lost soul currently being carried by the caretaker, if any.
     std::optional<EntityId> m_LostSoulId;

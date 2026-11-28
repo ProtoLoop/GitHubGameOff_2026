@@ -24,14 +24,14 @@ constexpr const char* kLevelFilePath = "/level.json";
 struct App
 {
     static constexpr const char* const kWindowTitle = "GraveyardShift";
-    static constexpr int kWindowWidth = 800;
-    static constexpr int kWindowHeight = 600;
+    static constexpr int kWindowWidth = 1024;
+    static constexpr int kWindowHeight = 768;
 
     // Logical width of the display in pixels
-    static constexpr uint32_t kLogicalDisplayWidth = 800;
+    static constexpr uint32_t kLogicalDisplayWidth = kWindowWidth * 3 / 2;
 
     // Logical height of the display in pixels
-    static constexpr uint32_t kLogicalDisplayHeight = 600;
+    static constexpr uint32_t kLogicalDisplayHeight = kWindowHeight * 3 / 2;
 
     /// Number of pixels along each axis of a cell.
     static constexpr uint32_t kCellPixelsPerSide = 64;

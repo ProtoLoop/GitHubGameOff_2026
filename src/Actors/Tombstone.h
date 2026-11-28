@@ -23,7 +23,7 @@ public:
 
     static Result<Tombstone> Create(Game& game, const std::string_view spriteName);
 
-    EntityId GetEntityId() const { return m_Id; }
+    EntityId GetEntityId() const { return m_EntityId; }
 
     SpriteFrame GetSpriteFrame() const { return m_CurSprite.GetFrame(); }
 
@@ -75,7 +75,7 @@ private:
     void TickWaitingForDropoff(const float deltaTime, Game& game);
     void TickDormant(const float deltaTime, Game& game);
 
-    EntityId m_Id{ EntityId::NextId() };
+    EntityId m_EntityId{ EntityId::NextId() };
 
     CountdownTimer m_Timer;
 

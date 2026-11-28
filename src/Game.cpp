@@ -1,5 +1,6 @@
 #include "Game.h"
 
+#include "Actors/AmbientAudio.h"
 #include "AudioPlayer.h"
 #include "Defer.h"
 #include "Input.h"
@@ -16,6 +17,13 @@ Game::Game(Input& input,
       m_AudioPlayer(std::move(audioPlayer))
 {
 }
+
+// These are defined in the .cpp so the .h doesn't need to have
+// a concrete definition of types like AmbientAudio, which is forward
+// declared in the header.
+Game::~Game() = default;
+Game::Game(Game&&) noexcept = default;
+Game& Game::operator=(Game&&) noexcept = default;
 
 Result<Game>
 Game::Create(Input& input,
@@ -73,6 +81,12 @@ Game::Begin()
     GG_CHECKB(m_Stage == Stage::None, "Game has already begun");
 
     GG_CHECKB(QueueSpawnCaretaker(Transform2D{}), "Failed to spawn caretaker");
+
+    auto amientAudioResult = AmbientAudio::Create(*this);
+    GG_CHECK(amientAudioResult, "Failed to create ambient audio");
+    m_AmbientAudio = std::make_unique<AmbientAudio>(std::move(*amientAudioResult));
+
+    GG_CHECKB(AddTickable(Tickable(*m_AmbientAudio)), "Failed to add ambient audio as tickable");
 
     m_Stage = Stage::Running;
     return Result<>::Ok;

@@ -13,9 +13,14 @@ constexpr const std::string_view kAudioClipName_LostSoulSpawn{ "LostSoulSpawn" }
 
 constexpr float kMinLostSoulSpawnWait = 1.0f;
 constexpr float kMaxLostSoulSpawnWait = 15.0f;
-constexpr float kLostSoulSpawnOffsetY = 0.5f;
+constexpr float kLostSoulSpawnOffsetY = 1.0f;
 
 constexpr float kShimmerPeriod = 2;
+
+constexpr AudioPlayer::PlayParams kAudioPlayParams //
+    {
+        .Gain = 0.5f,
+    };
 
 } // namespace
 
@@ -171,7 +176,7 @@ Tombstone::TickWaitingToSpawn(const float /*deltaTime*/, Game& game)
     if(m_Timer.IsExpired())
     {
         Transform2D transform = GetTransform();
-        transform.Pos.y -= kLostSoulSpawnOffsetY;
+        transform.Pos.y += kLostSoulSpawnOffsetY;
         transform.Scale = 1; // FIXME(KB) - get the scale from the lost soul actor type definition.
         auto entityIdResult = game.QueueSpawnLostSoul(transform, GetEntityId());
         if(!GG_VERIFYB(entityIdResult, "Failed to spawn lost soul"))
@@ -181,7 +186,7 @@ Tombstone::TickWaitingToSpawn(const float /*deltaTime*/, Game& game)
             return;
         }
 
-        GG_VERIFYB(game.GetAudioPlayer().Play(*m_AudioClips.LostSoulSpawn),
+        GG_VERIFYB(game.GetAudioPlayer().Play(*m_AudioClips.LostSoulSpawn, kAudioPlayParams),
             "Failed to play audio clip: {}",
             m_AudioClips.LostSoulSpawn->GetName());
 

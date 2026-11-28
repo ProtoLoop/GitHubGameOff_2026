@@ -17,7 +17,7 @@
   "sequences": [
     {
       "name": "Cemetery_Ancient_Tree_001",
-      "tint": {"r":2,"g":2,"b":2,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -25,7 +25,7 @@
     },
     {
       "name": "Cemetery_Ancient_Tree_002",
-      "tint": {"r":2,"g":2,"b":2,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -33,7 +33,7 @@
     },
     {
       "name": "Cemetery_Ancient_Tree_003",
-      "tint": {"r":2,"g":2,"b":2,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -41,7 +41,7 @@
     },
     {
       "name": "Cemetery_Ancient_Tree_004",
-      "tint": {"r":2,"g":2,"b":2,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -49,7 +49,7 @@
     },
     {
       "name": "Cemetery_Bell_001",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -57,7 +57,7 @@
     },
     {
       "name": "Cemetery_Bell_002",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -65,7 +65,7 @@
     },
     {
       "name": "Cemetery_Bell_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -73,7 +73,7 @@
     },
     {
       "name": "Cemetery_Bell_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -81,7 +81,7 @@
     },
     {
       "name": "Cemetery_Stonewall_and_Boundary_001",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -91,7 +91,7 @@
     },
     {
       "name": "Cemetery_Stonewall_and_Boundary_002",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -101,7 +101,7 @@
     },
     {
       "name": "Cemetery_Stonewall_and_Boundary_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -111,7 +111,7 @@
     },
     {
       "name": "Cemetery_Stonewall_and_Boundary_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -121,7 +121,7 @@
     },
     {
       "name": "Forgotten_Headstone_001",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -131,7 +131,7 @@
     },
     {
       "name": "Forgotten_Headstone_002",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -141,7 +141,7 @@
     },
     {
       "name": "Forgotten_Headstone_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -151,7 +151,7 @@
     },
     {
       "name": "Forgotten_Headstone_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -161,7 +161,7 @@
     },
     {
       "name": "Gothic_Necropolis_Gate_001",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -171,7 +171,7 @@
     },
     {
       "name": "Gothic_Necropolis_Gate_002",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -181,7 +181,7 @@
     },
     {
       "name": "Gothic_Necropolis_Gate_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -191,7 +191,7 @@
     },
     {
       "name": "Gothic_Necropolis_Gate_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -201,7 +201,7 @@
     },
     {
       "name": "Noble_Family_Tombstone_001",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_001.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -211,7 +211,7 @@
     },
     {
       "name": "Noble_Family_Tombstone_002",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_002.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -221,7 +221,7 @@
     },
     {
       "name": "Noble_Family_Tombstone_003",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_003.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -231,7 +231,7 @@
     },
     {
       "name": "Noble_Family_Tombstone_004",
-      "tint": {"r":1,"g":1,"b":1,"a":1},
+      "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_004.png",
       "pivot": {"x":0.5,"y":1},
       "srcRect": {},
@@ -766,7 +766,7 @@
     },
     {
       "type": "Noble_Family_Tombstone_003",
-      "pos": {"x":1.667,"y":1.576},
+      "pos": {"x":2.387,"y":1.394},
       "rot": 0
     },
     {
@@ -786,7 +786,7 @@
     },
     {
       "type": "Noble_Family_Tombstone_004",
-      "pos": {"x":-0.974,"y":0.122},
+      "pos": {"x":0.907,"y":-3.175},
       "rot": 0
     },
     {
@@ -816,7 +816,7 @@
     },
     {
       "type": "Forgotten_Headstone_002",
-      "pos": {"x":-0.078,"y":-2.467},
+      "pos": {"x":-1.177,"y":-1.842},
       "rot": 0
     }
   ],
@@ -926,7 +926,16 @@
       {"name":"Wolf1","filePath":"/audio/wolves/dragon-studio-howling-in-the-distance-515982.mp3"},
       {"name":"Wolf2","filePath":"/audio/wolves/dragon-studio-wolf-howl-3-631453.mp3"},
       {"name":"Wolf3","filePath":"/audio/wolves/dragon-studio-wolf-howl-359873.mp3"},
-      {"name":"Wolf4","filePath":"/audio/wolves/freesound_community-dogs-howling-yelping-distance-far-05-37394.mp3"}
+      {"name":"Wolf4","filePath":"/audio/wolves/freesound_community-dogs-howling-yelping-distance-far-05-37394.mp3"},
+      {"name":"Peacock1","filePath":"/audio/peacocks/alex_jauk-nearby-peacock-call-220346.mp3"},
+      {"name":"Peacock2","filePath":"/audio/peacocks/tanweraman-peacock-call-sound-effect-238053.mp3"},
+      {"name":"Dog1","filePath":"/audio/dogs/dragon-studio-distant-dog-barking-472373.mp3"},
+      {"name":"Footstep1","filePath":"/audio/footsteps/footstep1.mp3"},
+      {"name":"Footstep2","filePath":"/audio/footsteps/footstep2.mp3"},
+      {"name":"Footstep3","filePath":"/audio/footsteps/footstep3.mp3"},
+      {"name":"Footstep4","filePath":"/audio/footsteps/footstep4.mp3"},
+      {"name":"Footstep5","filePath":"/audio/footsteps/footstep5.mp3"},
+      {"name":"Footstep6","filePath":"/audio/footsteps/footstep6.mp3"}
     ]
   },
   "editor": {

@@ -121,6 +121,8 @@ if(ENABLE_CLANG_TIDY)
 endif()
 
 set(GAMEOFF_SOURCES
+    src/Actors/AmbientAudio.h
+    src/Actors/AmbientAudio.cpp
     src/Actors/Caretaker.h
     src/Actors/Caretaker.cpp
     src/Actors/Colors.h
