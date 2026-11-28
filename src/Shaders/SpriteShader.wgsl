@@ -19,13 +19,10 @@ struct CellMapParams
 struct SpriteState
 {
     cellXY: vec2f,  // World-cell position of the sprite’s pivot.
-    pivot: vec2f,   // Pivot point within the sprite frame in frame local pixels.  0,0 is top-left.
+    pivot: vec2f,   // Pivot point within the sprite frame in frame local pixels.  0,0 is top-left.  Used to debug draw the pivot.
     tint : vec4f,   // Linear RGBA tint.
-    srcRect: vec4f, // Source rectangle in texture pixels, before scaling.
-    scale : f32,    // Uniform scale applied to image offsets and dimensions.
-    pad0: u32,
-    pad1: u32,
-    pad2: u32,
+    srcRect: vec4f, // Source rectangle in texture pixels.
+    dstRect: vec4f, // Destination rectangle in screen pixels.
 };
 
 @group(0) @binding(0) var<storage, read> spriteStates : array<SpriteState>;
@@ -56,8 +53,9 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
 
     let sprite = spriteStates[spriteId];
 
-    // Apply the pivot in Y-down sprite coordinates, then convert the offset to Y-up screen space.
-    let spriteVtx = ((spriteVerts[vid] * sprite.srcRect.zw) - sprite.pivot) * vec2f(1.0, -1.0);
+    // Calculate the vertex position of the dest rectangle in screen space.
+    // Flip the Y coordinate to convert from Y-down sprite space to Y-up screen space.
+    let spriteVtx = (spriteVerts[vid] * sprite.dstRect.zw + sprite.dstRect.xy) * vec2f(1.0, -1.0);
 
     // The camera is rounded in projected logical pixels.
     // Matching this in the tile map shader keeps camera movement consistent across shaders
@@ -68,7 +66,7 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     let worldPixels = cellMapParams.proj * sprite.cellXY * f32(cellPixelsPerSide);
 
     // Position of the vertex (corner of the sprite) in screen space.
-    let screenVertXY = worldPixels - cameraPixels + spriteVtx * sprite.scale;
+    let screenVertXY = worldPixels - cameraPixels + spriteVtx;
     
     let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
 

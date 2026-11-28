@@ -4,6 +4,7 @@
 #include "Level.h"
 #include "WebGpu.h"
 
+#include <glm/ext/vector_float4.hpp>
 #include <glm/mat2x2.hpp>
 #include <webgpu/webgpu_cpp.h>
 
@@ -529,13 +530,12 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
         spriteState.tint = spriteFrame.GetTint();
 
-        const Rect& rect = spriteFrame.GetSrcRect();
-        spriteState.srcRect[0] = static_cast<float>(rect.x);
-        spriteState.srcRect[1] = static_cast<float>(rect.y);
-        spriteState.srcRect[2] = static_cast<float>(rect.w);
-        spriteState.srcRect[3] = static_cast<float>(rect.h);
+        const Rect& srcRect = spriteFrame.GetSrcRect();
 
-        spriteState.scale = rec.Transform.Scale;
+        spriteState.srcRect = glm::vec4{ srcRect.Origin(), srcRect.Size() };
+
+        spriteState.dstRect =
+            glm::vec4{ -spriteFrame.GetPivot(), srcRect.Size() } * rec.Transform.Scale;
     }
 
     GG_CHECK(EnsureSpriteStateBuffer(sizeof(GpuSpriteState) * m_SpriteStates.size()),

@@ -86,10 +86,7 @@ private:
         glm::vec2 pivot{};   // Pivot point of the sprite.
         glm::vec4 tint{};   // Color tint for the sprite.
         glm::vec4 srcRect{}; // Source rectangle in the texture (x, y, w, h)
-        float scale{ 1.0f }; // Scale factor for the sprite.
-        uint32_t pad0{ 0 };
-        uint32_t pad1{ 0 };
-        uint32_t pad2{ 0 };
+        glm::vec4 dstRect{}; // Destination rectangle in screen pixels
     };
 
     struct alignas(k16ByteAlignment) GpuRectangleState
@@ -128,7 +125,7 @@ private:
     static_assert(offsetof(GpuSpriteState, pivot) == 8, "SpriteState::pivot must be at offset 8");
     static_assert(offsetof(GpuSpriteState, tint) == 16, "SpriteState::tint must be at offset 16");
     static_assert(offsetof(GpuSpriteState, srcRect) == 32, "SpriteState::srcRect must be at offset 32");
-    static_assert(offsetof(GpuSpriteState, scale) == 48, "SpriteState::scale must be at offset 48");
+    static_assert(offsetof(GpuSpriteState, dstRect) == 48, "SpriteState::dstRect must be at offset 48");
 
     static_assert(offsetof(GpuRectangleState, xywh) == 0, "RectangleState::xywh must be at offset 0");
     static_assert(offsetof(GpuRectangleState, color) == 16, "RectangleState::color must be at offset 16");
