@@ -1,6 +1,6 @@
 #pragma once
 
-#include "InlineVector.h"
+#include "BoundedVector.h"
 #include "Sprite.h"
 #include "Transform2D.h"
 
@@ -94,16 +94,18 @@ private:
         glm::vec4 xywh{};    // x, y, width, height in pixels
         glm::vec4 color{};   // linear RGBA outline color
         glm::vec2 cellXY{};  // Anchor point of the rectangle in cell coordinates (x, y) - where the pivot point lies in map space
-        uint32_t pad0{ 0 };
-        uint32_t pad1{ 0 };
+        uint32_t pad0{};
+        uint32_t pad1{};
     };
 
     struct alignas(k16ByteAlignment) GpuCellMapParams
     {
         glm::mat2x2 proj{};                 // projection matrix (isometric, orthographic, etc)
-        glm::vec2 viewXY{};                 // Camera view position in map space
+        glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -2)); // Direction of the light in world space
         uint32_t cellMapCellsPerSide{ 0 };  // Number of cells along each axis in the map
-        uint32_t pad1{ 0 };
+        glm::vec2 viewXY{};                 // Camera view position in map space
+        uint32_t pad0{};
+        uint32_t pad1{};
     };
 
     struct SpriteDrawRecord
@@ -134,14 +136,21 @@ private:
     static_assert(offsetof(GpuRectangleState, pad1) == 44, "RectangleState::pad1 must be at offset 44");
 
     static_assert(offsetof(GpuCellMapParams, proj) == 0, "CellMapParams::proj must be at offset 0");
-    static_assert(offsetof(GpuCellMapParams, viewXY) == 16, "CellMapParams::viewXY must be at offset 16");
-    static_assert(offsetof(GpuCellMapParams, cellMapCellsPerSide) == 24, "CellMapParams::cellMapCellsPerSide must be at offset 24");
-    static_assert(offsetof(GpuCellMapParams, pad1) == 28, "CellMapParams::pad1 must be at offset 28");
+    static_assert(offsetof(GpuCellMapParams, lightDir) == 16, "CellMapParams::lightDir must be at offset 16");
+    static_assert(offsetof(GpuCellMapParams, cellMapCellsPerSide) == 28, "CellMapParams::cellMapCellsPerSide must be at offset 28");
+    static_assert(offsetof(GpuCellMapParams, viewXY) == 32, "CellMapParams::viewXY must be at offset 32");
+    static_assert(offsetof(GpuCellMapParams, pad0) == 40, "CellMapParams::pad0 must be at offset 40");
+    static_assert(offsetof(GpuCellMapParams, pad1) == 44, "CellMapParams::pad1 must be at offset 44");
     // NOLINTEND(readability-magic-numbers)
 
     Renderer(const Params& params, const WebGpu& webGpu);
 
+    /// Sorts the sprite draw queue and commits the sprite data to the GPU.
+    Result<> CommitSpriteDrawQueueToGpu();
+
     Result<> RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass);
+
+    Result<> RenderShadows(const wgpu::RenderPassEncoder& renderPass);
 
     Result<> RenderSprites(const wgpu::RenderPassEncoder& renderPass);
 
@@ -158,17 +167,17 @@ private:
     Result<> EnsureRectangleBindGroups();
 
     /// Backing storage for GPU sprite state data.
-    InlineVector<GpuSpriteState, kMaxSpritesPerFrame> m_SpriteStates;
+    BoundedVector<GpuSpriteState> m_SpriteStates{ kMaxSpritesPerFrame };
 
     /// Backing storage for GPU rectangle state data.
-    InlineVector<GpuRectangleState, kMaxRectanglesPerFrame> m_RectangleStates;
+    BoundedVector<GpuRectangleState> m_RectangleStates{ kMaxRectanglesPerFrame };
 
     /// Queue of sprites to be drawn this frame.
-    InlineVector<SpriteDrawRecord, kMaxSpritesPerFrame> m_SpriteDrawQueue;
+    BoundedVector<SpriteDrawRecord> m_SpriteDrawQueue{ kMaxSpritesPerFrame };
 
     /// Queue of rectangles to be drawn this frame.
-    InlineVector<RectangleDrawRecord, kMaxRectanglesPerFrame> m_RectangleDrawQueue;
-    
+    BoundedVector<RectangleDrawRecord> m_RectangleDrawQueue{ kMaxRectanglesPerFrame };
+
     GpuCellMapParams m_CellMapParams;
 
     Params m_Params;
@@ -178,7 +187,10 @@ private:
     wgpu::Buffer m_CellMapParamsBuffer;
     wgpu::Buffer m_RectangleStateBuffer;
 
+    wgpu::PipelineLayout m_SpriteShaderPipelineLayout;
+
     wgpu::RenderPipeline m_SpritePipeline;
+    wgpu::RenderPipeline m_SpriteShadowPipeline;
     wgpu::BindGroup m_SpriteBindGroup0;
 
     wgpu::RenderPipeline m_MapPipeline;

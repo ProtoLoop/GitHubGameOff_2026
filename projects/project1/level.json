@@ -19,7 +19,7 @@
       "name": "Cemetery_Ancient_Tree_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.9},
       "srcRect": {},
       "collisionRects": []
     },
@@ -27,7 +27,7 @@
       "name": "Cemetery_Ancient_Tree_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.9},
       "srcRect": {},
       "collisionRects": []
     },
@@ -35,7 +35,7 @@
       "name": "Cemetery_Ancient_Tree_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.9},
       "srcRect": {},
       "collisionRects": []
     },
@@ -43,7 +43,7 @@
       "name": "Cemetery_Ancient_Tree_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Ancient_Tree/Cemetery_Ancient_Tree_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.9},
       "srcRect": {},
       "collisionRects": []
     },
@@ -51,7 +51,7 @@
       "name": "Cemetery_Bell_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": []
     },
@@ -59,7 +59,7 @@
       "name": "Cemetery_Bell_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": []
     },
@@ -67,7 +67,7 @@
       "name": "Cemetery_Bell_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": []
     },
@@ -75,7 +75,7 @@
       "name": "Cemetery_Bell_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Bell/Cemetery_Bell_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": []
     },
@@ -83,7 +83,7 @@
       "name": "Cemetery_Stonewall_and_Boundary_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -93,7 +93,7 @@
       "name": "Cemetery_Stonewall_and_Boundary_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -103,7 +103,7 @@
       "name": "Cemetery_Stonewall_and_Boundary_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -113,7 +113,7 @@
       "name": "Cemetery_Stonewall_and_Boundary_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Cemetery_Stonewall_and_Boundary/Cemetery_Stonewall_and_Boundary_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -123,7 +123,7 @@
       "name": "Forgotten_Headstone_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -133,7 +133,7 @@
       "name": "Forgotten_Headstone_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -143,7 +143,7 @@
       "name": "Forgotten_Headstone_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -153,7 +153,7 @@
       "name": "Forgotten_Headstone_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Forgotten_Headstone/Forgotten_Headstone_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -163,7 +163,7 @@
       "name": "Gothic_Necropolis_Gate_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -173,7 +173,7 @@
       "name": "Gothic_Necropolis_Gate_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -183,7 +183,7 @@
       "name": "Gothic_Necropolis_Gate_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -193,7 +193,7 @@
       "name": "Gothic_Necropolis_Gate_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Gothic_Necropolis_Gate/Gothic_Necropolis_Gate_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0,"y":0,"w":1,"h":1}
@@ -203,7 +203,7 @@
       "name": "Noble_Family_Tombstone_001",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_001.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -213,7 +213,7 @@
       "name": "Noble_Family_Tombstone_002",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_002.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -223,7 +223,7 @@
       "name": "Noble_Family_Tombstone_003",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_003.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
@@ -233,193 +233,193 @@
       "name": "Noble_Family_Tombstone_004",
       "tint": {"r":1.5,"g":1.5,"b":1.5,"a":1},
       "texPath": "/assets/props/Haunted-Cemetery-1-Free-24-Assets/Noble_Family_Tombstone/Noble_Family_Tombstone_004.png",
-      "pivot": {"x":0.5,"y":1},
+      "pivot": {"x":0.5,"y":0.95},
       "srcRect": {},
       "collisionRects": [
         {"x":0.2,"y":0.2,"w":0.6,"h":0.8}
       ]
     },
     {
-      "name": "Warrior_Run_N",
+      "name": "Caretaker_Run_N",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":720,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_NE",
+      "name": "Caretaker_Run_NE",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":576,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_E",
+      "name": "Caretaker_Run_E",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":432,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_SE",
+      "name": "Caretaker_Run_SE",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":288,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_S",
+      "name": "Caretaker_Run_S",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":144,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_SW",
+      "name": "Caretaker_Run_SW",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":0,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_W",
+      "name": "Caretaker_Run_W",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":1008,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Run_NW",
+      "name": "Caretaker_Run_NW",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_run.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_run/warrior_run.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":864,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_N",
+      "name": "Caretaker_Idle_N",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":720,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_NE",
+      "name": "Caretaker_Idle_NE",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":576,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_E",
+      "name": "Caretaker_Idle_E",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":432,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_SE",
+      "name": "Caretaker_Idle_SE",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":288,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_S",
+      "name": "Caretaker_Idle_S",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":144,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_SW",
+      "name": "Caretaker_Idle_SW",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":0,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_W",
+      "name": "Caretaker_Idle_W",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":1008,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "Warrior_Idle_NW",
+      "name": "Caretaker_Idle_NW",
       "size": {"w":144,"h":144},
       "tint": {"r":1,"g":1,"b":1,"a":1},
-      "texPath": "/assets/warrior_idle.png",
-      "pivot": {"x":0.5,"y":0.84},
+      "texPath": "/assets/caretaker_idle/warrior_idle.png",
+      "pivot": {"x":0.5,"y":0.8},
       "srcRect": {"x":0,"y":864,"w":1728,"h":144},
       "collisionRects": [
         {"x":0.37,"y":0.27,"w":0.25,"h":0.57}
       ]
     },
     {
-      "name": "SH_Hover_N",
+      "name": "LostSoul_Hover_N",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":720,"w":1152,"h":144},
       "collisionRects": [
@@ -427,10 +427,10 @@
       ]
     },
     {
-      "name": "SH_Hover_NE",
+      "name": "LostSoul_Hover_NE",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":576,"w":1152,"h":144},
       "collisionRects": [
@@ -438,10 +438,10 @@
       ]
     },
     {
-      "name": "SH_Hover_E",
+      "name": "LostSoul_Hover_E",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":432,"w":1152,"h":144},
       "collisionRects": [
@@ -449,10 +449,10 @@
       ]
     },
     {
-      "name": "SH_Hover_SE",
+      "name": "LostSoul_Hover_SE",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":288,"w":1152,"h":144},
       "collisionRects": [
@@ -460,10 +460,10 @@
       ]
     },
     {
-      "name": "SH_Hover_S",
+      "name": "LostSoul_Hover_S",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":144,"w":1152,"h":144},
       "collisionRects": [
@@ -471,10 +471,10 @@
       ]
     },
     {
-      "name": "SH_Hover_SW",
+      "name": "LostSoul_Hover_SW",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":0,"w":1152,"h":144},
       "collisionRects": [
@@ -482,10 +482,10 @@
       ]
     },
     {
-      "name": "SH_Hover_W",
+      "name": "LostSoul_Hover_W",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":1008,"w":1152,"h":144},
       "collisionRects": [
@@ -493,10 +493,10 @@
       ]
     },
     {
-      "name": "SH_Hover_NW",
+      "name": "LostSoul_Hover_NW",
       "size": {"w":144,"h":144},
       "tint": {"r":0.5,"g":0.5,"b":1,"a":0.7},
-      "texPath": "/assets/shadow_hunter_hover.png",
+      "texPath": "/assets/lost_soul_hover/shadow_hunter_hover.png",
       "pivot": {"x":0.5,"y":0.84},
       "srcRect": {"x":0,"y":864,"w":1152,"h":144},
       "collisionRects": [
@@ -650,42 +650,42 @@
       ]
     },
     {
-      "name": "Warrior_Run",
+      "name": "Caretaker_Run",
       "sequences": [
-        "Warrior_Run_N",
-        "Warrior_Run_NE",
-        "Warrior_Run_E",
-        "Warrior_Run_SE",
-        "Warrior_Run_S",
-        "Warrior_Run_SW",
-        "Warrior_Run_W",
-        "Warrior_Run_NW"
+        "Caretaker_Run_N",
+        "Caretaker_Run_NE",
+        "Caretaker_Run_E",
+        "Caretaker_Run_SE",
+        "Caretaker_Run_S",
+        "Caretaker_Run_SW",
+        "Caretaker_Run_W",
+        "Caretaker_Run_NW"
       ]
     },
     {
-      "name": "Warrior_Idle",
+      "name": "Caretaker_Idle",
       "sequences": [
-        "Warrior_Idle_N",
-        "Warrior_Idle_NE",
-        "Warrior_Idle_E",
-        "Warrior_Idle_SE",
-        "Warrior_Idle_S",
-        "Warrior_Idle_SW",
-        "Warrior_Idle_W",
-        "Warrior_Idle_NW"
+        "Caretaker_Idle_N",
+        "Caretaker_Idle_NE",
+        "Caretaker_Idle_E",
+        "Caretaker_Idle_SE",
+        "Caretaker_Idle_S",
+        "Caretaker_Idle_SW",
+        "Caretaker_Idle_W",
+        "Caretaker_Idle_NW"
       ]
     },
     {
-      "name": "SH_Hover",
+      "name": "LostSoul_Hover",
       "sequences": [
-        "SH_Hover_N",
-        "SH_Hover_NE",
-        "SH_Hover_E",
-        "SH_Hover_SE",
-        "SH_Hover_S",
-        "SH_Hover_SW",
-        "SH_Hover_W",
-        "SH_Hover_NW"
+        "LostSoul_Hover_N",
+        "LostSoul_Hover_NE",
+        "LostSoul_Hover_E",
+        "LostSoul_Hover_SE",
+        "LostSoul_Hover_S",
+        "LostSoul_Hover_SW",
+        "LostSoul_Hover_W",
+        "LostSoul_Hover_NW"
       ]
     }
   ],
@@ -940,6 +940,6 @@
   },
   "editor": {
     "activeLayer": 1,
-    "view": {"zoom":0.5864278485214021,"scrollLeft":775.5,"scrollTop":796,"showGrid":false}
+    "view": {"zoom":0.8748475478088603,"scrollLeft":1242,"scrollTop":1303.5,"showGrid":false}
   }
 }

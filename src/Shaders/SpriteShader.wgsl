@@ -10,9 +10,11 @@ struct VSOut
 
 struct CellMapParams
 {
-    proj : mat2x2f, // projection matrix (isometric, orthographic, etc)
-    viewXY : vec2f, // Camera view position in world space
+    proj : mat2x2f,     // projection matrix (isometric, orthographic, etc)
+    lightDir : vec3f,   // Direction of the light in world space
     cellMapCellsPerSide : u32, // Number of cells along each axis in the map
+    viewXY : vec2f,     // Camera view position in world space
+    pad0 : u32,
     pad1 : u32,
 };
 
@@ -35,6 +37,7 @@ override logicalTargetWidth: f32;   // Logical width of the render target in pix
 override logicalTargetHeight: f32;  // Logical height of the render target in pixels
 override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cell
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
+override shadowPass: u32;           // Indicates whether the current pass is a shadow pass (1 for shadow, 0 otherwise)
     
 const spriteVerts = array<vec2f, 6>(
     vec2f(0, 0),
@@ -45,6 +48,8 @@ const spriteVerts = array<vec2f, 6>(
     vec2f(1, 1),
     vec2f(0, 1)
 );
+
+const shadowColor = vec4f(0,0,0, 0.5);
 
 @vertex
 fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: u32) -> VSOut
@@ -65,11 +70,24 @@ fn vs_main(@builtin(vertex_index) vid : u32, @builtin(instance_index) spriteId: 
     // Projected anchor position in logical pixels, before camera subtraction.
     let worldPixels = cellMapParams.proj * sprite.cellXY * f32(cellPixelsPerSide);
 
-    // Position of the vertex (corner of the sprite) in screen space.
-    let screenVertXY = worldPixels - cameraPixels + spriteVtx;
-    
-    let ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
+    let basePx = worldPixels - cameraPixels;
 
+    var ndc: vec2f;
+
+    if(shadowPass == 0u)
+    {
+        // Position of the vertex (corner of the sprite) in screen space.
+        let screenVertXY = basePx + spriteVtx;
+        ndc = (screenVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
+
+    }
+    else
+    {
+        let groundOffsetPerWorldHeight = cellMapParams.lightDir.xy / -cellMapParams.lightDir.z;
+        let shadowVertXY = basePx + vec2(spriteVtx.x, 0) + spriteVtx.y * (cellMapParams.proj * groundOffsetPerWorldHeight);
+        ndc = (shadowVertXY / logicalTargetSize) * vec2f(2.0, 2.0);
+    }
+    
     let texDims = vec2f(textureDimensions(texture, 0).xy);
     let uvOffset = sprite.srcRect.xy / texDims;
     let uvDims = sprite.srcRect.zw / texDims;
@@ -93,14 +111,6 @@ fn linear_to_srgb(linear: vec4f) -> vec4f
     return select(hi, lo, vec4(linear.rgb <= vec3f(0.0031308), true));
 }
 
-// Draws the bounding rectangle for a sprite based on its UV coordinates.
-fn drawBoundingRect(gridUV: vec2f, color: vec4f) -> vec4f
-{
-    let thickness = fwidth(gridUV);
-    let edgeDistance = min(gridUV, vec2f(1.0) - gridUV);
-    return select(color, vec4f(1.0, 1.0, 0.0, 1.0), any(edgeDistance < thickness));
-}
-
 // Draws the pivot cross for a sprite. The pivot is specified in sprite-local normalized coordinates.
 fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 {
@@ -118,9 +128,19 @@ fn drawPivot(i: VSOut, color: vec4f) -> vec4f
 @fragment
 fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    var p = textureSample(texture, smp, i.uv, 0) * i.tint;
-    //p = drawBoundingRect(i.brectUV, p);
+    var p = textureSample(texture, smp, i.uv, 0);
+
+    if(shadowPass > 0u)
+    {
+        p = vec4f(shadowColor.rgb, shadowColor.a * p.a * i.tint.a);
+    }
+    else
+    {
+        p *= i.tint;
+    }
+
     //p = drawPivot(i, p);
+
     return p;
 }
 
@@ -128,9 +148,19 @@ fn fs_main_srgb(i : VSOut) -> @location(0) vec4<f32>
 @fragment
 fn fs_main_non_srgb(i : VSOut) -> @location(0) vec4<f32>
 {
-    var p = textureSample(texture, smp, i.uv, 0) * i.tint;
-    //p = drawBoundingRect(i.brectUV, p);
+    var p = textureSample(texture, smp, i.uv, 0);
+    
+    if(shadowPass > 0u)
+    {
+        p = vec4f(shadowColor.rgb, shadowColor.a * p.a * i.tint.a);
+    }
+    else
+    {
+        p *= i.tint;
+    }
+
     //p = drawPivot(i, p);
+
     return linear_to_srgb(p);
 }
 )";

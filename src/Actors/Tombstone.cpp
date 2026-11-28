@@ -15,7 +15,7 @@ constexpr float kMinLostSoulSpawnWait = 1.0f;
 constexpr float kMaxLostSoulSpawnWait = 15.0f;
 constexpr float kLostSoulSpawnOffsetY = 1.0f;
 
-constexpr float kShimmerPeriod = 2;
+constexpr float kShimmerPeriod = 1.5f;
 
 constexpr AudioPlayer::PlayParams kAudioPlayParams //
     {
@@ -90,11 +90,14 @@ Tombstone::Render(Renderer& renderer) const
     SpriteFrame spriteFrame =
         m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle());
 
+    const glm::vec4 baseTint = spriteFrame.GetTint();
+    const glm::vec3 glow = glm::vec3(Colors::kEctoplasmGreen) * 5.0f;
+
     if(m_State == State::WaitingForCollection)
     {
         // Glow while waiting for collection
-        const glm::vec4 tint = spriteFrame.GetTint() + Colors::kEctoplasmGreen * 5.0f;
 
+        const glm::vec4 tint{ glm::vec3(baseTint) + glow, baseTint.a };
         spriteFrame.SetTint(tint);
     }
     else if(m_State == State::WaitingForDropoff)
@@ -104,8 +107,7 @@ Tombstone::Render(Renderer& renderer) const
             (std::cos(m_ShimmerCycle * 2.0f * std::numbers::pi_v<float> / kShimmerPeriod) + 1)
             * 0.5f;
 
-        const glm::vec4 tint = spriteFrame.GetTint() + (Colors::kEctoplasmGreen * 5.0f * shimmer);
-
+        const glm::vec4 tint{ glm::vec3(baseTint) + glow * shimmer, baseTint.a };
         spriteFrame.SetTint(tint);
     }
 

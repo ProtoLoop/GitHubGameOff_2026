@@ -8,9 +8,11 @@ struct VSOut
 
 struct CellMapParams
 {
-    proj : mat2x2f, // projection matrix (isometric, orthographic, etc)
-    viewXY : vec2f, // Camera view position in world space
+    proj : mat2x2f,     // projection matrix (isometric, orthographic, etc)
+    lightDir : vec3f,   // Direction of the light in world space
     cellMapCellsPerSide : u32, // Number of cells along each axis in the map
+    viewXY : vec2f,     // Camera view position in world space
+    pad0 : u32,
     pad1 : u32,
 };
 
@@ -30,6 +32,7 @@ override logicalTargetWidth: f32;   // Logical width of the render target in pix
 override logicalTargetHeight: f32;  // Logical height of the render target in pixels
 override cellPixelsPerSide: u32;    // Number of pixels along each axis of a cell
 override sheetTilesPerSide: u32;    // Number of tiles along each axis in the tile sheet
+override shadowPass: u32;           // Indicates whether the current pass is a shadow pass (1 for shadow, 0 otherwise)
     
 const rectVerts = array<vec2f, 6>(
     vec2f(0, 0),

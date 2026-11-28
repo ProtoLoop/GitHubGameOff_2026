@@ -19,7 +19,7 @@ constexpr float tintAlpha = 0.4f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr const std::string_view kSpriteName_hover{"SH_Hover"};
+constexpr const std::string_view kSpriteName_hover{"LostSoul_Hover"};
 
 } // namespace
 
@@ -89,15 +89,15 @@ LostSoul::Render(Renderer& renderer) const
     SpriteFrame spriteFrame =
         m_CurSprite.GetFrame(m_CurSprite.GetPhase(), m_CurSprite.GetAngle() + angleOffset);
 
-    constexpr glm::vec4 kBaseTint = Colors::kCyan * 10.f;
+    // Saturate the base tint color for the lost soul to make it glow.
+    constexpr glm::vec4 kBaseTint = glm::vec4{glm::vec3{Colors::kCyan} * 10.f, tintAlpha};
+    // Saturate even more to make it flash.
+    constexpr glm::vec4 kFlashColor = glm::vec4{glm::vec3{kBaseTint} * 10.0f, tintAlpha};
 
-    //NOLINTNEXTLINE
     glm::vec4 tint = kBaseTint;
-    tint.a = tintAlpha;
 
     if(State::FlashSpawn == m_State)
     {
-        static constexpr glm::vec4 kFlashColor = kBaseTint * 10.0f;
         tint = kFlashColor;
     }
     else if(State::FadingIn == m_State)

@@ -6,6 +6,7 @@
 
 #include <glm/ext/vector_float4.hpp>
 #include <glm/mat2x2.hpp>
+#include <string_view>
 #include <webgpu/webgpu_cpp.h>
 
 namespace
@@ -17,11 +18,13 @@ struct ShaderInfo
     const char* Code;
 };
 
+#include "Shaders/RectangleShader.wgsl"
 #include "Shaders/SpriteShader.wgsl"
 #include "Shaders/TileMapShader.wgsl"
-#include "Shaders/RectangleShader.wgsl"
 
 const ShaderInfo kSpriteShaderInfo{ .Label = "SpriteShader", .Code = kSpriteShaderCode };
+const ShaderInfo kSpriteShadowShaderInfo{ .Label = "SpriteShadowShader",
+    .Code = kSpriteShaderCode };
 const ShaderInfo kTileMapShaderInfo{ .Label = "TileMapShader", .Code = kTileMapShaderCode };
 const ShaderInfo kRectangleShaderInfo{ .Label = "RectangleShader", .Code = kRectangleShaderCode };
 
@@ -32,6 +35,9 @@ constexpr const char* kVertexEntry = "vs_main";
 constexpr const char* kFragmentEntry_non_srgb = "fs_main_non_srgb";
 /// Entry point for the fragment shader when outputting to an sRGB framebuffer.
 constexpr const char* kFragmentEntry_srgb = "fs_main_srgb";
+
+// Key used to identify the shadow pass pipeline override.
+constexpr const char* kPipelineOverrideKey_shadowPass = "shadowPass";
 
 /// 1:1 Orthographic projection matrix.
 [[maybe_unused]] constexpr glm::mat2x2 kOrthographicProj //
@@ -65,6 +71,84 @@ CreateShaderModule(const wgpu::Device& gpuDevice, const ShaderInfo& shaderInfo)
     return gpuDevice.CreateShaderModule(&shaderModelDesc);
 }
 
+Result<wgpu::BindGroupLayout>
+CreateSpriteShaderBindGroupLayout0(const wgpu::Device& gpuDevice)
+{
+    const wgpu::BindGroupLayoutEntry entries[] = {
+        {
+            .binding = 0,
+            .visibility = wgpu::ShaderStage::Vertex,
+            .buffer = { .type = wgpu::BufferBindingType::ReadOnlyStorage },
+        },
+        {
+            .binding = 1,
+            .visibility = wgpu::ShaderStage::Vertex,
+            .buffer = { .type = wgpu::BufferBindingType::Uniform },
+        },
+    };
+    const wgpu::BindGroupLayoutDescriptor bgLayoutDesc //
+        {
+            .label = "SpriteShaderBindGroup0",
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return gpuDevice.CreateBindGroupLayout(&bgLayoutDesc);
+}
+
+Result<wgpu::BindGroupLayout>
+CreateSpriteShaderBindGroupLayout1(const wgpu::Device& gpuDevice)
+{
+    const wgpu::BindGroupLayoutEntry entries[] = {
+        {
+            .binding = 0,
+            .visibility = wgpu::ShaderStage::Fragment | wgpu::ShaderStage::Vertex,
+            .texture = //
+            {
+                .sampleType = wgpu::TextureSampleType::Float,
+                .viewDimension = wgpu::TextureViewDimension::e2DArray,
+            },
+        },
+        {
+            .binding = 1,
+            .visibility = wgpu::ShaderStage::Fragment,
+            .sampler = { .type = wgpu::SamplerBindingType::Filtering },
+        },
+    };
+    const wgpu::BindGroupLayoutDescriptor bgLayoutDesc //
+        {
+            .label = "SpriteShaderBindGroup1",
+            .entryCount = std::size(entries),
+            .entries = &entries[0],
+        };
+
+    return gpuDevice.CreateBindGroupLayout(&bgLayoutDesc);
+}
+
+Result<wgpu::PipelineLayout>
+CreateSpriteShaderRenderPipelineLayout(const wgpu::Device& gpuDevice)
+{
+    auto bg0LayoutResult = CreateSpriteShaderBindGroupLayout0(gpuDevice);
+    GG_CHECK(bg0LayoutResult, "Failed to create bind group layout 0");
+    auto bg1LayoutResult = CreateSpriteShaderBindGroupLayout1(gpuDevice);
+    GG_CHECK(bg1LayoutResult, "Failed to create bind group layout 1");
+
+    const wgpu::BindGroupLayout bindGroupLayouts[] //
+        {
+            *bg0LayoutResult,
+            *bg1LayoutResult,
+        };
+
+    const wgpu::PipelineLayoutDescriptor desc //
+        {
+            .label = "RenderPipelineLayout",
+            .bindGroupLayoutCount = std::size(bindGroupLayouts),
+            .bindGroupLayouts = &bindGroupLayouts[0],
+        };
+
+    return gpuDevice.CreatePipelineLayout(&desc);
+}
+
 Result<wgpu::RenderPipeline>
 CreateRenderPipeline(const wgpu::Device& gpuDevice,
     wgpu::TextureFormat targetFormat,
@@ -72,6 +156,19 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice,
     const wgpu::PipelineLayout& pipelineLayout,
     const std::span<const wgpu::ConstantEntry> vsConstantEntries)
 {
+    wgpu::FrontFace frontFace = wgpu::FrontFace::CW;
+
+    // Determine if this render pipeline is for the shadow pass
+    // because triangle winding is reversed for the shadow pass.
+    for(const wgpu::ConstantEntry& entry : vsConstantEntries)
+    {
+        if(std::string_view(entry.key) == kPipelineOverrideKey_shadowPass && entry.value != 0)
+        {
+            frontFace = wgpu::FrontFace::CCW;
+            break;
+        }
+    }
+
     static constexpr wgpu::BlendState blendState //
     {
         .color =
@@ -114,6 +211,8 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice,
         {
             .module = shader,
             .entryPoint = fragmentEntry,
+            .constantCount = static_cast<uint32_t>(vsConstantEntries.size()),
+            .constants = vsConstantEntries.data(),
             .targetCount = 1,
             .targets = &colorTargetState,
         };
@@ -135,7 +234,7 @@ CreateRenderPipeline(const wgpu::Device& gpuDevice,
         {
             .topology = wgpu::PrimitiveTopology::TriangleList,
             .stripIndexFormat = wgpu::IndexFormat::Undefined,
-            .frontFace = wgpu::FrontFace::CW,
+            .frontFace = frontFace,
             .cullMode = wgpu::CullMode::Back,
             .unclippedDepth = false,
         },
@@ -408,6 +507,8 @@ Renderer::Render(const Level& level)
 {
     auto cleanup = GG_DEFER
     {
+        m_SpriteStates.clear();
+        m_RectangleStates.clear();
         m_SpriteDrawQueue.clear();
         m_RectangleDrawQueue.clear();
     };
@@ -428,7 +529,10 @@ Renderer::Render(const Level& level)
 
     GG_CHECK(EnsurePipelines(), "Failed to ensure pipeline");
 
+    GG_CHECK(CommitSpriteDrawQueueToGpu(), "Failed to commit sprite draw queue to GPU");
+
     GG_CHECK(RenderCellMap(level.GetCellMap(), renderPass), "Failed to render map");
+    GG_CHECK(RenderShadows(renderPass), "Failed to render shadows");
     GG_CHECK(RenderSprites(renderPass), "Failed to render sprites");
     GG_CHECK(RenderRectangles(renderPass), "Failed to render rectangles");
 
@@ -445,45 +549,12 @@ Renderer::Render(const Level& level)
 // private:
 
 Result<>
-Renderer::RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
-{
-    GG_CHECK(EnsureTileMapShaderBuffers(), "Failed to ensure cell map params buffer");
-    GG_CHECK(EnsureCellMapBindGroups(), "Failed to ensure cell map bind groups");
-
-    m_CellMapParams.proj = GetProjectionMatrix();
-    m_CellMapParams.cellMapCellsPerSide = cellMap.GetCellsPerSide();
-
-    m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
-        0,
-        &m_CellMapParams,
-        sizeof(m_CellMapParams));
-
-    renderPass.SetBindGroup(0, m_MapBindGroup0);
-    renderPass.SetBindGroup(1, cellMap.GetTileSetBindGroup());
-    renderPass.SetPipeline(m_MapPipeline);
-
-    const uint32_t instanceCount = cellMap.GetCellsPerLayer();
-    for(uint32_t layer = 0; layer < cellMap.GetLayerCount(); ++layer)
-    {
-        const uint32_t firstInstance = layer * instanceCount;
-        renderPass.Draw(kVerticesPerQuad, instanceCount, 0, firstInstance);
-    }
-
-    return Result<>::Ok;
-}
-
-Result<>
-Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
+Renderer::CommitSpriteDrawQueueToGpu()
 {
     if(m_SpriteDrawQueue.empty())
     {
         return Result<>::Ok;
     }
-
-    auto cleanup = GG_DEFER
-    {
-        m_SpriteStates.clear();
-    };
 
     if(GetProjectionType() == ProjectionType::Isometric)
     {
@@ -518,6 +589,8 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
             });
     }
 
+    GG_ASSERT(m_SpriteStates.empty());
+
     // Copy sprite data to GPU
     for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
     {
@@ -540,13 +613,79 @@ Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
 
     GG_CHECK(EnsureSpriteStateBuffer(sizeof(GpuSpriteState) * m_SpriteStates.size()),
         "Failed to ensure sprite state buffer");
-    GG_CHECK(EnsureSpriteBindGroups(), "Failed to ensure sprite bind groups");
 
     // Update the sprite state buffer with the current sprite states
     m_WebGpu->GetQueue().WriteBuffer(m_SpriteStateBuffer,
         0,
         m_SpriteStates.data(),
         sizeof(GpuSpriteState) * std::size(m_SpriteStates));
+
+    return Result<>::Ok;
+}
+
+Result<>
+Renderer::RenderCellMap(const CellMap& cellMap, const wgpu::RenderPassEncoder& renderPass)
+{
+    GG_CHECK(EnsureTileMapShaderBuffers(), "Failed to ensure cell map params buffer");
+    GG_CHECK(EnsureCellMapBindGroups(), "Failed to ensure cell map bind groups");
+
+    m_CellMapParams.proj = GetProjectionMatrix();
+    m_CellMapParams.cellMapCellsPerSide = cellMap.GetCellsPerSide();
+
+    m_WebGpu->GetQueue().WriteBuffer(m_CellMapParamsBuffer,
+        0,
+        &m_CellMapParams,
+        sizeof(m_CellMapParams));
+
+    renderPass.SetBindGroup(0, m_MapBindGroup0);
+    renderPass.SetBindGroup(1, cellMap.GetTileSetBindGroup());
+    renderPass.SetPipeline(m_MapPipeline);
+
+    const uint32_t instanceCount = cellMap.GetCellsPerLayer();
+    for(uint32_t layer = 0; layer < cellMap.GetLayerCount(); ++layer)
+    {
+        const uint32_t firstInstance = layer * instanceCount;
+        renderPass.Draw(kVerticesPerQuad, instanceCount, 0, firstInstance);
+    }
+
+    return Result<>::Ok;
+}
+
+Result<>
+Renderer::RenderShadows(const wgpu::RenderPassEncoder& renderPass)
+{
+    if(m_SpriteDrawQueue.empty())
+    {
+        return Result<>::Ok;
+    }
+
+    GG_CHECK(EnsureSpriteBindGroups(), "Failed to ensure sprite bind groups");
+
+    renderPass.SetBindGroup(0, m_SpriteBindGroup0);
+    renderPass.SetPipeline(m_SpriteShadowPipeline);
+
+    uint32_t instanceIndex = 0;
+
+    for(const SpriteDrawRecord& rec : m_SpriteDrawQueue)
+    {
+        const SpriteFrame& spriteFrame = rec.SpriteFrame;
+        renderPass.SetBindGroup(1, spriteFrame.GetTextureBindGroup());
+        renderPass.Draw(kVerticesPerQuad, 1, 0, instanceIndex);
+        ++instanceIndex;
+    }
+
+    return Result<>::Ok;
+}
+
+Result<>
+Renderer::RenderSprites(const wgpu::RenderPassEncoder& renderPass)
+{
+    if(m_SpriteDrawQueue.empty())
+    {
+        return Result<>::Ok;
+    }
+
+    GG_CHECK(EnsureSpriteBindGroups(), "Failed to ensure sprite bind groups");
 
     renderPass.SetBindGroup(0, m_SpriteBindGroup0);
     renderPass.SetPipeline(m_SpritePipeline);
@@ -571,11 +710,6 @@ Renderer::RenderRectangles(const wgpu::RenderPassEncoder& renderPass)
     {
         return Result<>::Ok;
     }
-
-    auto cleanup = GG_DEFER
-    {
-        m_RectangleStates.clear();
-    };
 
     // Copy rectangle data to GPU
     for(const RectangleDrawRecord& rec : m_RectangleDrawQueue)
@@ -639,61 +773,121 @@ Renderer::SetViewport(const wgpu::Texture& renderTarget,
     return Result<>::Ok;
 }
 
+namespace
+{
+enum class ShadowPass : bool
+{
+    Disabled = false,
+    Enabled = true
+};
+
+template<size_t N>
+std::array<wgpu::ConstantEntry, N>
+MakeConstantEntries(const std::pair<const char*, double> (&overrides)[N],
+    const ShadowPass shadowPass)
+{
+    std::array<wgpu::ConstantEntry, N> entries{};
+    for(size_t i = 0; i < N; ++i)
+    {
+        entries[i].key = overrides[i].first;
+        entries[i].value = overrides[i].second;
+    }
+
+    wgpu::ConstantEntry* shadowPassEntry = nullptr;
+
+    for(wgpu::ConstantEntry& entry : entries)
+    {
+        if(std::string_view(entry.key) == kPipelineOverrideKey_shadowPass)
+        {
+            shadowPassEntry = &entry;
+            break;
+        }
+    }
+
+    if(GG_VERIFYB(shadowPassEntry))
+    {
+        shadowPassEntry->value = shadowPass == ShadowPass::Enabled ? 1.0 : 0.0;
+    }
+
+    return entries;
+}
+} // namespace
+
 Result<>
 Renderer::EnsurePipelines()
 {
     const wgpu::TextureFormat targetFormat = m_WebGpu->GetSwapchainTextureViewFormat();
 
-    const wgpu::ConstantEntry vsConstantEntries[] //
+    const std::pair<const char*, double> overrides[] //
         {
-            {
-                .key = "logicalTargetWidth",
-                .value = static_cast<double>(m_Params.LogicalDisplayWidth),
-            },
-            {
-                .key = "logicalTargetHeight",
-                .value = static_cast<double>(m_Params.LogicalDisplayHeight),
-            },
-            {
-                .key = "cellPixelsPerSide",
-                .value = static_cast<double>(m_Params.CellPixelsPerSide),
-            },
-            {
-                .key = "sheetTilesPerSide",
-                .value = static_cast<double>(m_Params.SheetTilesPerSide),
-            },
+            { "logicalTargetWidth", static_cast<double>(m_Params.LogicalDisplayWidth) },
+            { "logicalTargetHeight", static_cast<double>(m_Params.LogicalDisplayHeight) },
+            { "cellPixelsPerSide", static_cast<double>(m_Params.CellPixelsPerSide) },
+            { "sheetTilesPerSide", static_cast<double>(m_Params.SheetTilesPerSide) },
+            { kPipelineOverrideKey_shadowPass, 0 },
         };
+
+    if(!m_SpriteShaderPipelineLayout)
+    {
+        auto spriteShaderLayoutResult =
+            CreateSpriteShaderRenderPipelineLayout(m_WebGpu->GetDevice());
+        GG_CHECK(spriteShaderLayoutResult, "Failed to create sprite shader render pipeline layout");
+        m_SpriteShaderPipelineLayout = std::move(*spriteShaderLayoutResult);
+    }
 
     if(!m_SpritePipeline || m_RenderTargetFormat != targetFormat)
     {
+        auto constantEntries = MakeConstantEntries(overrides, ShadowPass::Disabled);
+
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
             targetFormat,
             kSpriteShaderInfo,
-            nullptr, //*layoutResult,
-            vsConstantEntries);
+            m_SpriteShaderPipelineLayout,
+            constantEntries);
         GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kSpriteShaderInfo.Label);
         m_SpritePipeline = std::move(*pipelineResult);
     }
 
+    if(!m_SpriteShadowPipeline || m_RenderTargetFormat != targetFormat)
+    {
+        auto constantEntries = MakeConstantEntries(overrides, ShadowPass::Enabled);
+
+        auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
+            targetFormat,
+            kSpriteShadowShaderInfo,
+            m_SpriteShaderPipelineLayout,
+            constantEntries);
+        GG_CHECK(pipelineResult,
+            "Failed to create render pipeline: {}",
+            kSpriteShadowShaderInfo.Label);
+        m_SpriteShadowPipeline = std::move(*pipelineResult);
+    }
+
     if(!m_MapPipeline || m_RenderTargetFormat != targetFormat)
     {
+        auto constantEntries = MakeConstantEntries(overrides, ShadowPass::Disabled);
+
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
             targetFormat,
             kTileMapShaderInfo,
             nullptr, //*layoutResult,
-            vsConstantEntries);
+            constantEntries);
         GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kTileMapShaderInfo.Label);
         m_MapPipeline = std::move(*pipelineResult);
     }
 
     if(!m_RectanglePipeline || m_RenderTargetFormat != targetFormat)
     {
+        auto constantEntries = MakeConstantEntries(overrides, ShadowPass::Disabled);
+
         auto pipelineResult = CreateRenderPipeline(m_WebGpu->GetDevice(),
             targetFormat,
             kRectangleShaderInfo,
             nullptr, //*layoutResult,
-            vsConstantEntries);
-        GG_CHECK(pipelineResult, "Failed to create render pipeline: {}", kRectangleShaderInfo.Label);
+            constantEntries);
+        GG_CHECK(pipelineResult,
+            "Failed to create render pipeline: {}",
+            kRectangleShaderInfo.Label);
         m_RectanglePipeline = std::move(*pipelineResult);
     }
 

@@ -19,8 +19,8 @@ constexpr float kAnimPeriod_Idle = 2.0f;
 // Offset to align the sprite with the isometric view.
 const Angle kIsoAngleOffset(0.125f);
 
-constexpr const std::string_view kSpriteName_Idle{ "Warrior_Idle" };
-constexpr const std::string_view kSpriteName_Run{ "Warrior_Run" };
+constexpr const std::string_view kSpriteName_Idle{ "Caretaker_Idle" };
+constexpr const std::string_view kSpriteName_Run{ "Caretaker_Run" };
 
 constexpr const std::string_view kAudioClipName_LostSoulCollect{ "LostSoulCollect" };
 constexpr const std::string_view kAudioClipName_LostSoulDropoff{ "LostSoulDropoff" };
